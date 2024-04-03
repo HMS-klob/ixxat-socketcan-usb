@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: GPL-2.0
-// SPDX-License-Identifier: GPL-2.0
 
 /* CAN driver adapter for IXXAT USB-to-CAN CL2
  *
@@ -253,13 +252,12 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_device *dev)
 		cmd->fdr.ts1 = cpu_to_le16(btd->prop_seg + btd->phase_seg1);
 		cmd->fdr.ts2 = cpu_to_le16(btd->phase_seg2);
 		cmd->fdr.sjw = cpu_to_le16(btd->sjw);
-		cmd->fdr.tdo = cpu_to_le16(btd->brp * (btd->phase_seg1 + 1 +
-						       btd->prop_seg));
+		cmd->fdr.tdo = cpu_to_le16(btd->brp * (btd->phase_seg1 + 1 + btd->prop_seg));
 	}
-	
+
 	err = ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
 				 rcv_size);
-				 
+
 	kfree(cmd);
 	return err;
 }
@@ -310,7 +308,7 @@ const struct ixxat_usb_adapter usb2can_v2 = {
 		IXXAT_USB2CANV2_EP4_OUT,
 		IXXAT_USB2CANV2_EP5_OUT
 	},
-	.ep_offs = 0	,
+	.ep_offs = 0,
 	.init_ctrl = ixxat_usb_init_ctrl
 };
 

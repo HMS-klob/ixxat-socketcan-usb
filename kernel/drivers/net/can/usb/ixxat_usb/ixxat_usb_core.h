@@ -123,10 +123,11 @@
 #define IXXAT_USB_CAN_CMD_STOP 0x327
 #define IXXAT_USB_CAN_CMD_RESET 0x328
 
-#define IXXAT_USB_BRD_CMD_GET_FWINFO  0x400
-#define IXXAT_USB_BRD_CMD_GET_DEVCAPS 0x401
-#define IXXAT_USB_BRD_CMD_GET_DEVINFO 0x402
-#define IXXAT_USB_BRD_CMD_POWER 0x421
+#define IXXAT_USB_BRD_CMD_GET_FWINFO	0x400
+#define IXXAT_USB_BRD_CMD_GET_DEVCAPS	0x401
+#define IXXAT_USB_BRD_CMD_GET_DEVINFO	0x402
+#define IXXAT_USB_BRD_CMD_GET_FWINFO2	0x403
+#define IXXAT_USB_BRD_CMD_POWER		0x421
 
 #define IXXAT_USB_DEFAULT_RESTART_MS 100
 
@@ -237,20 +238,39 @@ struct ixxat_dev_info {
 
 /**
  * struct ixxat_fw_info IXXAT usb firmware information
- * @FirmwareType: type of currently running firmware
- * @MajorVersion: major firmware version number
- * @MinorVersion: minor firmware version number
- * @BuildVersion: build firmware version number
+ * @firmware_type: type of currently running firmware
+ * @major_version: major firmware version number
+ * @minor_version: minor firmware version number
+ * @build_version: build firmware version number
  *
  * Contains device information of IXXAT USB devices
  */
 
 struct ixxat_fw_info {
-	__le32 FirmwareType;
+	__le32 firmware_type;
 	__le16 res;
-	__le16 MajorVersion;
-	__le16 MinorVersion;
-	__le16 BuildVersion;
+	__le16 major_version;
+	__le16 minor_version;
+	__le16 build_version;
+} __packed;
+
+/**
+ * struct ixxat_fw_info2 IXXAT usb firmware information
+ * @firmware_type: type of currently running firmware
+ * @major_version: major firmware version number
+ * @minor_version: minor firmware version number
+ * @build_version: build firmware version number
+ * @revision     : revision number
+ *
+ * Contains device information of IXXAT USB devices
+ */
+struct ixxat_fw_info2 {
+	__le32 firmware_type;
+	__le16 res;
+	__le16 major_version;
+	__le16 minor_version;
+	__le16 build_version;
+	__le16 revision;
 } __packed;
 
 /**
@@ -337,15 +357,16 @@ struct ixxat_usb_device {
 
 	u8 ep_msg_in;
 	u8 ep_msg_out;
-	
+
 	/* This lock prevents a race condition between xmit and receive. */
-	spinlock_t dev_lock;	
+	spinlock_t dev_lock;
 
 	struct ixxat_usb_device *prev_dev;
 	struct ixxat_usb_device *next_dev;
 
 	struct ixxat_time_ref time_ref;
 	struct ixxat_dev_info dev_info;
+	struct ixxat_fw_info2 fw_info;
 
 	struct can_berr_counter bec;
 };
@@ -404,6 +425,7 @@ struct ixxat_usb_caps_cmd {
 	struct ixxat_usb_dal_req req;
 	struct ixxat_usb_dal_res res;
 	struct ixxat_dev_caps caps;
+	__le16 rsvd;
 } __packed;
 
 /**
@@ -506,8 +528,8 @@ struct ixxat_usb_info_cmd {
 	struct ixxat_usb_dal_req req;
 	struct ixxat_usb_dal_res res;
 	struct ixxat_dev_info info;
+	__le16 rsvd;
 } __packed;
-
 
 /**
  * struct ixxat_usb_fwinfo_cmd Firmware information command
@@ -521,6 +543,20 @@ struct ixxat_usb_fwinfo_cmd {
 	struct ixxat_usb_dal_req req;
 	struct ixxat_usb_dal_res res;
 	struct ixxat_fw_info info;
+} __packed;
+
+/**
+ * struct ixxat_usb_fwinfo2_cmd Firmware information command
+ * @req: Request block
+ * @res: Response block
+ * @info: Firmware information
+ *
+ * Can be sent to a device to request its firmware information
+ */
+struct ixxat_usb_fwinfo2_cmd {
+	struct ixxat_usb_dal_req req;
+	struct ixxat_usb_dal_res res;
+	struct ixxat_fw_info2 info;
 } __packed;
 
 /**

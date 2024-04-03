@@ -23,22 +23,22 @@
 
 #include "ixxat_usb_core.h"
 
+#include "ixxat_kernel_adapt.h"
+
 MODULE_AUTHOR("HMS Technology Center Ravensburg Gmbh <socketcan@hms-networks.de>");
 MODULE_DESCRIPTION("SocketCAN driver for HMS Ixxat USB-to-CAN V2, USB-to-CAN-FD family adapters");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("2.0.366-REL");
+MODULE_VERSION("2.0.492-REL");
 
-#define IX_STATISTICS_EXACT 0
+#define IX_STATISTICS_EXACT		0
+
+/* minimum firmware version that supports V2 communication layer */
+#define IX_MIN_MAJORFWVERSION_SUPP_V2	0x01
+#define IX_MIN_MINORFWVERSION_SUPP_V2	0x07
 
 /* Prefix for debug output - makes for easier grepping */
-#define TAG "ix_usb_can: "
+#define IX_DRIVER_TAG "ix_usb_can: "
 
-#if KERNEL_VERSION(5, 10, 17) >= LINUX_VERSION_CODE
-  #define can_fd_dlc2len(dlc) can_dlc2len(get_canfd_dlc(dlc))
-  #define can_fd_len2dlc(dlc) can_len2dlc(dlc)
-
-  #define can_cc_dlc2len(dlc) get_can_dlc(dlc)
-#endif
 
 #if defined(CONFIG_TRACING) && defined(DEBUG)
 	#define ix_trace_printk(...) trace_printk(__VA_ARGS__)
@@ -68,9 +68,9 @@ MODULE_DEVICE_TABLE(usb, ixxat_usb_table);
 
 
 #ifdef DEBUG
-	static void ShowDevCaps (struct ixxat_dev_caps dev_caps) {
+	static void showdevcaps(struct ixxat_dev_caps dev_caps) {
 		int i = 0;
-		
+
 		ix_trace_printk ("CtrlCount = %i \n", dev_caps.bus_ctrl_count);
 
 		for ( i = 0; i < dev_caps.bus_ctrl_count; i++ ) {
@@ -78,7 +78,7 @@ MODULE_DEVICE_TABLE(usb, ixxat_usb_table);
 		}
 	}
 
-	static int Showdump ( u8 * pbdata, u16 length) {
+	static int showdump( u8 * pbdata, u16 length) {
 		char caDump[100] = "Dump: ";
 		char szBuf[10]="";
 		int i =0;
@@ -100,8 +100,8 @@ static struct ixxat_tx_urb_context *ixxat_usb_get_tx_context(struct ixxat_usb_de
 {
 	struct ixxat_tx_urb_context *context = NULL;
 	u32 UrbIdx = 0;
-	unsigned long flags;	
-	
+	unsigned long flags;
+
 	spin_lock_irqsave(&dev->dev_lock, flags);
 
 	// find free URB
@@ -114,36 +114,36 @@ static struct ixxat_tx_urb_context *ixxat_usb_get_tx_context(struct ixxat_usb_de
 				context->urb_index = UrbIdx;
 				break;
 			}
-		} 
+		}
 	}
-	
-	spin_unlock_irqrestore(&dev->dev_lock, flags);		
+
+	spin_unlock_irqrestore(&dev->dev_lock, flags);
 
 	return context;
 }
 
-static void ixxat_usb_rel_tx_context(struct ixxat_usb_device *dev, 
+static void ixxat_usb_rel_tx_context(struct ixxat_usb_device *dev,
 		struct ixxat_tx_urb_context *context)
 {
-	unsigned long flags;	
+	unsigned long flags;
 	spin_lock_irqsave(&dev->dev_lock, flags);
-	
+
 	if (context)
 		context->urb_index = IXXAT_USB_FREE_ENTRY;
-	
-	spin_unlock_irqrestore(&dev->dev_lock, flags);		
+
+	spin_unlock_irqrestore(&dev->dev_lock, flags);
 }
 
 static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_device *dev)
 {
-	u32 ret;	
-	unsigned long flags;			
+	u32 ret;
+	unsigned long flags;
 
 	u32 MsgIdx = 0;
 	u32 LoopCnt = 0;
 	u64 Mask;
-	
-	spin_lock_irqsave(&dev->dev_lock, flags);	
+
+	spin_lock_irqsave(&dev->dev_lock, flags);
 
 	// can.echo_skb_max
 	MsgIdx = (dev->msg_lastindex + 1) % dev->msg_max;
@@ -164,18 +164,18 @@ static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_device *dev)
 		ret = MsgIdx;
 	} else
 		ret = IXXAT_USB_E_FAILED;
-	
-	spin_unlock_irqrestore(&dev->dev_lock, flags);	
+
+	spin_unlock_irqrestore(&dev->dev_lock, flags);
 
 	return ret;
 }
 
 static void ixxat_usb_msg_free_idx(struct ixxat_usb_device *dev, u32 MsgIdx)
 {
-	unsigned long flags;		
+	unsigned long flags;
 	u64 Mask;
-	
-	spin_lock_irqsave(&dev->dev_lock, flags);		
+
+	spin_lock_irqsave(&dev->dev_lock, flags);
 
 	if (MsgIdx == 0xFFFFFFFF) {
 		dev->msgs = 0;
@@ -186,8 +186,8 @@ static void ixxat_usb_msg_free_idx(struct ixxat_usb_device *dev, u32 MsgIdx)
 			dev->msgs &= ~Mask;
 		}
 	}
-	
-	spin_unlock_irqrestore(&dev->dev_lock, flags);		
+
+	spin_unlock_irqrestore(&dev->dev_lock, flags);
 }
 
 void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
@@ -375,7 +375,7 @@ fail:
 }
 
 static int ixxat_usb_get_fw_info(struct usb_device *dev,
-				  struct ixxat_fw_info *dev_info)
+				  struct ixxat_fw_info2 *dev_info)
 {
 	int err;
 	struct ixxat_usb_fwinfo_cmd *cmd;
@@ -398,10 +398,48 @@ static int ixxat_usb_get_fw_info(struct usb_device *dev,
 		goto fail;
 
 	if (dev_info) {
-		dev_info->FirmwareType = cmd->info.FirmwareType;
-		dev_info->MajorVersion = cmd->info.MajorVersion;
-		dev_info->MinorVersion = cmd->info.MinorVersion;
-		dev_info->BuildVersion = cmd->info.BuildVersion;
+		dev_info->firmware_type = cmd->info.firmware_type;
+		dev_info->major_version = cmd->info.major_version;
+		dev_info->minor_version = cmd->info.minor_version;
+		dev_info->build_version = cmd->info.build_version;
+		dev_info->revision = 0;
+	}
+
+fail:
+	kfree(cmd);
+
+	return err;
+}
+
+static int ixxat_usb_get_fw_info2(struct usb_device *dev,
+				  struct ixxat_fw_info2 *dev_info)
+{
+	int err;
+	struct ixxat_usb_fwinfo2_cmd *cmd;
+	const u32 cmd_size = sizeof(*cmd);
+	const u32 req_size = sizeof(cmd->req);
+	const u32 rcv_size = cmd_size - req_size;
+	const u32 snd_size = req_size + sizeof(cmd->res);
+
+	cmd = kmalloc(cmd_size, GFP_KERNEL);
+	if (!cmd)
+		return -ENOMEM;
+
+	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
+	cmd->req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_FWINFO2);
+	cmd->res.res_size = cpu_to_le32(rcv_size);
+
+	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size,
+				 &cmd->res, rcv_size);
+	if (err)
+		goto fail;
+
+	if (dev_info) {
+		dev_info->firmware_type = cmd->info.firmware_type;
+		dev_info->major_version = cmd->info.major_version;
+		dev_info->minor_version = cmd->info.minor_version;
+		dev_info->build_version = cmd->info.build_version;
+		dev_info->revision = cmd->info.revision;
 	}
 
 fail:
@@ -419,7 +457,7 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_device *dev, u32 *time_ref)
 	const u32 req_size = sizeof(cmd->req);
 	const u32 rcv_size = cmd_size - req_size;
 	const u32 snd_size = req_size + sizeof(cmd->res);
-	
+
 	cmd = kmalloc(cmd_size, GFP_KERNEL);
 	if (!cmd)
 		return -ENOMEM;
@@ -440,7 +478,7 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_device *dev, u32 *time_ref)
 
 fail:
 	kfree(cmd);
-	
+
 	return err;
 }
 
@@ -451,7 +489,7 @@ static int ixxat_usb_stop_ctrl(struct ixxat_usb_device *dev)
 	struct ixxat_usb_stop_cmd *cmd;
 	const u32 rcv_size = sizeof(cmd->res);
 	const u32 snd_size = sizeof(*cmd);
-	
+
 	cmd = kmalloc(snd_size, GFP_KERNEL);
 	if (!cmd)
 		return -ENOMEM;
@@ -466,7 +504,7 @@ static int ixxat_usb_stop_ctrl(struct ixxat_usb_device *dev)
 				 rcv_size);
 
 	kfree(cmd);
-	
+
 	return err;
 }
 
@@ -476,7 +514,7 @@ static int ixxat_usb_power_ctrl(struct usb_device *dev, u8 mode)
 	struct ixxat_usb_power_cmd *cmd;
 	const u32 rcv_size = sizeof(cmd->res);
 	const u32 snd_size = sizeof(*cmd);
-	
+
 	cmd = kmalloc(snd_size, GFP_KERNEL);
 	if (!cmd)
 		return -ENOMEM;
@@ -489,7 +527,7 @@ static int ixxat_usb_power_ctrl(struct usb_device *dev, u8 mode)
 	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size,
 				 &cmd->res, rcv_size);
 	kfree(cmd);
-	
+
 	return err;
 }
 
@@ -532,19 +570,19 @@ static void ixxat_usb_free_usb_communication(struct ixxat_usb_device *dev)
 	ixxat_usb_msg_free_idx(dev, 0xFFFFFFFF);
 
 	for (SkbIdx = 0; SkbIdx < dev->can.echo_skb_max; SkbIdx++)
-		can_free_echo_skb(netdev, SkbIdx);
+		can_free_echo_skb(netdev, SkbIdx, NULL);
 
 	for (UrbIdx = 0; UrbIdx < IXXAT_USB_MAX_TX_URBS; UrbIdx++) {
 		if (dev->tx_contexts[UrbIdx].urb_index != IXXAT_USB_FREE_ENTRY)
 			dev->tx_contexts[UrbIdx].urb_index = IXXAT_USB_FREE_ENTRY;
 	}
-	
+
 	ix_trace_printk ("<< ixxat_usb_free_usb_communication\n");
 
 	// Annotation:
 	//   The Urbs are released within the system with (usb_free_urb)
 	//   dependant on the reference count
-	//   With the Urbs the assigned buffers are also deleted. 
+	//   With the Urbs the assigned buffers are also deleted.
 	//   This is caused by urb->transfer_flags |= URB_FREE_BUFFER;
 }
 
@@ -640,6 +678,7 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_device *dev,
 	u8 datalen;
 	u8 min_size;
 	u32 MsgIdx = 0;
+	int len;
 
 	if (ixx_flags & IXXAT_USB_FDMSG_FLAGS_EDL)
 		datalen = can_fd_dlc2len(dlc);
@@ -661,8 +700,6 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_device *dev,
 		if (ixx_flags & IXXAT_USB_MSG_FLAGS_OVR) {
 			netdev->stats.rx_over_errors++;
 			netdev->stats.rx_errors++;
-
-			// todo: cleanup echo_skbs
 			ix_trace_printk("CAN Message overflow\n");
 		}
 
@@ -680,7 +717,7 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_device *dev,
 				if (MsgIdx >= IXXAT_USB_MSG_IDX_OFFSET) {
 						MsgIdx -= IXXAT_USB_MSG_IDX_OFFSET;
 
-						can_get_echo_skb(netdev, MsgIdx);
+						len = can_get_echo_skb(netdev, MsgIdx, NULL);
 						ixxat_usb_msg_free_idx(dev, MsgIdx);
 				}
 			}
@@ -896,10 +933,10 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 	u8 *data = urb->transfer_buffer;
 //  u32 len = le32_to_cpu(urb->actual_length);
 	u32 len = urb->actual_length;
-	
+
 	while (pos < len) {
 		u32 time;
-		u32 type;		
+		u32 type;
 		u32 size;
 
 		can_msg = (struct ixxat_can_msg *)&data[pos];
@@ -907,7 +944,7 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			err = -ENOTSUPP;
 			netdev_err(netdev, "Error %d: USB Unsupported msg\n",
 				   err);
-			ret = -1;				   
+			ret = -1;
 			break;
 		}
 
@@ -930,29 +967,29 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			if (err)
 				goto fail;
 			break;
-			
+
 		case IXXAT_USB_CAN_STATUS:
 			err = ixxat_usb_handle_status(dev, can_msg);
 			if (err)
 				goto fail;
 			break;
-			
+
 		case IXXAT_USB_CAN_ERROR:
 			err = ixxat_usb_handle_error(dev, can_msg);
 			if (err)
 				goto fail;
 			break;
-			
+
 		case IXXAT_USB_CAN_TIMEOVR:
 			time = le32_to_cpu(can_msg->base.time);
 			ixxat_usb_get_ts_tv(dev, time, NULL);
 			break;
-			
+
 		case IXXAT_USB_CAN_INFO:
 		case IXXAT_USB_CAN_WAKEUP:
 		case IXXAT_USB_CAN_TIMERST:
 			break;
-			
+
 		default:
 			netdev_err(netdev,
 				   "CAN Unhandled rec type 0x%02x (%d): ignored\n",
@@ -970,10 +1007,10 @@ fail:
 		netdev_err(netdev, "Error %d: Buffer decoding failed\n", err);
 		ret = -1;
 	}
-		
 
-  return ret;		
-	
+
+  return ret;
+
 }
 
 static int ixxat_usb_encode_msg(struct ixxat_usb_device *dev,
@@ -1012,15 +1049,15 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_device *dev,
 		msg_base->size += sizeof(can_msg.cl1);
 		msg_base->size -= sizeof(can_msg.cl1.data);
 		memcpy(can_msg.cl1.data, cf->data, cf->len);
-		
-		if (selfReception) 
+
+		if (selfReception)
 			flags |= IXXAT_USB_MSG_FLAGS_SRR;
-		
+
 	} else {
 		msg_base->size += sizeof(can_msg.cl2);
 		msg_base->size -= sizeof(can_msg.cl2.data);
 		memcpy(can_msg.cl2.data, cf->data, cf->len);
-		
+
 		if (selfReception) {
 			flags |= IXXAT_USB_MSG_FLAGS_SRR;
 			can_msg.cl2.client_id = cpu_to_le32(uMsgIdx);
@@ -1037,13 +1074,13 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_device *dev,
 	return size;
 }
 
-static int ixxat_evaluate_usb_status (struct net_device *netdev, 
+static int ixxat_evaluate_usb_status (struct net_device *netdev,
 		struct urb *urb,
 		u8 ep_msg)
 {
 	// 0: success, -1: error -> return, -2: error -> retry
 	int err = 0;
-	
+
 	if (!netif_device_present(netdev))
 		err = -1;
 	else
@@ -1060,11 +1097,11 @@ static int ixxat_evaluate_usb_status (struct net_device *netdev,
 			break;
 		default:
 			err = -2;
-			break;		
+			break;
 		}
 
 #ifdef DEBUG
-		if ( urb->status != 0) 
+		if ( urb->status != 0)
 			switch (urb->status) {
 			case 0: /* success */
 				err = 0;
@@ -1086,9 +1123,9 @@ static int ixxat_evaluate_usb_status (struct net_device *netdev,
 				break;
 			default:
 				netdev_err(netdev, "EP: %x, Urb Status /(%d)\n", ep_msg, urb->status);
-				break;		
+				break;
 			}
-#endif			
+#endif
 
 	return err;
 }
@@ -1102,12 +1139,12 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 	struct net_device *netdev = dev->netdev;
 	struct usb_device *udev = dev->udev;
 	int err;
-	
+
 	err = ixxat_evaluate_usb_status(netdev, urb, dev->ep_msg_in);
 
 	if ( 0 == err )	{
 		ret = 0;
-	
+
 		if (urb->actual_length > 0) {
 			if (dev->state & IXXAT_USB_STATE_STARTED)
 				ret = ixxat_usb_decode_buf(urb);
@@ -1116,7 +1153,7 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 		//resubmit_urb:
 		if ( 0 == ret ) {
 		//	ix_trace_printk ("callback: fill_bulk_urb %x \n", dev->ep_msg_in);
-			usb_fill_bulk_urb(urb, udev, 
+			usb_fill_bulk_urb(urb, udev,
 				usb_rcvbulkpipe(udev, dev->ep_msg_in),
 				urb->transfer_buffer, adapter->buffer_size_rx,
 				ixxat_usb_read_bulk_callback, dev);
@@ -1146,19 +1183,19 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 	struct net_device *netdev;
 	u32 MsgIdx;
 	int iSkbRet;
-	int	err;	
-	
+	int	err;
+
 	if (!context)
-		return;	
-	
+		return;
+
 	dev = context->dev;
-	netdev = dev->netdev;	
-	
+	netdev = dev->netdev;
+
 	err = ixxat_evaluate_usb_status(netdev, urb, dev->ep_msg_out);
 	switch (err) {
 	default:
 	case 0:
-		break;	
+		break;
 	case -1:
 		return;
 	case -2:
@@ -1170,24 +1207,24 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 	MsgIdx = context->msg_index;
 
 	if (MsgIdx < IXXAT_USB_MAX_MSGS) {
-		iSkbRet = can_get_echo_skb(netdev, MsgIdx);
+		iSkbRet = can_get_echo_skb(netdev, MsgIdx, NULL);
 
 		if (iSkbRet) {
 			netdev->stats.tx_bytes += iSkbRet;
 			netdev->stats.tx_packets += 1;
-		} else { 
+		} else {
 			// if no loopback is active
 			netdev->stats.tx_bytes += context->msg_packet_len;
 			netdev->stats.tx_packets += context->msg_packet_no;
 		}
-		
+
 		ixxat_usb_msg_free_idx(dev, MsgIdx);
 	}
-	
-prepare_urb:	
+
+prepare_urb:
 
 	context->msg_index = IXXAT_USB_MAX_MSGS;
-	
+
 	ixxat_usb_rel_tx_context(dev, context);
 	atomic_dec(&dev->active_tx_urbs);
 	netif_wake_queue(netdev);
@@ -1213,9 +1250,9 @@ static u8 determineLoopMode(bool loopback, bool global_loopback, bool oldDev)
 		// is loopback set with setsockopt
 		// can be changed between message transmission
 
-		if (loopback) 
+		if (loopback)
 			loopMode = (IX_LOOP_SELF_RX | IX_LOOPBACK);
-	} 
+	}
 
 	if ((loopMode & IX_LOOP_SELF_RX) != IX_LOOP_SELF_RX) {
 		if (statistics_exact)
@@ -1269,13 +1306,13 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 
 		if (err == NETDEV_TX_OK) {
 			// reset to be sure that no old value is stored !
-			context->msg_index = IXXAT_USB_MAX_MSGS; 
+			context->msg_index = IXXAT_USB_MAX_MSGS;
 
 			// prepare the Urb
 			urb  = context->urb;
 			obuf = urb->transfer_buffer;
 
-			// check loopback 
+			// check loopback
 			loopMode = determineLoopMode((skb->pkt_type == PACKET_LOOPBACK),
 											dev->loopback,
 											dev->adapter == &usb2can_cl1);
@@ -1285,13 +1322,13 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 				selfReception = true; // set self reception
 
 				if ((loopMode & IX_LOOPBACK) == IX_LOOPBACK) {
-					can_put_echo_skb(skb, netdev, MsgIdx);
+					can_put_echo_skb(skb, netdev, MsgIdx, 0);
 					echoSkb = true;
 				}
 			} else {
 				// handle the reception in the USB callback
 				if ((loopMode & IX_LOOPBACK) == IX_LOOPBACK) {
-					can_put_echo_skb(skb, netdev, MsgIdx);
+					can_put_echo_skb(skb, netdev, MsgIdx, 0);
 					echoSkb = true;
 				}
 				else {
@@ -1305,15 +1342,16 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 				context->msg_index = MsgIdx;
 			}
 
+			size = ixxat_usb_encode_msg(dev, skb, obuf, selfReception, MsgIdx + IXXAT_USB_MSG_IDX_OFFSET);
+
 			if ( echoSkb == false)
 			{
 				kfree_skb(skb);
 			}
-			
-			size = ixxat_usb_encode_msg(dev, skb, obuf, selfReception, MsgIdx + IXXAT_USB_MSG_IDX_OFFSET);
-#ifdef DEBUG			
-			showdump (obuf, size);
-#endif			
+
+#ifdef DEBUG
+			showdump(obuf, size);
+#endif
 			urb->transfer_buffer_length = size;
 			usb_anchor_urb(urb, &dev->tx_anchor);
 
@@ -1323,7 +1361,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 			if (err) { // submit failed
 
 				// should only free if it's exist
-				can_free_echo_skb(netdev, MsgIdx);
+				can_free_echo_skb(netdev, MsgIdx, NULL);
 				ixxat_usb_msg_free_idx(dev, MsgIdx);
 				ixxat_usb_rel_tx_context(dev, context);
 
@@ -1337,7 +1375,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 					netdev_err(netdev,
 						"Error %d: Submitting tx-urb failed\n", err);
 				}
-			} 
+			}
 		}
 	} // can dropped
 
@@ -1351,7 +1389,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_device *dev)
 	const struct ixxat_usb_adapter *adapter = dev->adapter;
 	struct net_device *netdev = dev->netdev;
 	struct usb_device *udev = dev->udev;
-	
+
 	for (i = 0; i < IXXAT_USB_MAX_RX_URBS; i++) {
 		struct urb *urb;
 		u8 *buf;
@@ -1364,7 +1402,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_device *dev)
 			break;
 		}
 
-     	ix_trace_printk ("setup: kmalloc %x \n", adapter->buffer_size_rx);
+		ix_trace_printk ("setup: kmalloc %x \n", adapter->buffer_size_rx);
 		buf = kmalloc(adapter->buffer_size_rx, GFP_KERNEL);
 
 		if (buf) {
@@ -1406,7 +1444,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_device *dev)
 
 	if (i == 0)
 		netdev_err(netdev, "Error: Couldn't setup any rx-URBs\n");
-	
+
 	return err;
 }
 
@@ -1417,7 +1455,7 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_device *dev)
 	const struct ixxat_usb_adapter *adapter = dev->adapter;
 	struct net_device *netdev = dev->netdev;
 	struct usb_device *udev = dev->udev;
-	
+
 	for (UrbIdx = 0; UrbIdx < IXXAT_USB_MAX_TX_URBS; UrbIdx++) {
 		struct ixxat_tx_urb_context *context;
 		struct urb *urb;
@@ -1465,6 +1503,69 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_device *dev)
 	return ret;
 }
 
+/*
+ * sysfs attributes
+ */
+static ssize_t show_serial(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	struct net_device *netdev = to_net_dev(pdev);
+	struct ixxat_usb_device *dev = netdev_priv(netdev);
+	return sprintf(buf, "%.*s\n", (int)(sizeof(dev->dev_info.device_id)), dev->dev_info.device_id);
+}
+static DEVICE_ATTR(serial, S_IRUGO, show_serial, NULL);
+
+static ssize_t show_firmware_version(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	struct net_device *netdev = to_net_dev(pdev);
+	struct ixxat_usb_device *dev = netdev_priv(netdev);
+	return sprintf(buf, "%d.%d.%d.%d\n", dev->fw_info.major_version, dev->fw_info.minor_version, dev->fw_info.build_version, dev->fw_info.revision);
+}
+static DEVICE_ATTR(firmware_version, S_IRUGO, show_firmware_version, NULL);
+
+static ssize_t show_hardware(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	struct net_device *netdev = to_net_dev(pdev);
+	struct ixxat_usb_device *dev = netdev_priv(netdev);
+	return sprintf(buf, "%.*s\n", (int)(sizeof(dev->dev_info.device_name)), dev->dev_info.device_name);
+}
+static DEVICE_ATTR(hardware, S_IRUGO, show_hardware, NULL);
+
+static ssize_t show_hardware_version(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	struct net_device *netdev = to_net_dev(pdev);
+	struct ixxat_usb_device *dev = netdev_priv(netdev);
+	return sprintf(buf, "0x%04X\n", dev->dev_info.device_version);
+}
+static DEVICE_ATTR(hardware_version, S_IRUGO, show_hardware_version, NULL);
+
+static ssize_t show_fpga_version(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	struct net_device *netdev = to_net_dev(pdev);
+	struct ixxat_usb_device *dev = netdev_priv(netdev);
+	return sprintf(buf, "0x%08X\n", dev->dev_info.device_fpga_version);
+}
+static DEVICE_ATTR(fpga_version, S_IRUGO, show_fpga_version, NULL);
+
+static struct attribute *ixxat_pdev_attrs[] = {
+	&dev_attr_serial.attr,
+	&dev_attr_firmware_version.attr,
+	&dev_attr_hardware.attr,
+	&dev_attr_hardware_version.attr,
+	&dev_attr_fpga_version.attr,
+	NULL,
+};
+
+static const struct attribute_group ixxat_pdev_group = {
+	.name = NULL,
+	.attrs = ixxat_pdev_attrs,
+};
+
+
 static void ixxat_usb_disconnect(struct usb_interface *intf)
 {
 	struct ixxat_usb_device *dev;
@@ -1475,13 +1576,14 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 	/* unregister the given device and all previous devices */
 	for (dev = usb_get_intfdata(intf); dev; dev = prev_dev) {
 		prev_dev = dev->prev_dev;
-		unregister_netdev(dev->netdev);
+		sysfs_remove_group(&dev->netdev->dev.kobj, &ixxat_pdev_group);
+		unregister_candev(dev->netdev);
 		free_candev(dev->netdev);
 	}
 
 	usb_set_intfdata(intf, NULL);
 
-	ix_trace_printk ("<< ixxat_usb_disconnect\n");	
+	ix_trace_printk ("<< ixxat_usb_disconnect\n");
 }
 
 static int ixxat_usb_start(struct ixxat_usb_device *dev)
@@ -1569,7 +1671,7 @@ static int ixxat_usb_stop(struct net_device *netdev)
 	int err = 0;
 	struct ixxat_usb_device *dev = netdev_priv(netdev);
 
-	ix_trace_printk (">> ixxat_usb_stop\n");	
+	ix_trace_printk (">> ixxat_usb_stop\n");
 
 	ixxat_usb_free_usb_communication(dev);
 
@@ -1627,7 +1729,7 @@ static const char *ixxat_usb_dev_name(u16 id)
 	}
 }
 
-static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const u16 id, struct ixxat_fw_info *dev_fwinfo)
+static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const u16 id, struct ixxat_fw_info2 *dev_fwinfo)
 {
 	const struct ixxat_usb_adapter *pAdapter = NULL;
 
@@ -1638,10 +1740,12 @@ static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const u16 id, struc
 	case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
 	case USB2CAN_PLUGIN_PRODUCT_ID:
 		pAdapter = &usb2can_cl1;
-		
+
 		if (dev_fwinfo) {
-			if ((dev_fwinfo->MajorVersion >= 0x01) && (dev_fwinfo->MinorVersion >= 0x06))
+			if ((dev_fwinfo->major_version >= IX_MIN_MAJORFWVERSION_SUPP_V2) && 
+			    (dev_fwinfo->minor_version >= IX_MIN_MINORFWVERSION_SUPP_V2)) {
 				pAdapter = &usb2can_v2;
+			}
 		}
 		break;
 
@@ -1661,13 +1765,15 @@ static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const u16 id, struc
 	default:
 		pAdapter = NULL;
 	}
-	
+
 	return pAdapter;
 }
 
 static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 				const struct ixxat_usb_adapter *adapter,
-				u16 ctrl_index)
+				u16 ctrl_index,
+				struct ixxat_dev_info *dev_devinfo,
+				struct ixxat_fw_info2 *dev_fwinfo)
 {
 	struct usb_device *udev = interface_to_usbdev(intf);
 	struct ixxat_usb_device *dev;
@@ -1689,7 +1795,7 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 		dev->adapter = adapter;
 		dev->ctrl_index = ctrl_index;
 		dev->state = IXXAT_USB_STATE_CONNECTED;
-		
+
 		spin_lock_init(&dev->dev_lock);
 
 		i = ctrl_index + adapter->ep_offs;
@@ -1742,16 +1848,38 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 		if (dev->prev_dev)
 			(dev->prev_dev)->next_dev = dev;
 
-		err = ixxat_usb_get_dev_info(udev, &dev->dev_info);
-		if (err) {
-			dev_err(&intf->dev,
-				"Error %d: Failed to get device information\n", err);
-			goto unreg_candev;
+		if (dev_devinfo) {
+			memcpy(&dev->dev_info, dev_devinfo, sizeof(dev->dev_info));
+		} else {
+			memset(&dev->dev_info, 0, sizeof(dev->dev_info));
 		}
 
-		netdev_info(netdev, "%s: Connected Channel %u (device %s)\n",
-				dev->dev_info.device_name, ctrl_index,
-				dev->dev_info.device_id);
+		if (dev_fwinfo) {
+			memcpy(&dev->fw_info, dev_fwinfo, sizeof(dev->fw_info));
+		} else {
+			memset(&dev->fw_info, 0, sizeof(dev->fw_info));
+		}
+
+		netdev->addr_len = sizeof(dev->dev_info.device_id);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0)
+		netdev->dev_addr = dev->dev_info.device_id;
+#else
+		dev_addr_mod(netdev, 0, dev->dev_info.device_id, sizeof(dev->dev_info.device_id));
+#endif
+
+		netdev->dev_id = ctrl_index;
+		netdev->dev_port = ctrl_index;
+
+		err = sysfs_create_group(&netdev->dev.kobj, &ixxat_pdev_group);
+		if (err < 0) {
+			netdev_err(netdev, "Error: %d: create sysfs failed\n", err);
+			goto free_candev;
+		}
+
+		netdev_info(netdev, "%.*s: Connected channel %u (device %.*s)\n",
+				(int)sizeof(dev->dev_info.device_name), dev->dev_info.device_name, ctrl_index,
+				(int)sizeof(dev->dev_info.device_id), dev->dev_info.device_id);
+
 
 		err = 0;
 	} else {
@@ -1761,10 +1889,8 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 
 	return err;
 
-
-unreg_candev:
-	unregister_candev(netdev);
 free_candev:
+	sysfs_remove_group(&netdev->dev.kobj, &ixxat_pdev_group);
 	usb_set_intfdata(intf, dev->prev_dev);
 	free_candev(netdev);
 	return err;
@@ -1780,7 +1906,7 @@ static int ixxat_usb_check_channel(const struct ixxat_usb_adapter *adapter,
 		const u8 epaddr = host_intf->endpoint[i].desc.bEndpointAddress;
 		int match = 0;
 		u8 j;
-		
+
 		/* Check if usb-endpoint address matches known usb-endpoints */
 		for (j = 0; j < IXXAT_USB_MAX_CHANNEL; j++) {
 			u8 ep_msg_in = adapter->ep_msg_in[j];
@@ -1807,20 +1933,26 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 {
 	struct usb_device *udev = interface_to_usbdev(intf);
 	const struct ixxat_usb_adapter *adapter;
-	struct ixxat_dev_caps dev_caps   = {0};
-	struct ixxat_fw_info  dev_fwinfo = {0};
+	struct ixxat_dev_caps dev_caps    = {0};
+	struct ixxat_fw_info2 dev_fwinfo  = {0};
+	struct ixxat_dev_info dev_devinfo = {0};
+
 	u16 i;
 	int err;
 
 	usb_reset_configuration(udev);
 
-	printk(KERN_INFO "ix_usb_can: KERNELVERSION: 0x%x (%i)", LINUX_VERSION_CODE, LINUX_VERSION_CODE);
+	printk(IX_DRIVER_TAG "KERNELVERSION: 0x%x (%i)", LINUX_VERSION_CODE, LINUX_VERSION_CODE);
 
-	if (ixxat_usb_get_fw_info(udev, &dev_fwinfo) == 0) {
-		adapter = ixxat_usb_get_adapter(id->idProduct, &dev_fwinfo);
-		printk(KERN_INFO "ix_usb_can: FwInfo %i.%i", dev_fwinfo.MajorVersion, dev_fwinfo.MinorVersion);
-	} else {
+	err = ixxat_usb_get_fw_info2(udev, &dev_fwinfo);
+	if (err) {
+		err = ixxat_usb_get_fw_info(udev, &dev_fwinfo);
+	}
+
+	if (err) {
 		adapter = ixxat_usb_get_adapter(id->idProduct, NULL);
+	} else {
+		adapter = ixxat_usb_get_adapter(id->idProduct, &dev_fwinfo);
 	}
 
 	if (adapter) {
@@ -1830,6 +1962,23 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 		if (err == NETDEV_TX_OK)
 			err = ixxat_usb_power_ctrl(udev, IXXAT_USB_POWER_WAKEUP);
+
+		if (err == NETDEV_TX_OK) {
+			err = ixxat_usb_get_dev_info(udev, &dev_devinfo);
+			if (err) {
+				dev_err(&udev->dev,
+					"Error %d: Failed to get device information\n", err);
+			}
+		}
+
+		if (err == NETDEV_TX_OK) {
+			printk(IX_DRIVER_TAG "Device type     : %.*s\n", (int)(sizeof(dev_devinfo.device_name)), dev_devinfo.device_name);
+			printk(IX_DRIVER_TAG "Device id       : %.*s\n", (int)(sizeof(dev_devinfo.device_id)), dev_devinfo.device_id);
+			printk(IX_DRIVER_TAG "Device version  : 0x%08X\n", dev_devinfo.device_version);
+			printk(IX_DRIVER_TAG "FPGA version    : 0x%08X\n", dev_devinfo.device_fpga_version);
+			printk(IX_DRIVER_TAG "Firmware version: %d.%d.%d.%d (type: %d)", 
+				dev_fwinfo.major_version, dev_fwinfo.minor_version, dev_fwinfo.build_version, dev_fwinfo.revision, dev_fwinfo.firmware_type);
+		}
 
 		if (err == NETDEV_TX_OK) {
 			msleep(IXXAT_USB_POWER_WAKEUP_TIME);
@@ -1845,15 +1994,15 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		if (err == NETDEV_TX_OK) {
 			err = -ENODEV;
 #ifdef DEBUG
-			ShowDevCaps (dev_caps);
-#endif			
+			showdevcaps(dev_caps);
+#endif
 
 			for (i = 0; i < le16_to_cpu(dev_caps.bus_ctrl_count); i++) {
 				u16 dev_bustype = le16_to_cpu(dev_caps.bus_ctrl_types[i]);
 				u8 bustype = IXXAT_USB_BUS_TYPE(dev_bustype);
 
 				if (bustype == IXXAT_USB_BUS_CAN)
-					err = ixxat_usb_create_ctrl(intf, adapter, i);
+					err = ixxat_usb_create_ctrl(intf, adapter, i, &dev_devinfo, &dev_fwinfo);
 
 				if (err) {
 					/* deregister already created devices */
