@@ -2,6 +2,12 @@
 
 ## History
 
+### 2.0.504	(2024-04-15)
+
+- accept command responses with less than the requested size (e.g. USB2CAN V2 FW versions < 1.6.3.0 do not send reserved parts of some response packets)
+  but check firmware responses to have at least response header size (12 bytes)
+- fix driver access to USB2CAN (fd) devices with firmware 1.0.1 (avoid exec unknown IXXAT_USB_BRD_CMD_GET_FWINFO2 command on CL1 firmware)
+
 ### 2.0.492	(2024-04-02)
 
 - cleanup error messages
@@ -30,6 +36,13 @@
 - initial version
 
 ## Known issues:
+
+### Incompatibility with older firmware versions
+
+Version 2.0.492 introduced more restrictive checking of firmware response packages which caused the driver to not work with
+older firmware versions.
+
+Updating the driver to 2.0.504 or higher or updating the firmware to at least 1.6.3.x (USB-to-CAN V2) or 1.7.0.x (USB-to-CAN fd)  resolves this.
 
 ### Dropped messages on kernel 4.15 to 4.17 (resolved in kernel 5.4.0)
 

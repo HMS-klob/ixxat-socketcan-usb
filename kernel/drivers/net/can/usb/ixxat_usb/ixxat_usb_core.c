@@ -28,13 +28,18 @@
 MODULE_AUTHOR("HMS Technology Center Ravensburg Gmbh <socketcan@hms-networks.de>");
 MODULE_DESCRIPTION("SocketCAN driver for HMS Ixxat USB-to-CAN V2, USB-to-CAN-FD family adapters");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("2.0.492-REL");
+MODULE_VERSION("2.0.504-REL");
 
 #define IX_STATISTICS_EXACT		0
 
 /* minimum firmware version that supports V2 communication layer */
 #define IX_MIN_MAJORFWVERSION_SUPP_V2	0x01
 #define IX_MIN_MINORFWVERSION_SUPP_V2	0x07
+#define IX_MIN_BUILDFWVERSION_SUPP_V2	0x00
+
+#define IX_MINIMUM_CL2_FWVERSION(fwinfo) ( (le16_to_cpu((fwinfo).major_version) >= IX_MIN_MAJORFWVERSION_SUPP_V2) && \
+				 (le16_to_cpu((fwinfo).minor_version) >= IX_MIN_MINORFWVERSION_SUPP_V2) && \
+				 (le16_to_cpu((fwinfo).build_version) >= IX_MIN_BUILDFWVERSION_SUPP_V2))
 
 /* Prefix for debug output - makes for easier grepping */
 #define IX_DRIVER_TAG "ix_usb_can: "
@@ -218,8 +223,7 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 	struct ixxat_usb_dal_res *dal_res = res;
 
 	for (i = 0; i < IXXAT_USB_MAX_COM_REQ; ++i) {
-		ret = usb_control_msg(dev, scp, rq, rto, port, 0, req, req_size,
-				      to);
+		ret = usb_control_msg(dev, scp, rq, rto, port, 0, req, req_size, to);
 		if (ret < 0)
 			msleep(IXXAT_USB_MSG_CYCLE);
 		else
@@ -227,8 +231,7 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 	}
 
 	if (ret < 0) {
-//		dev_err(&dev->dev, "Error %d: TX command failure\n", ret);
-		ix_trace_printk ("Error %d: TX command failure\n", ret);
+		dev_err(&dev->dev, "Error %d: TX command failure\n", ret);
 		goto fail;
 	}
 
@@ -249,12 +252,16 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 			break;
 	}
 
-	if (pos != res_size)
+	// firmware responses may be smaller then requested response size
+	// but should be not smaller than the response header size
+	if (pos < sizeof(struct ixxat_usb_dal_res))
+	{
+		dev_err(&dev->dev, "Command answer size failure: got %u expected %u\n", pos, res_size);
 		ret = -EBADMSG;
+	}
 
 	if (ret < 0) {
-//		dev_err(&dev->dev, "Error %d: RX command failure\n", ret);
-		ix_trace_printk ("Error %d: TX command failure\n", ret);
+		dev_err(&dev->dev, "Error %d: RX command failure\n", ret);
 		goto fail;
 	}
 
@@ -354,8 +361,7 @@ static int ixxat_usb_get_dev_info(struct usb_device *dev,
 	cmd->req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_DEVINFO);
 	cmd->res.res_size = cpu_to_le32(rcv_size);
 
-	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size,
-				 &cmd->res, rcv_size);
+	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size, &cmd->res, rcv_size);
 	if (err)
 		goto fail;
 
@@ -1520,7 +1526,11 @@ static ssize_t show_firmware_version(struct device *pdev,
 {
 	struct net_device *netdev = to_net_dev(pdev);
 	struct ixxat_usb_device *dev = netdev_priv(netdev);
-	return sprintf(buf, "%d.%d.%d.%d\n", dev->fw_info.major_version, dev->fw_info.minor_version, dev->fw_info.build_version, dev->fw_info.revision);
+	return sprintf(buf, "%d.%d.%d.%d\n"
+		, le16_to_cpu(dev->fw_info.major_version)
+		, le16_to_cpu(dev->fw_info.minor_version)
+		, le16_to_cpu(dev->fw_info.build_version)
+		, le16_to_cpu(dev->fw_info.revision));
 }
 static DEVICE_ATTR(firmware_version, S_IRUGO, show_firmware_version, NULL);
 
@@ -1742,8 +1752,7 @@ static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const u16 id, struc
 		pAdapter = &usb2can_cl1;
 
 		if (dev_fwinfo) {
-			if ((dev_fwinfo->major_version >= IX_MIN_MAJORFWVERSION_SUPP_V2) && 
-			    (dev_fwinfo->minor_version >= IX_MIN_MINORFWVERSION_SUPP_V2)) {
+			if ( IX_MINIMUM_CL2_FWVERSION(*dev_fwinfo) ) {
 				pAdapter = &usb2can_v2;
 			}
 		}
@@ -1944,9 +1953,29 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 	printk(IX_DRIVER_TAG "KERNELVERSION: 0x%x (%i)", LINUX_VERSION_CODE, LINUX_VERSION_CODE);
 
-	err = ixxat_usb_get_fw_info2(udev, &dev_fwinfo);
+	err = ixxat_usb_get_fw_info(udev, &dev_fwinfo);
 	if (err) {
-		err = ixxat_usb_get_fw_info(udev, &dev_fwinfo);
+		dev_err(&udev->dev, "Error %d: Failed to get firmware information. Maybe firmware update needed.\n", err);
+	}
+	else
+	{
+		if (IXXAT_USB_DEV_FWTYPE_BAL != le32_to_cpu(dev_fwinfo.firmware_type))
+		{
+			dev_err(&udev->dev, "Error %d: Unknown firmware type. Expected %u, got %u. Maybe firmware or driver update needed.\n", err, IXXAT_USB_DEV_FWTYPE_BAL, le32_to_cpu(dev_fwinfo.firmware_type));
+			err = -EFAULT;
+		}
+
+		if (!err)
+		{
+			// check if FW supports get_fw_info2 command
+			if ( IX_MINIMUM_CL2_FWVERSION(dev_fwinfo) )
+			{
+				err = ixxat_usb_get_fw_info2(udev, &dev_fwinfo);
+				if (err) {
+					dev_err(&udev->dev, "Error %d: Failed to get firmware info2. Maybe firmare update needed.\n", err);
+				}
+			}
+		}
 	}
 
 	if (err) {
@@ -1960,8 +1989,13 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 		err = ixxat_usb_check_channel(adapter, intf->altsetting);
 
-		if (err == NETDEV_TX_OK)
+		if (err == NETDEV_TX_OK) {
 			err = ixxat_usb_power_ctrl(udev, IXXAT_USB_POWER_WAKEUP);
+			if (err != NETDEV_TX_OK) {
+				dev_err(&udev->dev, "Error %d: Failed to exec IXXAT_USB_BRD_CMD_POWER command.\n", err);
+			}
+			msleep(IXXAT_USB_POWER_WAKEUP_TIME);
+		}
 
 		if (err == NETDEV_TX_OK) {
 			err = ixxat_usb_get_dev_info(udev, &dev_devinfo);
@@ -1976,13 +2010,20 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 			printk(IX_DRIVER_TAG "Device id       : %.*s\n", (int)(sizeof(dev_devinfo.device_id)), dev_devinfo.device_id);
 			printk(IX_DRIVER_TAG "Device version  : 0x%08X\n", dev_devinfo.device_version);
 			printk(IX_DRIVER_TAG "FPGA version    : 0x%08X\n", dev_devinfo.device_fpga_version);
-			printk(IX_DRIVER_TAG "Firmware version: %d.%d.%d.%d (type: %d)", 
-				dev_fwinfo.major_version, dev_fwinfo.minor_version, dev_fwinfo.build_version, dev_fwinfo.revision, dev_fwinfo.firmware_type);
+			printk(IX_DRIVER_TAG "Firmware version: %d.%d.%d.%d (type: %d)"
+				, le16_to_cpu(dev_fwinfo.major_version)
+				, le16_to_cpu(dev_fwinfo.minor_version)
+				, le16_to_cpu(dev_fwinfo.build_version)
+				, le16_to_cpu(dev_fwinfo.revision)
+				, le32_to_cpu(dev_fwinfo.firmware_type));
+
+			if (! IX_MINIMUM_CL2_FWVERSION(dev_fwinfo) )
+			{
+				printk(IX_DRIVER_TAG "                  Firmware update recommended.\n");
+			}
 		}
 
 		if (err == NETDEV_TX_OK) {
-			msleep(IXXAT_USB_POWER_WAKEUP_TIME);
-
 			err = ixxat_usb_get_dev_caps(udev, &dev_caps);
 
 			if (err) {
