@@ -28,7 +28,7 @@
 MODULE_AUTHOR("HMS Technology Center Ravensburg Gmbh <socketcan@hms-networks.de>");
 MODULE_DESCRIPTION("SocketCAN driver for HMS Ixxat USB-to-CAN V2, USB-to-CAN-FD family adapters");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("2.0.504-REL");
+MODULE_VERSION("2.0.520-REL");
 
 #define IX_STATISTICS_EXACT		0
 
@@ -1276,7 +1276,7 @@ static u8 determineLoopMode(bool loopback, bool global_loopback, bool oldDev)
 static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 					struct net_device *netdev)
 {
-	int err = 0;
+	int err = NETDEV_TX_OK;
 	int size;
 	struct ixxat_usb_device *dev = netdev_priv(netdev);
 	struct ixxat_tx_urb_context *context = NULL;
@@ -1285,105 +1285,101 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	u8 *obuf;
 	u32 MsgIdx;
 	u8	loopMode;
+	bool isloopback    = false;
 	bool selfReception = false;
-	bool echoSkb       = false;
 
-	if (can_dropped_invalid_skb(netdev, skb)) {
-		err = NETDEV_TX_OK;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0)
+	if (can_dropped_invalid_skb(netdev, skb))
+		return NETDEV_TX_OK;
+#else
+	if (can_dev_dropped_skb(netdev, skb))
+		return NETDEV_TX_OK;
+#endif 
+
+	// find free URB
+	context = ixxat_usb_get_tx_context(dev);
+
+	if (!context) { // !context
+		//if (WARN_ON_ONCE(!context)) {
+		netif_stop_queue(netdev);
+		err = NETDEV_TX_BUSY;
 	} else {
+		// get free msg number ( Client Id )
+		MsgIdx = ixxat_usb_msg_get_next_idx(dev);
 
-		// find free URB
-		context = ixxat_usb_get_tx_context(dev);
-
-		if (!context) { // !context
-			//if (WARN_ON_ONCE(!context)) {
+		if (MsgIdx == IXXAT_USB_E_FAILED) {
+			ixxat_usb_rel_tx_context(dev, context);
 			netif_stop_queue(netdev);
 			err = NETDEV_TX_BUSY;
-		} else {
-			// get free msg number ( Client Id )
-			MsgIdx = ixxat_usb_msg_get_next_idx(dev);
+		}
+	}
 
-			if (MsgIdx == IXXAT_USB_E_FAILED) {
-				ixxat_usb_rel_tx_context(dev, context);
-				netif_stop_queue(netdev);
-				err = NETDEV_TX_BUSY;
+	if (err == NETDEV_TX_OK) {
+		// reset to be sure that no old value is stored !
+		context->msg_index = IXXAT_USB_MAX_MSGS;
+
+		// prepare the Urb
+		urb  = context->urb;
+		obuf = urb->transfer_buffer;
+
+		// check loopback
+		loopMode = determineLoopMode((skb->pkt_type == PACKET_LOOPBACK),
+										dev->loopback,
+										dev->adapter == &usb2can_cl1);
+
+		isloopback = ((loopMode & IX_LOOPBACK) == IX_LOOPBACK);
+		selfReception = ((loopMode & IX_LOOP_SELF_RX) == IX_LOOP_SELF_RX);
+
+		if (!selfReception) {
+
+			// handle the reception in the USB callback
+			if (!isloopback) {
+				struct can_frame *cf = (struct can_frame *)skb->data;
+
+				context->msg_packet_len = cf->can_dlc;
+				context->msg_packet_no = 1;
 			}
+
+			// store the MsgIdx in the Urb
+			context->msg_index = MsgIdx;
 		}
 
-		if (err == NETDEV_TX_OK) {
-			// reset to be sure that no old value is stored !
-			context->msg_index = IXXAT_USB_MAX_MSGS;
+		size = ixxat_usb_encode_msg(dev, skb, obuf, selfReception, MsgIdx + IXXAT_USB_MSG_IDX_OFFSET);
 
-			// prepare the Urb
-			urb  = context->urb;
-			obuf = urb->transfer_buffer;
-
-			// check loopback
-			loopMode = determineLoopMode((skb->pkt_type == PACKET_LOOPBACK),
-											dev->loopback,
-											dev->adapter == &usb2can_cl1);
-
-			if ((loopMode & IX_LOOP_SELF_RX) == IX_LOOP_SELF_RX) {
-
-				selfReception = true; // set self reception
-
-				if ((loopMode & IX_LOOPBACK) == IX_LOOPBACK) {
-					can_put_echo_skb(skb, netdev, MsgIdx, 0);
-					echoSkb = true;
-				}
-			} else {
-				// handle the reception in the USB callback
-				if ((loopMode & IX_LOOPBACK) == IX_LOOPBACK) {
-					can_put_echo_skb(skb, netdev, MsgIdx, 0);
-					echoSkb = true;
-				}
-				else {
-					struct can_frame *cf = (struct can_frame *)skb->data;
-
-					context->msg_packet_len = cf->can_dlc;
-					context->msg_packet_no = 1;
-				}
-
-				// store the MsgIdx in the Urb
-				context->msg_index = MsgIdx;
-			}
-
-			size = ixxat_usb_encode_msg(dev, skb, obuf, selfReception, MsgIdx + IXXAT_USB_MSG_IDX_OFFSET);
-
-			if ( echoSkb == false)
-			{
-				kfree_skb(skb);
-			}
+		if (isloopback) {
+			can_put_echo_skb(skb, netdev, MsgIdx, 0);
+		}
+		else {
+			dev_kfree_skb(skb);
+		}
 
 #ifdef DEBUG
-			showdump(obuf, size);
+		showdump(obuf, size);
 #endif
-			urb->transfer_buffer_length = size;
-			usb_anchor_urb(urb, &dev->tx_anchor);
+		urb->transfer_buffer_length = size;
+		usb_anchor_urb(urb, &dev->tx_anchor);
 
-			atomic_inc(&dev->active_tx_urbs);
-			err = usb_submit_urb(urb, GFP_ATOMIC);
+		atomic_inc(&dev->active_tx_urbs);
+		err = usb_submit_urb(urb, GFP_ATOMIC);
 
-			if (err) { // submit failed
+		if (err) { // submit failed
 
-				// should only free if it's exist
-				can_free_echo_skb(netdev, MsgIdx, NULL);
-				ixxat_usb_msg_free_idx(dev, MsgIdx);
-				ixxat_usb_rel_tx_context(dev, context);
+			// should only free if it's exist
+			can_free_echo_skb(netdev, MsgIdx, NULL);
+			ixxat_usb_msg_free_idx(dev, MsgIdx);
+			ixxat_usb_rel_tx_context(dev, context);
 
-				usb_unanchor_urb(urb);
-				atomic_dec(&dev->active_tx_urbs);
+			usb_unanchor_urb(urb);
+			atomic_dec(&dev->active_tx_urbs);
 
-				if (err == -ENODEV) {
-					netif_device_detach(netdev);
-				} else {
-					stats->tx_dropped++;
-					netdev_err(netdev,
-						"Error %d: Submitting tx-urb failed\n", err);
-				}
+			if (err == -ENODEV) {
+				netif_device_detach(netdev);
+			} else {
+				stats->tx_dropped++;
+				netdev_err(netdev, "Error %d: Submitting tx-urb failed\n", err);
 			}
 		}
-	} // can dropped
+	}
 
 	return err;
 }
@@ -1948,8 +1944,6 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 	u16 i;
 	int err;
-
-	usb_reset_configuration(udev);
 
 	printk(IX_DRIVER_TAG "KERNELVERSION: 0x%x (%i)", LINUX_VERSION_CODE, LINUX_VERSION_CODE);
 

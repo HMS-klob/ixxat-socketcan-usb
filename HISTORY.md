@@ -2,6 +2,17 @@
 
 ## History
 
+### 2.0.520	(2024-06-04)
+
+- Call can_put_echo_skb() on current skb after encoding the can message. It seems that calling it before
+  sometimes messed up the skb and led to a kernel NULL pointer dereference bug when dereferencing
+  skb->data inside ixxat_usb_encode_msg(). This had been seen on different kernel versions (5.x, 6.x)
+  happened very sporadic within a very large time frame of 15 minutes up to 5.5 days.
+- kernel >= 6.1.0: use can_dev_dropped_skb() instead of can_dropped_invalid_skb() to check skb in ixxat_usb_start_xmit()
+- remove call to usb_reset_configuration() in probe because it leads to VMWare to crash later during device usage.
+  It seems hat VMWare selects the wrong usb configuration after the reset.
+- replace kfree_skb() with dev_kfree_skb() calls
+
 ### 2.0.504	(2024-04-15)
 
 - accept command responses with less than the requested size (e.g. USB2CAN V2 FW versions < 1.6.3.0 do not send reserved parts of some response packets)
