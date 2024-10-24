@@ -2,7 +2,7 @@
 
 /* CAN driver adapter for IXXAT USB-to-CAN CL2
  *
- * Copyright (C) 2018 HMS Industrial Networks <socketcan@hms-networks.de>
+ * Copyright (C) 2018-2024 HMS Industrial Networks <socketcan@hms-networks.de>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published

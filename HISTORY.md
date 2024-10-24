@@ -2,6 +2,11 @@
 
 ## History
 
+### 2.0.576	(2024-10-24)
+
+- remove assignments to can.restart_ms as this should be done only by the SocketCAN framework and not the individual driver (ICBT-1301)
+- fix empty-body warnings
+
 ### 2.0.520	(2024-06-04)
 
 - Call can_put_echo_skb() on current skb after encoding the can message. It seems that calling it before

@@ -2,7 +2,7 @@
 
 /* CAN driver for IXXAT USB-to-CAN
  *
- * Copyright (C) 2018 HMS Industrial Networks <socketcan@hms-networks.de>
+ * Copyright (C) 2018-2024 HMS Industrial Networks <socketcan@hms-networks.de>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published
@@ -28,7 +28,7 @@
 MODULE_AUTHOR("HMS Technology Center Ravensburg Gmbh <socketcan@hms-networks.de>");
 MODULE_DESCRIPTION("SocketCAN driver for HMS Ixxat USB-to-CAN V2, USB-to-CAN-FD family adapters");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("2.0.520-REL");
+MODULE_VERSION("2.0.576-REL");
 
 #define IX_STATISTICS_EXACT		0
 
@@ -1684,8 +1684,10 @@ static int ixxat_usb_stop(struct net_device *netdev)
 	if (dev->state & IXXAT_USB_STATE_STARTED) {
 		err = ixxat_usb_stop_ctrl(dev);
 		if (err)
+		{
 //			netdev_warn(netdev, "Error %d: Cannot stop device\n",err);
 			ix_trace_printk ("Error %d: Cannot stop device\n",err);
+		}
 	}
 
 	dev->state &= ~IXXAT_USB_STATE_STARTED;
@@ -1810,8 +1812,6 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 		dev->can.clock.freq = adapter->clock;
 		dev->can.bittiming_const = adapter->bt;
 		dev->can.data_bittiming_const = adapter->btd;
-
-		dev->can.restart_ms = IXXAT_USB_DEFAULT_RESTART_MS;
 		dev->can.ctrlmode_supported = adapter->modes;
 
 		// map function

@@ -2,7 +2,7 @@
 
 /* CAN driver base for IXXAT USB-to-CAN
  *
- * Copyright (C) 2018 HMS Industrial Networks <socketcan@hms-networks.de>
+ * Copyright (C) 2018-2024 HMS Industrial Networks <socketcan@hms-networks.de>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published
@@ -134,8 +134,6 @@
 #define IXXAT_USB_BRD_CMD_GET_DEVINFO	0x402
 #define IXXAT_USB_BRD_CMD_GET_FWINFO2	0x403
 #define IXXAT_USB_BRD_CMD_POWER		0x421
-
-#define IXXAT_USB_DEFAULT_RESTART_MS 100
 
 #define IXXAT_USB_E_FAILED 0xFFFFFFFF
 
