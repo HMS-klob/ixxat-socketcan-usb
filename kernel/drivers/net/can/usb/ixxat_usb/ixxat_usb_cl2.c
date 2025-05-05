@@ -130,7 +130,8 @@
 #define IXXAT_CANIDM_EP4_OUT (7 | USB_DIR_OUT)
 #define IXXAT_CANIDM_EP5_OUT (9 | USB_DIR_OUT)
 
-#define IXXAT_USB_CAN_CMD_INIT 0x337
+#define IXXAT_USB_CAN_CMD_GETCAPS2	0x335
+#define IXXAT_USB_CAN_CMD_INIT2		0x337
 
 static const struct can_bittiming_const usb2canV2_bt = {
 	.name = KBUILD_MODNAME, //IXXAT_USB_CTRL_NAME,
@@ -192,7 +193,42 @@ static const struct can_bittiming_const canidm_btd = {
 	.brp_inc = IXXAT_CANIDM_BRP_INC_DATA
 };
 
-static int ixxat_usb_init_ctrl(struct ixxat_usb_device *dev)
+static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev, struct ixxat_cancaps2* caps)
+{
+	const u16 port = dev->ctrl_index;
+	int err;
+	struct ixxat_usb_getcaps_cl2_cmd* cmd;
+	const u32 cmd_size = sizeof(*cmd);
+	const u32 req_size = sizeof(cmd->req);
+	const u32 rcv_size = cmd_size - req_size;
+	const u32 snd_size = req_size + sizeof(cmd->res);
+
+	cmd = kmalloc(cmd_size, GFP_KERNEL);
+	if (!cmd)
+		return -ENOMEM;
+
+	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
+	cmd->req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_GETCAPS2);
+	cmd->req.port = cpu_to_le16(port);
+	cmd->res.res_size = cpu_to_le32(rcv_size);
+
+	err = ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
+				 rcv_size);
+	if (err)
+		goto fail;
+
+	if (caps)
+	{
+		memcpy(caps, &cmd->caps, sizeof(*caps));
+	}
+
+fail:
+	kfree(cmd);
+
+	return err;
+}
+
+static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 {
 	// not supported !
 	//#define CAN_CTRLMODE_ONE_SHOT		0x08	// One-Shot mode
@@ -235,7 +271,7 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_device *dev)
 
 	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
 	cmd->req.size = cpu_to_le32(snd_size - rcv_size);
-	cmd->req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_INIT);
+	cmd->req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_INIT2);
 	cmd->req.port = cpu_to_le16(port);
 	cmd->opmode = opmode;
 	cmd->exmode = exmode;
@@ -284,6 +320,7 @@ const struct ixxat_usb_adapter usb2can_fd = {
 		IXXAT_USB2CANFD_EP5_OUT
 	},
 	.ep_offs = 1,
+	.get_ctrl_caps = ixxat_usb_get_ctrl_caps,
 	.init_ctrl = ixxat_usb_init_ctrl
 };
 
@@ -309,6 +346,7 @@ const struct ixxat_usb_adapter usb2can_v2 = {
 		IXXAT_USB2CANV2_EP5_OUT
 	},
 	.ep_offs = 0,
+	.get_ctrl_caps = ixxat_usb_get_ctrl_caps,
 	.init_ctrl = ixxat_usb_init_ctrl
 };
 
@@ -334,5 +372,6 @@ const struct ixxat_usb_adapter can_fd_idm = {
 		IXXAT_CANIDM_EP5_OUT
 	},
 	.ep_offs = 0,
+	.get_ctrl_caps = ixxat_usb_get_ctrl_caps,
 	.init_ctrl = ixxat_usb_init_ctrl
 };

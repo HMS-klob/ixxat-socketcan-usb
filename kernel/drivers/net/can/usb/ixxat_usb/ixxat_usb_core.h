@@ -286,17 +286,131 @@ struct ixxat_fw_info2 {
 } __packed;
 
 /**
+ * struct ixxat_cancaps CAN controller capabilities
+ * ctrltype:		Type of CAN controller
+ * buscoupling:		Type of Bus coupling
+ * features:		supported features
+ * can_clock_freq:	clock frequency of the primary counter in Hz 
+ * ts_clock_divisor:	divisor for the message time stamp counter
+ * cms_clock_divisor:	divisor for the cyclic message scheduler
+ * cms_max_ticks:	maximum tick count value of the cyclic message
+ *			scheduler
+ * dtx_clock_divisor:	divisor for the delayed message transmitter
+ * dtx_max_ticks:	maximum tick count value of the delayed
+ *			message transmitter
+ *
+ * Contains CAN controller capabilities information
+ */
+struct ixxat_cancaps
+{
+	__le16 ctrltype;
+	__le16 buscoupling;
+	__le32 features;
+	__le32 can_clock_freq;
+	__le32 ts_clock_divisor;
+	__le32 cms_clock_divisor;
+	__le32 cms_max_ticks;
+	__le32 dtx_clock_divisor;
+	__le32 dtx_max_ticks;
+} __packed;
+
+/**
+ * struct ixxat_cancaps2 CANFD controller capabilities
+ * ctrltype;		Type of CAN controller (see CAN_CTRL_ const)
+ * buscoupling;		Type of Bus coupling (see CAN_BUSC_ const)
+ * features;		supported features (see CAN_FEATURE_ constants)
+ * can_clock_freq:	CAN clock frequency in Hz (16/2 MHz for SJA1000)
+ * sdr_range_min;	minimum bit timing values for standard bit rate
+ * sdr_range_max;	maximum bit timing values for standard bit rate
+ * fdr_range_min;	minimum bit timing values for fast data bit rate
+ * fdr_range_max;	maximum bit timing values for fast data bit rate
+ * ts_clock_freq;	clock frequency of the time stamp counter [Hz]
+ * ts_clock_divisor;	divisor for the message time stamp counter
+ * cms_clock_freq;	clock frequency of cyclic message scheduler [Hz]
+ * cms_clock_divisor;	divisor for the cyclic message scheduler
+ * cms_max_ticks;	maximum tick count value of the cyclic message
+ *			scheduler
+ * dtx_clock_freq;	clock frequency of the delayed message transmitter [Hz]
+ * dtx_clock_divisor;	divisor for the delayed message transmitter
+ * dtx_max_ticks;	maximum tick count value of the delayed
+ *			message transmitter
+ *
+ * Contains CANFD controller capabilities information
+ */
+struct ixxat_cancaps2
+{
+	__le16 ctrltype;
+	__le16 buscoupling;
+	__le32 features;
+	__le32 can_clock_freq;
+	struct ixxat_canbtp sdr_range_min;
+	struct ixxat_canbtp sdr_range_max;
+	struct ixxat_canbtp fdr_range_min;
+	struct ixxat_canbtp fdr_range_max;
+	__le32 ts_clock_freq;
+	__le32 ts_clock_divisor;
+	__le32 cms_clock_freq;
+	__le32 cms_clock_divisor;
+	__le32 cms_max_ticks;
+	__le32 dtx_clock_freq;
+	__le32 dtx_clock_divisor;
+	__le32 dtx_max_ticks;
+} __packed;
+
+/**
+ * Device timestamps
+ * 
+ * Every device maintains an internal clock used for message timestamps.
+ * The resolution of the clock is reported by the controller capabilities and 
+ * denotes the resolution of one clock tick by the two values: ts_clock_freq/ts_clock_divisor
+ * The following timeline occurs during the operation of a controller:
+ * 
+ *         t_start                                      t_stop
+ *     <------------>                               <------------>
+ * 
+ *     A            B           D                   E            F          H
+ *     |            |           |                   |            |          |
+ *     v            v           v                   v            v          v
+ *  ---------------------------------~  ...  ~----------------------------------> t
+ *           ^                                            ^
+ *           |                                            |
+ *           C                                            G
+ * 
+ * A: controller start command (request) is sent to the device
+ * B: controller start command (response) returns from device and returns device time stamp of C
+ * C: assumed CAN controller start time stamp, is is assumed to be in the middle between
+ *    A and B (A + (t_start/2))
+ * D: controller start info message arrives over the message fifo, it contains the 
+ *    device time stamp of C, too
+ * E: controller stop command (request) is sent to the device
+ * F: controller stop command (response) returns 
+ * G: assumed CAN controller stop time stamp, is is assumed to be in the middle between
+ *    E and F (E + (t_stop/2))
+ * H: controller stop info message arrives over the message fifo, it contains the 
+ *    device time stamp of G
+ * 
+ * To correlate the start timestamp to the host clock we determine:
+ * 
+ *     t_host_C = (t_host_B + t_host_A) / 2
+ *              = t_host_A + ((t_host_A - t_host_B) / 2)
+ * 
+ * t_C_host then corresponds to the device clock tick at C (t_C_device).
+ * The current time stamp correlated to the host clock (t_current_host) can then be 
+ * determined via
+ * 
+ *     t_host_current = t_host_C + conv_to_nsec( t_dev_current - t_dev_C )
+ *
  * struct ixxat_time_ref Time reference
- * @kt_host_0: Latest time on the host
- * @ts_dev_0: Latest time stamp on the device
- * @ts_dev_last: Last device time stamp
+ * tick_multiplier:	    used to convert ticks to ns
+ * tick_divider:	    used to convert ticks to ns
+ * @ts_overrun_ticks:	number of timer overruns since start
  *
  * Contains time references of the device and the host
  */
 struct ixxat_time_ref {
-	ktime_t kt_host_0;
-	u32 ts_dev_0;
-	u32 ts_dev_last;
+	u64 tick_multiplier;
+	u64 tick_divider;
+	u64 ts_overrun_ticks;
 };
 
 /**
@@ -304,14 +418,14 @@ struct ixxat_time_ref {
  * @dev: IXXAT USB device
  * @urb: USB request block
  * @urb_index: index of this URB (used to mark the context as occupied)
-  * @msg_index: index of message ( client_id)
+ * @msg_index: index of message ( client_id)
  * @msg_packet_len: Data length code (only used if no loopback is enabled)
  * @msg_packet_no: number of packets (only used if no loopback is enabled)
-  *
+ *
  * Contains content for USB request block transmissions
  */
 struct ixxat_tx_urb_context {
-	struct ixxat_usb_device *dev;
+	struct ixxat_usb_candevice *dev;
 	struct urb *urb;
 	u16  urb_index;
 	u16  msg_index;
@@ -320,7 +434,7 @@ struct ixxat_tx_urb_context {
 };
 
 /**
- * struct ixxat_usb_device IXXAT USB device
+ * struct ixxat_usb_candevice IXXAT USB CAN device
  * @can: CAN common private data
  * @adapter: USB network descriptor
  * @udev: USB device
@@ -343,9 +457,9 @@ struct ixxat_tx_urb_context {
  * @dev_info: Device information
  * @bec: CAN error counter
  *
- * IXXAT USB-to-CAN device
+ * IXXAT usb based CAN device
  */
-struct ixxat_usb_device {
+struct ixxat_usb_candevice {
 	struct can_priv can;
 	const struct ixxat_usb_adapter *adapter;
 	struct usb_device *udev;
@@ -365,7 +479,6 @@ struct ixxat_usb_device {
 	bool loopback;
 	u32 state;
 	u16 ctrl_index;
-	u32 cnt_tx;
 
 	u8 ep_msg_in;
 	u8 ep_msg_out;
@@ -373,14 +486,40 @@ struct ixxat_usb_device {
 	/* This lock prevents a race condition between xmit and receive. */
 	spinlock_t dev_lock;
 
-	struct ixxat_usb_device *prev_dev;
-	struct ixxat_usb_device *next_dev;
+	/* pointer to usb device instance */
+	struct ixxat_usb_device *root_dev;
+
+	/* used to link can devices together */
+	struct ixxat_usb_candevice *prev_dev;
+	struct ixxat_usb_candevice *next_dev;
 
 	struct ixxat_time_ref time_ref;
+
+	struct can_berr_counter bec;
+};
+
+/**
+ * struct ixxat_usb_device IXXAT USB device data
+ * @timeref_valid: Time reference valid
+ * @kt_host_start: Host start time
+ * @ts_dev_start: Device start time
+ * @head: Head of the list of IXXAT USB CAN devices for this device
+ */
+struct ixxat_usb_device {
+
+	/* used to lock write access to the device members */
+	spinlock_t access_lock;
+
+	/* device and firmware info */
 	struct ixxat_dev_info dev_info;
 	struct ixxat_fw_info2 fw_info;
 
-	struct can_berr_counter bec;
+	/* time reference of first controller start */
+	bool    timeref_valid;
+	ktime_t kt_host_start;
+	u32     ts_dev_start;
+
+	struct ixxat_usb_candevice *head;
 };
 
 /**
@@ -480,6 +619,34 @@ struct ixxat_usb_init_cl2_cmd {
 	struct ixxat_canbtp fdr;
 	__le16 _padding;
 	struct ixxat_usb_dal_res res;
+} __packed;
+
+/**
+ * struct ixxat_usb_getcaps_cl1_cmd Controller read capabilities
+ * @req: Request block
+ * @res: Response block
+ * @caps: Controller cabilities
+ *
+ * Can be sent to a device to get the controller capabilities
+ */
+struct ixxat_usb_getcaps_cl1_cmd {
+	struct ixxat_usb_dal_req req;
+	struct ixxat_usb_dal_res res;
+	struct ixxat_cancaps caps;
+} __packed;
+
+/**
+ * struct ixxat_usb_getcaps_cl2_cmd Controller read capabilities
+ * @req: Request block
+ * @res: Response block
+ * @caps: Controller cabilities
+ *
+ * Can be sent to a device to get the controller capabilities
+ */
+struct ixxat_usb_getcaps_cl2_cmd {
+	struct ixxat_usb_dal_req req;
+	struct ixxat_usb_dal_res res;
+	struct ixxat_cancaps2 caps;
 } __packed;
 
 /**
@@ -586,7 +753,7 @@ struct ixxat_usb_fwinfo2_cmd {
  * Device Adapter for IXXAT USB devices
  */
 struct ixxat_usb_adapter {
-	u32 modes;
+	const u32 modes;
 	const u32 clock;
 	const struct can_bittiming_const *bt;
 	const struct can_bittiming_const *btd;
@@ -595,7 +762,9 @@ struct ixxat_usb_adapter {
 	const u8 ep_msg_in[IXXAT_USB_MAX_CHANNEL];
 	const u8 ep_msg_out[IXXAT_USB_MAX_CHANNEL];
 	const u8 ep_offs;
-	int (*init_ctrl)(struct ixxat_usb_device *dev);
+
+	int (*get_ctrl_caps)(struct ixxat_usb_candevice *dev, struct ixxat_cancaps2 *caps);
+	int (*init_ctrl)(struct ixxat_usb_candevice *dev);
 };
 
 extern const struct ixxat_usb_adapter usb2can_cl1;
@@ -628,6 +797,6 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
  * Return: Negative error code or zero on success
  */
 int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
-		       const u16 req_size, void *res, const u16 res_size);
+			const u16 req_size, void *res, const u16 res_size);
 
 #endif /* IXXAT_USB_CORE_H */

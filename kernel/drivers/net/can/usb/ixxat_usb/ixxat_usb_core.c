@@ -32,6 +32,13 @@ MODULE_VERSION("2.0.576-REL");
 
 #define IX_STATISTICS_EXACT		0
 
+#define IX_SYNCTOHOST_NONE		0	/* do not sync to hst clock, device start is timestamp zero */
+#define IX_SYNCTOHOST_BEFORESTART	1	/* sync to host clock before start command is issued */ 
+#define IX_SYNCTOHOST_AFTERSTART	2	/* sync to host clock after start command returned */
+#define IX_SYNCTOHOST_ONSTART		3	/* sync to host clock on start command, middle betweeen start command issued and command returned */
+
+#define IX_SYNCTOHOSTCLOCK		IX_SYNCTOHOST_NONE
+
 /* minimum firmware version that supports V2 communication layer */
 #define IX_MIN_MAJORFWVERSION_SUPP_V2	0x01
 #define IX_MIN_MINORFWVERSION_SUPP_V2	0x07
@@ -64,7 +71,7 @@ static int ixxat_usb_has_cl2_firmware(const struct usb_device_id *id, struct ixx
 
 		if (IX_MIN_MAJORFWVERSION_SUPP_V2 > major)
 			return 0;
-		if (IX_MIN_MAJORFWVERSION_SUPP_V2 == major) 
+		if (IX_MIN_MAJORFWVERSION_SUPP_V2 == major)
 		{
 			if (IX_MIN_MINORFWVERSION_SUPP_V2 > minor)
 				return 0;
@@ -155,7 +162,7 @@ MODULE_DEVICE_TABLE(usb, ixxat_usb_table);
 	}
 #endif
 
-static struct ixxat_tx_urb_context *ixxat_usb_get_tx_context(struct ixxat_usb_device *dev)
+static struct ixxat_tx_urb_context *ixxat_usb_get_tx_context(struct ixxat_usb_candevice *dev)
 {
 	struct ixxat_tx_urb_context *context = NULL;
 	u32 UrbIdx = 0;
@@ -181,7 +188,7 @@ static struct ixxat_tx_urb_context *ixxat_usb_get_tx_context(struct ixxat_usb_de
 	return context;
 }
 
-static void ixxat_usb_rel_tx_context(struct ixxat_usb_device *dev,
+static void ixxat_usb_rel_tx_context(struct ixxat_usb_candevice *dev,
 		struct ixxat_tx_urb_context *context)
 {
 	unsigned long flags;
@@ -193,7 +200,7 @@ static void ixxat_usb_rel_tx_context(struct ixxat_usb_device *dev,
 	spin_unlock_irqrestore(&dev->dev_lock, flags);
 }
 
-static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_device *dev)
+static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_candevice *dev)
 {
 	u32 ret;
 	unsigned long flags;
@@ -229,7 +236,7 @@ static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_device *dev)
 	return ret;
 }
 
-static void ixxat_usb_msg_free_idx(struct ixxat_usb_device *dev, u32 MsgIdx)
+static void ixxat_usb_msg_free_idx(struct ixxat_usb_candevice *dev, u32 MsgIdx)
 {
 	unsigned long flags;
 	u64 Mask;
@@ -325,36 +332,62 @@ fail:
 	return ret;
 }
 
-static void ixxat_usb_update_ts_now(struct ixxat_usb_device *dev, u32 ts_now)
-{
-	u32 *ts_dev = &dev->time_ref.ts_dev_0;
-	ktime_t *kt_host = &dev->time_ref.kt_host_0;
-	u64 timebase = (u64)0x00000000FFFFFFFF - (u64)(*ts_dev) + (u64)ts_now;
+// multiply by 100.000.000 to get 1ns resolution
+const u64 TICK_FACTOR = 1000000000;
 
-	*kt_host = ktime_add_us(*kt_host, timebase);
-	*ts_dev = ts_now;
+// set timestamp multiplier/divider from controller timestamp clock settings
+static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref, u32 ts_clock_divisor, u32 ts_clock_freq)
+{
+	// calculate tick multiplier and divider
+	// divide by clock frequency -> resolution [1s]
+	// multiply by TICK_FACTOR -> resolution [1ns]
+	timeref->tick_multiplier = (u64)ts_clock_divisor * TICK_FACTOR;
+	timeref->tick_divider = ts_clock_freq;
+
+	// remove not significant zero bits from multiplier and divider
+	while (((timeref->tick_multiplier & 0x1) == 0) && ((timeref->tick_divider & 0x1) == 0))
+	{
+		timeref->tick_multiplier >>= 1;
+		timeref->tick_divider >>= 1;
+	}
+
+	// check if multiplier is divisible by divider without remainder
+	if (0 == (timeref->tick_multiplier % timeref->tick_divider))
+	{
+		timeref->tick_multiplier /= timeref->tick_divider;
+		timeref->tick_divider     = 1;
+	}
 }
 
-static void ixxat_usb_get_ts_tv(struct ixxat_usb_device *dev, u32 ts,
-				ktime_t *k_time)
+// set cotroller start timestamp
+static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev, ktime_t t_A, ktime_t t_B, u32 ts_dev_start)
 {
-	ktime_t tmp_time = dev->time_ref.kt_host_0;
+	dev_info(&dev->udev->dev,"ixxat_usb_ts_set_start A: %lld B: %lld devtick: %u\n", t_A, t_B, ts_dev_start);
 
-	if (ts < dev->time_ref.ts_dev_last)
-		ixxat_usb_update_ts_now(dev, ts);
+	struct ixxat_usb_device* rootdev = dev->root_dev;
+	if (rootdev)
+	{
+		unsigned long flags;
+		spin_lock_irqsave(&rootdev->access_lock, flags);
 
-	dev->time_ref.ts_dev_last = ts;
-	tmp_time = ktime_add_us(tmp_time, ts - dev->time_ref.ts_dev_0);
-
-	if (k_time)
-		*k_time = tmp_time;
-}
-
-static void ixxat_usb_set_ts_now(struct ixxat_usb_device *dev, u32 ts_now)
-{
-	dev->time_ref.ts_dev_0 = ts_now;
-	dev->time_ref.kt_host_0 = ktime_get_real();
-	dev->time_ref.ts_dev_last = ts_now;
+		if (!rootdev->timeref_valid) {
+		rootdev->timeref_valid = true;
+#if (IX_SYNCTOHOST_NONE == IX_SYNCTOHOSTCLOCK)
+			rootdev->kt_host_start = 0;
+#elif (IX_SYNCTOHOST_BEFORESTART == IX_SYNCTOHOSTCLOCK)
+			rootdev->kt_host_start = t_A;
+#elif (IX_SYNCTOHOST_AFTERSTART == IX_SYNCTOHOSTCLOCK)
+			rootdev->kt_host_start = t_B;
+#elif (IX_SYNCTOHOST_ONSTART == IX_SYNCTOHOSTCLOCK)
+			rootdev->kt_host_start = t_A + ktime_divns(ktime_sub(t_B, t_A), 2);
+#else
+#error "Invalid IX_SYNCTOHOSTCLOCK setting"
+#endif
+			rootdev->ts_dev_start = ts_dev_start;
+			dev_info(&dev->udev->dev,"set  kt_host_start: %lld devtick: %u\n", rootdev->kt_host_start, ts_dev_start);
+		}
+		spin_unlock_irqrestore(&rootdev->access_lock, flags);
+	}
 }
 
 static int ixxat_usb_get_dev_caps(struct usb_device *dev,
@@ -508,8 +541,11 @@ fail:
 	return err;
 }
 
-static int ixxat_usb_start_ctrl(struct ixxat_usb_device *dev, u32 *time_ref)
+static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 {
+	ktime_t kt_host_A;
+	ktime_t kt_host_B;
+
 	const u16 port = dev->ctrl_index;
 	int err;
 	struct ixxat_usb_start_cmd *cmd;
@@ -528,13 +564,22 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_device *dev, u32 *time_ref)
 	cmd->res.res_size = cpu_to_le32(rcv_size);
 	cmd->time = 0;
 
+	kt_host_A = ktime_get_real_ns();
+
 	err = ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
 				 rcv_size);
+
+	kt_host_B = ktime_get_real_ns();
+
+	u32 start_offset = 0;
+	if (!err)
+		start_offset = le32_to_cpu(cmd->time);
+
+	ixxat_usb_ts_set_start(dev, kt_host_A, kt_host_B, start_offset);
+	dev->time_ref.ts_overrun_ticks = 0;
+
 	if (err)
 		goto fail;
-
-	if (time_ref)
-		*time_ref = le32_to_cpu(cmd->time);
 
 fail:
 	kfree(cmd);
@@ -542,7 +587,7 @@ fail:
 	return err;
 }
 
-static int ixxat_usb_stop_ctrl(struct ixxat_usb_device *dev)
+static int ixxat_usb_stop_ctrl(struct ixxat_usb_candevice *dev)
 {
 	const u16 port = dev->ctrl_index;
 	int err;
@@ -591,7 +636,7 @@ static int ixxat_usb_power_ctrl(struct usb_device *dev, u8 mode)
 	return err;
 }
 
-static int ixxat_usb_reset_ctrl(struct ixxat_usb_device *dev)
+static int ixxat_usb_reset_ctrl(struct ixxat_usb_candevice *dev)
 {
 	const u16 port = dev->ctrl_index;
 	int err;
@@ -613,7 +658,7 @@ static int ixxat_usb_reset_ctrl(struct ixxat_usb_device *dev)
 	return err;
 }
 
-static void ixxat_usb_free_usb_communication(struct ixxat_usb_device *dev)
+static void ixxat_usb_free_usb_communication(struct ixxat_usb_candevice *dev)
 {
 	struct net_device *netdev = dev->netdev;
 	u32 SkbIdx;
@@ -646,17 +691,16 @@ static void ixxat_usb_free_usb_communication(struct ixxat_usb_device *dev)
 	//   This is caused by urb->transfer_flags |= URB_FREE_BUFFER;
 }
 
-static int ixxat_usb_restart(struct ixxat_usb_device *dev)
+static int ixxat_usb_restart(struct ixxat_usb_candevice *dev)
 {
 	int err;
 	struct net_device *netdev = dev->netdev;
-	u32 t;
 
 	err = ixxat_usb_stop_ctrl(dev);
 	if (err)
 		goto fail;
 
-	err = ixxat_usb_start_ctrl(dev, &t);
+	err = ixxat_usb_start_ctrl(dev);
 	if (err)
 		goto fail;
 
@@ -670,7 +714,7 @@ fail:
 static int ixxat_usb_set_mode(struct net_device *netdev, enum can_mode mode)
 {
 	int err;
-	struct ixxat_usb_device *dev = netdev_priv(netdev);
+	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 
 	switch (mode) {
 	case CAN_MODE_START:
@@ -687,7 +731,7 @@ static int ixxat_usb_set_mode(struct net_device *netdev, enum can_mode mode)
 static int ixxat_usb_get_berr_counter(const struct net_device *netdev,
 				      struct can_berr_counter *bec)
 {
-	struct ixxat_usb_device *dev = netdev_priv(netdev);
+	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 
 	*bec = dev->bec;
 	return 0;
@@ -726,7 +770,33 @@ static void ixxat_convert(const struct ixxat_usb_adapter *pAdapter,
 	}
 }
 
-static int ixxat_usb_handle_canmsg(struct ixxat_usb_device *dev,
+static int ixxat_usb_netif_rx(struct ixxat_time_ref* timeref, struct sk_buff *skb, __le32 ts_tick)
+{
+	u64 ts_ns;
+	struct skb_shared_hwtstamps *hwts = skb_hwtstamps(skb);
+
+	// calculate tick offset
+	u64 ticks  = timeref->ts_overrun_ticks;
+	ticks     |= le32_to_cpu(ts_tick);
+
+#if (IX_SYNCTOHOST_NONE == IX_SYNCTOHOSTCLOCK)
+#else
+	ticks     -= timeref->ts_dev_start;
+#endif
+
+	// convert tick to [1ns] resolution
+	ts_ns = mul_u64_u64_div_u64(ticks, timeref->tick_multiplier, timeref->tick_divider);
+
+#if (IX_SYNCTOHOST_NONE == IX_SYNCTOHOSTCLOCK)
+	hwts->hwtstamp = ns_to_ktime(ts_ns);
+#else
+	hwts->hwtstamp = timeref->kt_host_start + ns_to_ktime(ts_ns);
+#endif
+
+	return netif_rx(skb);
+}
+
+static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 				   struct ixxat_can_msg *rx)
 {
 	int err = 0;
@@ -794,11 +864,11 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_device *dev,
 			} else {
 
 				ixxat_convert(dev->adapter, cf, rx, datalen);
-				ixxat_usb_get_ts_tv(dev, le32_to_cpu(rx->base.time), &skb->tstamp);
 
 				netdev->stats.rx_packets++;
 				netdev->stats.rx_bytes += cf->len;
-				netif_rx(skb);
+
+				ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
 				err = 0;
 			}
 		}
@@ -807,7 +877,7 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_device *dev,
 	return err;
 }
 
-static int ixxat_usb_handle_status(struct ixxat_usb_device *dev,
+static int ixxat_usb_handle_status(struct ixxat_usb_candevice *dev,
 				   struct ixxat_can_msg *rx)
 {
 	int err = 0;
@@ -896,14 +966,15 @@ static int ixxat_usb_handle_status(struct ixxat_usb_device *dev,
 
 			netdev->stats.rx_packets++;
 			netdev->stats.rx_bytes += can_frame->can_dlc;
-			netif_rx(skb);
+
+			ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
 		}
 	}
 
 	return err;
 }
 
-static int ixxat_usb_handle_error(struct ixxat_usb_device *dev,
+static int ixxat_usb_handle_error(struct ixxat_usb_candevice *dev,
 				  struct ixxat_can_msg *rx)
 {
 	struct net_device *netdev = dev->netdev;
@@ -974,7 +1045,8 @@ static int ixxat_usb_handle_error(struct ixxat_usb_device *dev,
 
 		netdev->stats.rx_packets++;
 		netdev->stats.rx_bytes += can_frame->can_dlc;
-		netif_rx(skb);
+
+		ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
 
 		err = 0;
 	}
@@ -985,7 +1057,7 @@ static int ixxat_usb_handle_error(struct ixxat_usb_device *dev,
 static int ixxat_usb_decode_buf(struct urb *urb)
 {
 	int ret = 0;
-	struct ixxat_usb_device *dev = urb->context;
+	struct ixxat_usb_candevice *dev = urb->context;
 	struct net_device *netdev = dev->netdev;
 	struct ixxat_can_msg *can_msg;
 	int err = 0;
@@ -994,7 +1066,6 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 	u32 len = urb->actual_length;
 
 	while (pos < len) {
-		u32 time;
 		u32 type;
 		u32 size;
 
@@ -1040,8 +1111,8 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			break;
 
 		case IXXAT_USB_CAN_TIMEOVR:
-			time = le32_to_cpu(can_msg->base.time);
-			ixxat_usb_get_ts_tv(dev, time, NULL);
+			u64 time = le32_to_cpu(can_msg->base.msg_id);
+			dev->time_ref.ts_overrun_ticks += (time << 32);
 			break;
 
 		case IXXAT_USB_CAN_INFO:
@@ -1070,7 +1141,7 @@ fail:
   return ret;
 }
 
-static int ixxat_usb_encode_msg(struct ixxat_usb_device *dev,
+static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 				struct sk_buff *skb, u8 *obuf, u8 selfReception, u32 uMsgIdx)
 {
 	int size;
@@ -1193,7 +1264,7 @@ static int ixxat_evaluate_usb_status (struct net_device *netdev,
 static void ixxat_usb_read_bulk_callback(struct urb *urb)
 {
 	int ret = 0;
-	struct ixxat_usb_device *dev = urb->context;
+	struct ixxat_usb_candevice *dev = urb->context;
 	const struct ixxat_usb_adapter *adapter = dev->adapter;
 	struct net_device *netdev = dev->netdev;
 	struct usb_device *udev = dev->udev;
@@ -1238,7 +1309,7 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 static void ixxat_usb_write_bulk_callback(struct urb *urb)
 {
 	struct ixxat_tx_urb_context *context = urb->context;
-	struct ixxat_usb_device *dev;
+	struct ixxat_usb_candevice *dev;
 	struct net_device *netdev;
 	u32 MsgIdx;
 	int iSkbRet;
@@ -1331,7 +1402,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 {
 	int err = NETDEV_TX_OK;
 	int size;
-	struct ixxat_usb_device *dev = netdev_priv(netdev);
+	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 	struct ixxat_tx_urb_context *context = NULL;
 	struct net_device_stats *stats = &netdev->stats;
 	struct urb *urb;
@@ -1432,7 +1503,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	return err;
 }
 
-static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_device *dev)
+static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 {
 	int i;
 	int err = 0;
@@ -1498,7 +1569,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_device *dev)
 	return err;
 }
 
-static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_device *dev)
+static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 {
 	int UrbIdx;
 	int ret = 0;
@@ -1560,8 +1631,13 @@ static ssize_t show_serial(struct device *pdev,
 		struct device_attribute *attr, char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
-	struct ixxat_usb_device *dev = netdev_priv(netdev);
-	return sprintf(buf, "%.*s\n", (int)(sizeof(dev->dev_info.device_id)), dev->dev_info.device_id);
+	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
+
+	struct ixxat_usb_device *rootdev = dev->root_dev;
+	if (rootdev == NULL)
+		return 0;
+	else 
+		return sprintf(buf, "%.*s\n", (int)(sizeof(rootdev->dev_info.device_id)), rootdev->dev_info.device_id);
 }
 static DEVICE_ATTR(serial, S_IRUGO, show_serial, NULL);
 
@@ -1569,12 +1645,17 @@ static ssize_t show_firmware_version(struct device *pdev,
 		struct device_attribute *attr, char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
-	struct ixxat_usb_device *dev = netdev_priv(netdev);
-	return sprintf(buf, "%d.%d.%d.%d\n"
-		, le16_to_cpu(dev->fw_info.major_version)
-		, le16_to_cpu(dev->fw_info.minor_version)
-		, le16_to_cpu(dev->fw_info.build_version)
-		, le16_to_cpu(dev->fw_info.revision));
+	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
+
+	struct ixxat_usb_device *rootdev = dev->root_dev;
+	if (rootdev == NULL)
+		return 0;
+	else 
+		return sprintf(buf, "%d.%d.%d.%d\n"
+			, le16_to_cpu(rootdev->fw_info.major_version)
+			, le16_to_cpu(rootdev->fw_info.minor_version)
+			, le16_to_cpu(rootdev->fw_info.build_version)
+			, le16_to_cpu(rootdev->fw_info.revision));
 }
 static DEVICE_ATTR(firmware_version, S_IRUGO, show_firmware_version, NULL);
 
@@ -1582,8 +1663,12 @@ static ssize_t show_hardware(struct device *pdev,
 		struct device_attribute *attr, char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
-	struct ixxat_usb_device *dev = netdev_priv(netdev);
-	return sprintf(buf, "%.*s\n", (int)(sizeof(dev->dev_info.device_name)), dev->dev_info.device_name);
+	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
+	struct ixxat_usb_device *rootdev = dev->root_dev;
+	if (rootdev == NULL)
+		return 0;
+	else 
+		return sprintf(buf, "%.*s\n", (int)(sizeof(rootdev->dev_info.device_name)), rootdev->dev_info.device_name);
 }
 static DEVICE_ATTR(hardware, S_IRUGO, show_hardware, NULL);
 
@@ -1591,8 +1676,12 @@ static ssize_t show_hardware_version(struct device *pdev,
 		struct device_attribute *attr, char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
-	struct ixxat_usb_device *dev = netdev_priv(netdev);
-	return sprintf(buf, "0x%04X\n", dev->dev_info.device_version);
+	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
+	struct ixxat_usb_device *rootdev = dev->root_dev;
+	if (rootdev == NULL)
+		return 0;
+	else 
+		return sprintf(buf, "0x%04X\n", rootdev->dev_info.device_version);
 }
 static DEVICE_ATTR(hardware_version, S_IRUGO, show_hardware_version, NULL);
 
@@ -1600,8 +1689,12 @@ static ssize_t show_fpga_version(struct device *pdev,
 		struct device_attribute *attr, char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
-	struct ixxat_usb_device *dev = netdev_priv(netdev);
-	return sprintf(buf, "0x%08X\n", dev->dev_info.device_fpga_version);
+	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
+	struct ixxat_usb_device *rootdev = dev->root_dev;
+	if (rootdev == NULL)
+		return 0;
+	else 
+	    return sprintf(buf, "0x%08X\n", rootdev->dev_info.device_fpga_version);
 }
 static DEVICE_ATTR(fpga_version, S_IRUGO, show_fpga_version, NULL);
 
@@ -1622,17 +1715,23 @@ static const struct attribute_group ixxat_pdev_group = {
 
 static void ixxat_usb_disconnect(struct usb_interface *intf)
 {
-	struct ixxat_usb_device *dev;
-	struct ixxat_usb_device *prev_dev;
+	struct ixxat_usb_candevice *dev;
+	struct ixxat_usb_candevice *prev_dev;
+
+    struct ixxat_usb_device* usbdev = usb_get_intfdata(intf);
 
 	ix_trace_printk (">> ixxat_usb_disconnect\n");
 
-	/* unregister the given device and all previous devices */
-	for (dev = usb_get_intfdata(intf); dev; dev = prev_dev) {
-		prev_dev = dev->prev_dev;
-		sysfs_remove_group(&dev->netdev->dev.kobj, &ixxat_pdev_group);
-		unregister_candev(dev->netdev);
-		free_candev(dev->netdev);
+	if (usbdev)
+	{
+	    /* unregister the given device and all previous devices */
+	    for (dev = usbdev->head; dev; dev = prev_dev) {
+			prev_dev = dev->prev_dev;
+			sysfs_remove_group(&dev->netdev->dev.kobj, &ixxat_pdev_group);
+			unregister_candev(dev->netdev);
+			free_candev(dev->netdev);
+		}
+		kfree(usbdev);
 	}
 
 	usb_set_intfdata(intf, NULL);
@@ -1640,11 +1739,10 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 	ix_trace_printk ("<< ixxat_usb_disconnect\n");
 }
 
-static int ixxat_usb_start(struct ixxat_usb_device *dev)
+static int ixxat_usb_start(struct ixxat_usb_candevice *dev)
 {
 	int err;
 	int i;
-	u32 time_ref = 0;
 	const struct ixxat_usb_adapter *adapter = dev->adapter;
 
 	err = ixxat_usb_setup_rx_urbs(dev);
@@ -1667,11 +1765,9 @@ static int ixxat_usb_start(struct ixxat_usb_device *dev)
 	}
 
 	if (!(dev->state & IXXAT_USB_STATE_STARTED)) {
-		err = ixxat_usb_start_ctrl(dev, &time_ref);
+		err = ixxat_usb_start_ctrl(dev);
 		if (err)
 			goto fail;
-
-		ixxat_usb_set_ts_now(dev, time_ref);
 	}
 
 	dev->bec.txerr = 0;
@@ -1698,7 +1794,7 @@ fail:
 
 static int ixxat_usb_open(struct net_device *netdev)
 {
-	struct ixxat_usb_device *dev = netdev_priv(netdev);
+	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 	int err;
 
 	/* common open */
@@ -1723,7 +1819,7 @@ fail:
 static int ixxat_usb_stop(struct net_device *netdev)
 {
 	int err = 0;
-	struct ixxat_usb_device *dev = netdev_priv(netdev);
+	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 
 	ix_trace_printk (">> ixxat_usb_stop\n");
 
@@ -1749,20 +1845,25 @@ static int ixxat_usb_stop(struct net_device *netdev)
 static const struct net_device_ops ixxat_usb_netdev_ops = {
 	.ndo_open = ixxat_usb_open,
 	.ndo_stop = ixxat_usb_stop,
+	.ndo_eth_ioctl = can_eth_ioctl_hwts,
 	.ndo_start_xmit = ixxat_usb_start_xmit,
 	.ndo_change_mtu = can_change_mtu,
+};
+
+static const struct ethtool_ops ixxat_ethtool_ops = {
+	.get_ts_info = can_ethtool_op_get_ts_info_hwts
 };
 
 static const char *ixxat_usb_dev_name(const struct usb_device_id *id)
 {
 	if (IXXAT_USB_VENDOR_ID == id->idVendor)
 	{
-		switch(id->idProduct)
+		switch (id->idProduct)
 		{
 			case USB2CAN_FD_PRO_PRODUCT_ID:
 				return "Ixxat USB-to-CAN/FD Pro";
-			case USB2CAN_FD_STANDARD_PRODUCT_ID:
-				return "Ixxat USB-to-CAN/FD Standard";
+		  case USB2CAN_FD_STANDARD_PRODUCT_ID:
+			return "Ixxat USB-to-CAN/FD Standard";
 			case USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID:
 				return "Ixxat USB-to-CAN/FD Standard Brick";
 			case USB2CAN_FD_PRO_MODULE_PRODUCT_ID:
@@ -1813,7 +1914,7 @@ static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const struct usb_de
 			case USB2CAN_FD_STANDARD_PRODUCT_ID:
 			case USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID:
 			case USB2CAN_FD_PRO_MODULE_PRODUCT_ID:
-				pAdapter = &usb2can_fd;
+			pAdapter = &usb2can_fd;
 		}
 	}
 	else if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor)
@@ -1857,11 +1958,10 @@ static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const struct usb_de
 static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 				const struct ixxat_usb_adapter *adapter,
 				u16 ctrl_index,
-				struct ixxat_dev_info *dev_devinfo,
-				struct ixxat_fw_info2 *dev_fwinfo)
+				struct ixxat_usb_device *rootdevice)
 {
 	struct usb_device *udev = interface_to_usbdev(intf);
-	struct ixxat_usb_device *dev;
+	struct ixxat_usb_candevice *dev;
 	struct net_device *netdev;
 	int err;
 	int i;
@@ -1875,12 +1975,15 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 		// This is necessary to correctly handle the loopback option
 		dev->msg_max = IXXAT_USB_MAX_MSGS;
 
+		dev->root_dev = rootdevice;
+
 		dev->udev = udev;
 		dev->netdev = netdev;
 		dev->adapter = adapter;
+		dev->loopback = false;
 		dev->ctrl_index = ctrl_index;
 		dev->state = IXXAT_USB_STATE_CONNECTED;
-
+    
 		spin_lock_init(&dev->dev_lock);
 
 		i = ctrl_index + adapter->ep_offs;
@@ -1914,11 +2017,19 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 		// configure netdev
 		//
 		netdev->netdev_ops = &ixxat_usb_netdev_ops;
+		netdev->ethtool_ops = &ixxat_ethtool_ops;
 		netdev->flags |= IFF_ECHO;
 
 		// link this device into the existing list
 		dev->prev_dev = usb_get_intfdata(intf);
 		usb_set_intfdata(intf, dev);
+
+		struct ixxat_cancaps2 caps;
+		dev->adapter->get_ctrl_caps(dev, &caps);
+
+		u32 ts_clock_divisor = le32_to_cpu(caps.ts_clock_divisor);
+		u32 ts_clock_freq  = le32_to_cpu(caps.ts_clock_freq);
+		ixxat_usb_ts_set_cancaps(&dev->time_ref, ts_clock_divisor, ts_clock_freq);
 
 		SET_NETDEV_DEV(netdev, &intf->dev);
 		err = register_candev(netdev);
@@ -1928,26 +2039,17 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 			goto free_candev;
 		}
 
+		netdev_info(netdev, "timestamp clock resolution  : %u / %u\n", ts_clock_freq, ts_clock_divisor);
+		netdev_info(netdev, "timestamp multiplier/divisor: %llu / %llu\n", dev->time_ref.tick_multiplier, dev->time_ref.tick_divider);
+
 		if (dev->prev_dev)
 			(dev->prev_dev)->next_dev = dev;
 
-		if (dev_devinfo) {
-			memcpy(&dev->dev_info, dev_devinfo, sizeof(dev->dev_info));
-		} else {
-			memset(&dev->dev_info, 0, sizeof(dev->dev_info));
-		}
-
-		if (dev_fwinfo) {
-			memcpy(&dev->fw_info, dev_fwinfo, sizeof(dev->fw_info));
-		} else {
-			memset(&dev->fw_info, 0, sizeof(dev->fw_info));
-		}
-
-		netdev->addr_len = sizeof(dev->dev_info.device_id);
+		netdev->addr_len = sizeof(rootdevice->dev_info.device_id);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0)
 		netdev->dev_addr = dev->dev_info.device_id;
 #else
-		dev_addr_mod(netdev, 0, dev->dev_info.device_id, sizeof(dev->dev_info.device_id));
+		dev_addr_mod(netdev, 0, rootdevice->dev_info.device_id, sizeof(rootdevice->dev_info.device_id));
 #endif
 
 		netdev->dev_id = ctrl_index;
@@ -1960,8 +2062,8 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 		}
 
 		netdev_info(netdev, "%.*s: Connected channel %u (device %.*s)\n",
-				(int)sizeof(dev->dev_info.device_name), dev->dev_info.device_name, ctrl_index,
-				(int)sizeof(dev->dev_info.device_id), dev->dev_info.device_id);
+				(int)sizeof(rootdevice->dev_info.device_name), rootdevice->dev_info.device_name, ctrl_index,
+				(int)sizeof(rootdevice->dev_info.device_id), rootdevice->dev_info.device_id);
 
 
 		err = 0;
@@ -2017,32 +2119,48 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	struct usb_device *udev = interface_to_usbdev(intf);
 	const struct ixxat_usb_adapter *adapter;
 	struct ixxat_dev_caps dev_caps    = {0};
-	struct ixxat_fw_info2 dev_fwinfo  = {0};
-	struct ixxat_dev_info dev_devinfo = {0};
+	struct ixxat_usb_device* dev;
 
-	u16 i;
+	u16 ctrlidx;
 	int err;
+
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	if (!dev) {
+		err = -ENOMEM;
+		goto done;
+	}
+
+	// init device struct
+	memset(&dev->dev_info, 0, sizeof(dev->dev_info));
+	memset(&dev->fw_info, 0, sizeof(dev->fw_info));
+	dev->timeref_valid = 0;
+	dev->kt_host_start = 0;
+	dev->ts_dev_start = 0;
+	dev->head = 0;
+	spin_lock_init(&dev->access_lock);
+
+	usb_set_intfdata(intf, dev);
 
 	printk(IX_DRIVER_TAG "KERNELVERSION: 0x%x (%i)", LINUX_VERSION_CODE, LINUX_VERSION_CODE);
 
-	err = ixxat_usb_get_fw_info(udev, &dev_fwinfo);
+	err = ixxat_usb_get_fw_info(udev, &dev->fw_info);
 	if (err) {
 		dev_err(&udev->dev, "Error %d: Failed to get firmware information. Maybe firmware update needed.\n", err);
 	}
 	else
 	{
-		if (IXXAT_USB_DEV_FWTYPE_BAL != le32_to_cpu(dev_fwinfo.firmware_type))
+		if (IXXAT_USB_DEV_FWTYPE_BAL != le32_to_cpu(dev->fw_info.firmware_type))
 		{
-			dev_err(&udev->dev, "Error %d: Unknown firmware type. Expected %u, got %u. Maybe firmware or driver update needed.\n", err, IXXAT_USB_DEV_FWTYPE_BAL, le32_to_cpu(dev_fwinfo.firmware_type));
+			dev_err(&udev->dev, "Error %d: Unknown firmware type. Expected %u, got %u. Maybe firmware or driver update needed.\n", err, IXXAT_USB_DEV_FWTYPE_BAL, le32_to_cpu(dev->fw_info.firmware_type));
 			err = -EFAULT;
 		}
 
 		if (!err)
 		{
 			// check if FW supports get_fw_info2 command
-			if ( ixxat_usb_has_cl2_firmware(id, &dev_fwinfo) )
+			if ( ixxat_usb_has_cl2_firmware(id, &dev->fw_info) )
 			{
-				err = ixxat_usb_get_fw_info2(udev, &dev_fwinfo);
+				err = ixxat_usb_get_fw_info2(udev, &dev->fw_info);
 				if (err) {
 					dev_err(&udev->dev, "Error %d: Failed to get firmware info2. Maybe firmare update needed.\n", err);
 				}
@@ -2053,7 +2171,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	if (err) {
 		adapter = ixxat_usb_get_adapter(id, NULL);
 	} else {
-		adapter = ixxat_usb_get_adapter(id, &dev_fwinfo);
+		adapter = ixxat_usb_get_adapter(id, &dev->fw_info);
 	}
 
 	if (adapter) {
@@ -2070,7 +2188,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		}
 
 		if (err == NETDEV_TX_OK) {
-			err = ixxat_usb_get_dev_info(udev, &dev_devinfo);
+			err = ixxat_usb_get_dev_info(udev, &dev->dev_info);
 			if (err) {
 				dev_err(&udev->dev,
 					"Error %d: Failed to get device information\n", err);
@@ -2078,18 +2196,18 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		}
 
 		if (err == NETDEV_TX_OK) {
-			printk(IX_DRIVER_TAG "Device type     : %.*s\n", (int)(sizeof(dev_devinfo.device_name)), dev_devinfo.device_name);
-			printk(IX_DRIVER_TAG "Device id       : %.*s\n", (int)(sizeof(dev_devinfo.device_id)), dev_devinfo.device_id);
-			printk(IX_DRIVER_TAG "Device version  : 0x%08X\n", dev_devinfo.device_version);
-			printk(IX_DRIVER_TAG "FPGA version    : 0x%08X\n", dev_devinfo.device_fpga_version);
+			printk(IX_DRIVER_TAG "Device type     : %.*s\n", (int)(sizeof(dev->dev_info.device_name)), dev->dev_info.device_name);
+			printk(IX_DRIVER_TAG "Device id       : %.*s\n", (int)(sizeof(dev->dev_info.device_id)), dev->dev_info.device_id);
+			printk(IX_DRIVER_TAG "Device version  : 0x%08X\n", dev->dev_info.device_version);
+			printk(IX_DRIVER_TAG "FPGA version    : 0x%08X\n", dev->dev_info.device_fpga_version);
 			printk(IX_DRIVER_TAG "Firmware version: %d.%d.%d.%d (type: %d)"
-				, le16_to_cpu(dev_fwinfo.major_version)
-				, le16_to_cpu(dev_fwinfo.minor_version)
-				, le16_to_cpu(dev_fwinfo.build_version)
-				, le16_to_cpu(dev_fwinfo.revision)
-				, le32_to_cpu(dev_fwinfo.firmware_type));
+				, le16_to_cpu(dev->fw_info.major_version)
+				, le16_to_cpu(dev->fw_info.minor_version)
+				, le16_to_cpu(dev->fw_info.build_version)
+				, le16_to_cpu(dev->fw_info.revision)
+				, le32_to_cpu(dev->fw_info.firmware_type));
 
-			if ( ixxat_usb_needs_firmware_update(id, &dev_fwinfo) )
+			if ( ixxat_usb_needs_firmware_update(id, &dev->fw_info) )
 			{
 				printk(IX_DRIVER_TAG "                  Firmware update recommended.\n");
 			}
@@ -2110,12 +2228,12 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 			showdevcaps(dev_caps);
 #endif
 
-			for (i = 0; i < le16_to_cpu(dev_caps.bus_ctrl_count); i++) {
-				u16 dev_bustype = le16_to_cpu(dev_caps.bus_ctrl_types[i]);
+			for (ctrlidx = 0; ctrlidx < le16_to_cpu(dev_caps.bus_ctrl_count); ctrlidx++) {
+				u16 dev_bustype = le16_to_cpu(dev_caps.bus_ctrl_types[ctrlidx]);
 				u8 bustype = IXXAT_USB_BUS_TYPE(dev_bustype);
 
 				if (bustype == IXXAT_USB_BUS_CAN)
-					err = ixxat_usb_create_ctrl(intf, adapter, i, &dev_devinfo, &dev_fwinfo);
+					err = ixxat_usb_create_ctrl(intf, adapter, ctrlidx, dev);
 
 				if (err) {
 					/* deregister already created devices */
@@ -2130,6 +2248,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		err = -ENODEV;
 	}
 
+done:
 	return err;
 }
 
@@ -2141,4 +2260,3 @@ static struct usb_driver ixxat_usb_driver = {
 };
 
 module_usb_driver(ixxat_usb_driver);
-

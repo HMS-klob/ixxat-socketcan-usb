@@ -54,7 +54,8 @@
 #define IXXAT_USB2CAN_EP4_OUT (4 | USB_DIR_OUT)
 #define IXXAT_USB2CAN_EP5_OUT (5 | USB_DIR_OUT)
 
-#define IXXAT_USB_CAN_CMD_INIT 0x325
+#define IXXAT_USB_CAN_CMD_GETCAPS	0x320
+#define IXXAT_USB_CAN_CMD_INIT		0x325
 
 static const struct can_bittiming_const usb2can_bt = {
 	.name = KBUILD_MODNAME, // IXXAT_USB_CTRL_NAME,
@@ -68,13 +69,71 @@ static const struct can_bittiming_const usb2can_bt = {
 	.brp_inc = IXXAT_USB2CAN_BRP_INC,
 };
 
-static int ixxat_usb_init_ctrl(struct ixxat_usb_device *dev)
+static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev, struct ixxat_cancaps2 *caps)
+{
+	const u16 port = dev->ctrl_index;
+	int err;
+	struct ixxat_usb_getcaps_cl1_cmd* cmd;
+	const u32 cmd_size = sizeof(*cmd);
+	const u32 req_size = sizeof(cmd->req);
+	const u32 rcv_size = cmd_size - req_size;
+	const u32 snd_size = req_size + sizeof(cmd->res);
+
+	cmd = kmalloc(cmd_size, GFP_KERNEL);
+	if (!cmd)
+		return -ENOMEM;
+
+	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
+	cmd->req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_GETCAPS);
+	cmd->req.port = cpu_to_le16(port);
+	cmd->res.res_size = cpu_to_le32(rcv_size);
+	memset(&cmd->caps, 0, sizeof(cmd->caps));
+
+	err = ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
+				 rcv_size);
+	if (err)
+		goto fail;
+
+	if (caps)
+	{
+		memset(caps, 0, sizeof(*caps));
+
+		caps->ctrltype = cmd->caps.ctrltype;
+		caps->buscoupling = cmd->caps.buscoupling;
+		caps->features = cmd->caps.features;
+		caps->can_clock_freq = cmd->caps.can_clock_freq;
+	
+		// not available
+		// caps->ixxat_canbtp sdr_range_min
+		// caps->ixxat_canbtp sdr_range_max
+		// caps->ixxat_canbtp fdr_range_min
+		// caps->ixxat_canbtp fdr_range_max
+
+		caps->ts_clock_freq = cmd->caps.can_clock_freq;
+		caps->ts_clock_divisor = cmd->caps.ts_clock_divisor;
+	
+		caps->cms_clock_freq = cmd->caps.can_clock_freq;
+		caps->cms_clock_divisor = cmd->caps.cms_clock_divisor;
+		caps->cms_max_ticks = cmd->caps.cms_max_ticks;
+
+		caps->dtx_clock_freq = cmd->caps.can_clock_freq;
+		caps->dtx_clock_divisor = cmd->caps.dtx_clock_divisor;
+		caps->dtx_max_ticks = cmd->caps.dtx_max_ticks;
+	}
+
+fail:
+	kfree(cmd);
+
+	return err;
+}
+
+
+static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 {
 	// not supported !
 	//#define CAN_CTRLMODE_ONE_SHOT		0x08	//One-Shot mode
 	//#define CAN_CTRLMODE_PRESUME_ACK	0x40	//Ignore missing CAN ACKs
 	//#define CAN_CTRLMODE_CC_LEN8_DLC	0x100	//Classic CAN DLC option
-
 
 	const struct can_bittiming *bt = &dev->can.bittiming;
 	const u16 port = dev->ctrl_index;
@@ -140,5 +199,6 @@ const struct ixxat_usb_adapter usb2can_cl1 = {
 		IXXAT_USB2CAN_EP5_OUT
 	},
 	.ep_offs = 0,
+	.get_ctrl_caps = ixxat_usb_get_ctrl_caps,
 	.init_ctrl = ixxat_usb_init_ctrl
 };
