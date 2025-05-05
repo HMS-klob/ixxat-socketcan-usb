@@ -37,4 +37,9 @@
 	#define netif_napi_add_weight(dev, napi, poll, wait) netif_napi_add(dev, napi, poll, wait)
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0)
+	#define can_dev_dropped_skb(netdev, skb) can_dropped_invalid_skb(netdev, skb))
+#endif
+
+
 #endif

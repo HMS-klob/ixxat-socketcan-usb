@@ -1288,13 +1288,8 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	bool isloopback    = false;
 	bool selfReception = false;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0)
-	if (can_dropped_invalid_skb(netdev, skb))
-		return NETDEV_TX_OK;
-#else
 	if (can_dev_dropped_skb(netdev, skb))
 		return NETDEV_TX_OK;
-#endif 
 
 	// find free URB
 	context = ixxat_usb_get_tx_context(dev);
