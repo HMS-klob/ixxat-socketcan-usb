@@ -37,9 +37,59 @@ MODULE_VERSION("2.0.576-REL");
 #define IX_MIN_MINORFWVERSION_SUPP_V2	0x07
 #define IX_MIN_BUILDFWVERSION_SUPP_V2	0x00
 
-#define IX_MINIMUM_CL2_FWVERSION(fwinfo) ( (le16_to_cpu((fwinfo).major_version) >= IX_MIN_MAJORFWVERSION_SUPP_V2) && \
-				 (le16_to_cpu((fwinfo).minor_version) >= IX_MIN_MINORFWVERSION_SUPP_V2) && \
-				 (le16_to_cpu((fwinfo).build_version) >= IX_MIN_BUILDFWVERSION_SUPP_V2))
+static int ixxat_usb_is_legacy_usb2can(const struct usb_device_id *id)
+{
+	if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor)
+	{
+		switch (id->idProduct) {
+			case USB2CAN_COMPACT_PRODUCT_ID:
+			case USB2CAN_EMBEDDED_PRODUCT_ID:
+			case USB2CAN_PROFESSIONAL_PRODUCT_ID:
+			case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
+			case USB2CAN_PLUGIN_PRODUCT_ID:
+				return 1;
+				break;
+		}
+	}
+	return 0;
+}
+
+static int ixxat_usb_has_cl2_firmware(const struct usb_device_id *id, struct ixxat_fw_info2 *fwinfo)
+{
+	if (ixxat_usb_is_legacy_usb2can(id))
+	{
+		int major = le16_to_cpu(fwinfo->major_version);
+		int minor = le16_to_cpu(fwinfo->minor_version);
+		int build = le16_to_cpu(fwinfo->build_version);
+
+		if (IX_MIN_MAJORFWVERSION_SUPP_V2 > major)
+			return 0;
+		if (IX_MIN_MAJORFWVERSION_SUPP_V2 == major) 
+		{
+			if (IX_MIN_MINORFWVERSION_SUPP_V2 > minor)
+				return 0;
+			if (IX_MIN_MINORFWVERSION_SUPP_V2 == minor)
+			{
+				if (IX_MIN_BUILDFWVERSION_SUPP_V2 > build)
+					return 0;
+			}
+		}
+
+		return 1;
+	}
+	return 0;
+}
+
+static int ixxat_usb_needs_firmware_update(const struct usb_device_id *id, struct ixxat_fw_info2 *fwinfo)
+{
+	// firmware update is recomended for devices with cl1 firmware
+	if (ixxat_usb_is_legacy_usb2can(id))
+	{
+		return !ixxat_usb_has_cl2_firmware(id, fwinfo);
+	}
+	return 0;
+}
+
 
 /* Prefix for debug output - makes for easier grepping */
 #define IX_DRIVER_TAG "ix_usb_can: "
@@ -54,18 +104,22 @@ MODULE_VERSION("2.0.576-REL");
 
 /* Table of devices that work with this driver */
 static const struct usb_device_id ixxat_usb_table[] = {
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_COMPACT_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_EMBEDDED_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_PROFESSIONAL_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_AUTOMOTIVE_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_PLUGIN_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_COMPACT_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_PROFESSIONAL_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_PCIE_MINI_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAR_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, CAN_IDM101_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, CAN_IDM200_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_COMPACT_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_EMBEDDED_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_PROFESSIONAL_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_AUTOMOTIVE_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_PLUGIN_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_FD_COMPACT_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_FD_PROFESSIONAL_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_FD_PCIE_MINI_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAR_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, CAN_IDM101_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, CAN_IDM200_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID,        USB2CAN_FD_PRO_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID,        USB2CAN_FD_STANDARD_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID,        USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID) },
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID,        USB2CAN_FD_PRO_MODULE_PRODUCT_ID) },
 	{ } /* Terminating entry */
 };
 
@@ -937,7 +991,6 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 	int err = 0;
 	u32 pos = 0;
 	u8 *data = urb->transfer_buffer;
-//  u32 len = le32_to_cpu(urb->actual_length);
 	u32 len = urb->actual_length;
 
 	while (pos < len) {
@@ -1014,9 +1067,7 @@ fail:
 		ret = -1;
 	}
 
-
   return ret;
-
 }
 
 static int ixxat_usb_encode_msg(struct ixxat_usb_device *dev,
@@ -1089,26 +1140,27 @@ static int ixxat_evaluate_usb_status (struct net_device *netdev,
 
 	if (!netif_device_present(netdev))
 		err = -1;
-	else
+	else {
 		switch (urb->status) {
-		case 0: /* success */
-			err = 0;
-			break;
-		case -EPROTO:
-		case -EILSEQ:
-		case -ENOENT:
-		case -ECONNRESET:
-		case -ESHUTDOWN:
-			err = -1;
-			break;
-		default:
-			err = -2;
-			break;
+			case 0: /* success */
+				err = 0;
+				break;
+			case -EPROTO:
+			case -EILSEQ:
+			case -ENOENT:
+			case -ECONNRESET:
+			case -ESHUTDOWN:
+				err = -1;
+				break;
+			default:
+				err = -2;
+				break;
 		}
+	}
 
 #ifdef DEBUG
-		if ( urb->status != 0)
-			switch (urb->status) {
+	if ( urb->status != 0) {
+		switch (urb->status) {
 			case 0: /* success */
 				err = 0;
 				break;
@@ -1130,7 +1182,8 @@ static int ixxat_evaluate_usb_status (struct net_device *netdev,
 			default:
 				netdev_err(netdev, "EP: %x, Urb Status /(%d)\n", ep_msg, urb->status);
 				break;
-			}
+		}
+	}
 #endif
 
 	return err;
@@ -1700,72 +1753,102 @@ static const struct net_device_ops ixxat_usb_netdev_ops = {
 	.ndo_change_mtu = can_change_mtu,
 };
 
-static const char *ixxat_usb_dev_name(u16 id)
+static const char *ixxat_usb_dev_name(const struct usb_device_id *id)
 {
-	switch (id) {
-	case USB2CAN_COMPACT_PRODUCT_ID:
-		return "IXXAT USB Compact";
-	case USB2CAN_EMBEDDED_PRODUCT_ID:
-		return "IXXAT USB Embedded";
-	case USB2CAN_PROFESSIONAL_PRODUCT_ID:
-		return "IXXAT USB Professional";
-	case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
-		return "IXXAT USB Automotive";
-	case USB2CAN_PLUGIN_PRODUCT_ID:
-		return "IXXAT USB Plugin";
-	case USB2CAN_FD_COMPACT_PRODUCT_ID:
-		return "IXXAT USB Compact FD";
-	case USB2CAN_FD_PROFESSIONAL_PRODUCT_ID:
-		return "IXXAT USB Professional FD";
-	case USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID:
-		return "IXXAT USB Automotive FD";
-	case USB2CAN_FD_PCIE_MINI_PRODUCT_ID:
-		return "IXXAT USB PCIE Mini FD";
-	case USB2CAR_PRODUCT_ID:
-		return "IXXAT USB-to-Car";
-	case CAN_IDM101_PRODUCT_ID:
-		return "IXXAT IDM 101";
-	case CAN_IDM200_PRODUCT_ID:
-		return "IXXAT IDM 200";
-	default:
-		return "IXXAT USB Unknown";
+	if (IXXAT_USB_VENDOR_ID == id->idVendor)
+	{
+		switch(id->idProduct)
+		{
+			case USB2CAN_FD_PRO_PRODUCT_ID:
+				return "Ixxat USB-to-CAN/FD Pro";
+			case USB2CAN_FD_STANDARD_PRODUCT_ID:
+				return "Ixxat USB-to-CAN/FD Standard";
+			case USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID:
+				return "Ixxat USB-to-CAN/FD Standard Brick";
+			case USB2CAN_FD_PRO_MODULE_PRODUCT_ID:
+				return "Ixxat USB-to-CAN/FD Pro Module";
+		}
 	}
+	else if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor)
+	{
+		switch (id->idProduct) {
+			case USB2CAN_COMPACT_PRODUCT_ID:
+				return "IXXAT USB Compact";
+			case USB2CAN_EMBEDDED_PRODUCT_ID:
+				return "IXXAT USB Embedded";
+			case USB2CAN_PROFESSIONAL_PRODUCT_ID:
+				return "IXXAT USB Professional";
+			case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
+				return "IXXAT USB Automotive";
+			case USB2CAN_PLUGIN_PRODUCT_ID:
+				return "IXXAT USB Plugin";
+			case USB2CAN_FD_COMPACT_PRODUCT_ID:
+				return "IXXAT USB Compact FD";
+			case USB2CAN_FD_PROFESSIONAL_PRODUCT_ID:
+				return "IXXAT USB Professional FD";
+			case USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID:
+				return "IXXAT USB Automotive FD";
+			case USB2CAN_FD_PCIE_MINI_PRODUCT_ID:
+				return "IXXAT USB PCIE Mini FD";
+			case USB2CAR_PRODUCT_ID:
+				return "IXXAT USB-to-Car";
+			case CAN_IDM101_PRODUCT_ID:
+				return "IXXAT IDM 101";
+			case CAN_IDM200_PRODUCT_ID:
+				return "IXXAT IDM 200";
+		}
+	}
+	return "IXXAT USB Unknown";
 }
 
-static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const u16 id, struct ixxat_fw_info2 *dev_fwinfo)
+static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const struct usb_device_id *id, struct ixxat_fw_info2 *dev_fwinfo)
 {
 	const struct ixxat_usb_adapter *pAdapter = NULL;
 
-	switch (id) {
-	case USB2CAN_COMPACT_PRODUCT_ID:
-	case USB2CAN_EMBEDDED_PRODUCT_ID:
-	case USB2CAN_PROFESSIONAL_PRODUCT_ID:
-	case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
-	case USB2CAN_PLUGIN_PRODUCT_ID:
-		pAdapter = &usb2can_cl1;
-
-		if (dev_fwinfo) {
-			if ( IX_MINIMUM_CL2_FWVERSION(*dev_fwinfo) ) {
-				pAdapter = &usb2can_v2;
-			}
+	if (IXXAT_USB_VENDOR_ID == id->idVendor)
+	{
+		switch(id->idProduct)
+		{
+			case USB2CAN_FD_PRO_PRODUCT_ID:
+			case USB2CAN_FD_STANDARD_PRODUCT_ID:
+			case USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID:
+			case USB2CAN_FD_PRO_MODULE_PRODUCT_ID:
+				pAdapter = &usb2can_fd;
 		}
-		break;
+	}
+	else if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor)
+	{
+		switch (id->idProduct) {
+			case USB2CAN_COMPACT_PRODUCT_ID:
+			case USB2CAN_EMBEDDED_PRODUCT_ID:
+			case USB2CAN_PROFESSIONAL_PRODUCT_ID:
+			case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
+			case USB2CAN_PLUGIN_PRODUCT_ID:
+				pAdapter = &usb2can_cl1;
 
-	case USB2CAN_FD_COMPACT_PRODUCT_ID:
-	case USB2CAN_FD_PROFESSIONAL_PRODUCT_ID:
-	case USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID:
-	case USB2CAN_FD_PCIE_MINI_PRODUCT_ID:
-	case USB2CAR_PRODUCT_ID:
-		pAdapter = &usb2can_fd;
-		break;
+				if (dev_fwinfo) {
+					if (ixxat_usb_has_cl2_firmware(id, dev_fwinfo)) {
+					pAdapter = &usb2can_v2;
+				}
+			}
+			break;
 
-	case CAN_IDM101_PRODUCT_ID:
-	case CAN_IDM200_PRODUCT_ID:
-		pAdapter = &can_fd_idm;
-		break;
+			case USB2CAN_FD_COMPACT_PRODUCT_ID:
+			case USB2CAN_FD_PROFESSIONAL_PRODUCT_ID:
+			case USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID:
+			case USB2CAN_FD_PCIE_MINI_PRODUCT_ID:
+			case USB2CAR_PRODUCT_ID:
+				pAdapter = &usb2can_fd;
+				break;
 
-	default:
-		pAdapter = NULL;
+			case CAN_IDM101_PRODUCT_ID:
+			case CAN_IDM200_PRODUCT_ID:
+				pAdapter = &can_fd_idm;
+				break;
+
+			default:
+				pAdapter = NULL;
+		}
 	}
 
 	return pAdapter;
@@ -1957,7 +2040,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		if (!err)
 		{
 			// check if FW supports get_fw_info2 command
-			if ( IX_MINIMUM_CL2_FWVERSION(dev_fwinfo) )
+			if ( ixxat_usb_has_cl2_firmware(id, &dev_fwinfo) )
 			{
 				err = ixxat_usb_get_fw_info2(udev, &dev_fwinfo);
 				if (err) {
@@ -1968,13 +2051,13 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	}
 
 	if (err) {
-		adapter = ixxat_usb_get_adapter(id->idProduct, NULL);
+		adapter = ixxat_usb_get_adapter(id, NULL);
 	} else {
-		adapter = ixxat_usb_get_adapter(id->idProduct, &dev_fwinfo);
+		adapter = ixxat_usb_get_adapter(id, &dev_fwinfo);
 	}
 
 	if (adapter) {
-		dev_info(&udev->dev, "%s\n", ixxat_usb_dev_name(id->idProduct));
+		dev_info(&udev->dev, "%s\n", ixxat_usb_dev_name(id));
 
 		err = ixxat_usb_check_channel(adapter, intf->altsetting);
 
@@ -2006,7 +2089,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 				, le16_to_cpu(dev_fwinfo.revision)
 				, le32_to_cpu(dev_fwinfo.firmware_type));
 
-			if (! IX_MINIMUM_CL2_FWVERSION(dev_fwinfo) )
+			if ( ixxat_usb_needs_firmware_update(id, &dev_fwinfo) )
 			{
 				printk(IX_DRIVER_TAG "                  Firmware update recommended.\n");
 			}
