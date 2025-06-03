@@ -486,8 +486,8 @@ struct ixxat_usb_candevice {
 	/* This lock prevents a race condition between xmit and receive. */
 	spinlock_t dev_lock;
 
-	/* pointer to usb device instance */
-	struct ixxat_usb_device *root_dev;
+	/* pointer to shared usb device data  */
+	struct ixxat_usb_device_data *shareddata;
 
 	/* used to link can devices together */
 	struct ixxat_usb_candevice *prev_dev;
@@ -499,13 +499,13 @@ struct ixxat_usb_candevice {
 };
 
 /**
- * struct ixxat_usb_device IXXAT USB device data
+ * struct ixxat_usb_device_data IXXAT USB device data
  * @timeref_valid: Time reference valid
  * @kt_host_start: Host start time
  * @ts_dev_start: Device start time
  * @head: Head of the list of IXXAT USB CAN devices for this device
  */
-struct ixxat_usb_device {
+struct ixxat_usb_device_data {
 
 	/* used to lock write access to the device members */
 	spinlock_t access_lock;
@@ -518,8 +518,6 @@ struct ixxat_usb_device {
 	bool    timeref_valid;
 	ktime_t kt_host_start;
 	u32     ts_dev_start;
-
-	struct ixxat_usb_candevice *head;
 };
 
 /**
