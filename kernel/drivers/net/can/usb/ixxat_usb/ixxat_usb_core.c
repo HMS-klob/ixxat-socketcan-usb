@@ -1576,7 +1576,7 @@ prepare_urb:
 }
 
 #define IX_LOOP_DIS		0x00	/* disable self reception */
-#define IX_LOOP_SELF_RX	0x01	/* enable self reception */
+#define IX_LOOP_SELF_RX		0x01	/* enable self reception */
 #define IX_LOOPBACK		0x02	/* pass on message to application */
 
 /* determineLoopMode - determine the loop mode for message transmission
