@@ -249,10 +249,7 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	if (!cmd)
 		return -ENOMEM;
 
-	if (dev->can.ctrlmode & CAN_CTRLMODE_LOOPBACK)
-		dev->loopback = true;
-	else
-		dev->loopback = false;
+	dev->loopback = ((dev->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) > 0);
 
 	if (dev->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
 		btmode = IXXAT_USB_BTMODE_TSM;

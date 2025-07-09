@@ -440,7 +440,7 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 		spin_lock_irqsave(&devdata->access_lock, flags);
 
 		if (!devdata->timeref_valid) {
-		devdata->timeref_valid = true;
+			devdata->timeref_valid = true;
 #if (IX_SYNCTOHOST_NONE == IX_SYNCTOHOSTCLOCK)
 			devdata->kt_host_start = 0;
 #elif (IX_SYNCTOHOST_BEFORESTART == IX_SYNCTOHOSTCLOCK)
