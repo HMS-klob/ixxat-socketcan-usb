@@ -70,7 +70,8 @@ static int ixxat_usb_is_legacy_usb2can(const struct usb_device_id *id)
  *
  * Returns 1 if the device has CL2 firmware, 0 otherwise.
  */
-static int ixxat_usb_has_cl2_firmware(const struct usb_device_id *id, struct ixxat_fw_info2 *fwinfo)
+static int ixxat_usb_has_cl2_firmware(const struct usb_device_id *id,
+				      struct ixxat_fw_info2 *fwinfo)
 {
 	if (ixxat_usb_is_legacy_usb2can(id)) {
 		int major = le16_to_cpu(fwinfo->major_version);
@@ -99,7 +100,8 @@ static int ixxat_usb_has_cl2_firmware(const struct usb_device_id *id, struct ixx
  *
  * Returns 1 if firmware update is recommended, 0 otherwise.
  */
-static int ixxat_usb_needs_firmware_update(const struct usb_device_id *id, struct ixxat_fw_info2 *fwinfo)
+static int ixxat_usb_needs_firmware_update(const struct usb_device_id *id,
+					   struct ixxat_fw_info2 *fwinfo)
 {
 	/* firmware update is recomended for devices with cl1 firmware */
 	if (ixxat_usb_is_legacy_usb2can(id)) {
@@ -210,7 +212,7 @@ static struct ixxat_tx_urb_context *ixxat_usb_get_tx_context(struct ixxat_usb_ca
  * IXXAT_USB_FREE_ENTRY
  */
 static void ixxat_usb_rel_tx_context(struct ixxat_usb_candevice *dev,
-		struct ixxat_tx_urb_context *context)
+				     struct ixxat_tx_urb_context *context)
 {
 	unsigned long flags;
 	spin_lock_irqsave(&dev->dev_lock, flags);
@@ -392,7 +394,9 @@ const u64 TICK_FACTOR = 1000000000;
  * This function calculates the tick multiplier and divider based on the
  * timestamp clock divisor and frequency.
  */
-static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref, u32 ts_clock_divisor, u32 ts_clock_freq)
+static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
+				     u32 ts_clock_divisor,
+				     u32 ts_clock_freq)
 {
 	/* calculate tick multiplier and divider
 	   divide by clock frequency -> resolution [1s]
@@ -423,7 +427,10 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref, u32 ts_cloc
  * timestamps and device start timestamp. It also updates the time reference
  * structure in the shared data of the device.
  */
-static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev, ktime_t t_A, ktime_t t_B, u32 ts_dev_start)
+static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
+				   ktime_t t_A,
+				   ktime_t t_B,
+				   u32 ts_dev_start)
 {
 	dev_info(&dev->udev->dev,"ixxat_usb_ts_set_start A: %lld B: %lld devtick: %u\n", t_A, t_B, ts_dev_start);
 
@@ -551,7 +558,7 @@ fail:
  * Returns 0 on success, negative error code on failure.
  */
 static int ixxat_usb_get_fw_info(struct usb_device *dev,
-				  struct ixxat_fw_info2 *dev_info)
+				 struct ixxat_fw_info2 *dev_info)
 {
 	int err;
 	struct ixxat_usb_fwinfo_cmd *cmd;
@@ -888,9 +895,9 @@ static int ixxat_usb_get_berr_counter(const struct net_device *netdev,
  * It fills the can_id, len, flags, and data fields of the canfd_frame.
  */
 static void ixxat_convert(const struct ixxat_usb_adapter *pAdapter,
-			struct canfd_frame *cf,
-			struct ixxat_can_msg *rx,
-			u8 datalen)
+			  struct canfd_frame *cf,
+			  struct ixxat_can_msg *rx,
+			  u8 datalen)
 {
 	const u32 ixx_flags = le32_to_cpu(rx->base.flags);
 	u8 flags = 0;
@@ -931,7 +938,8 @@ static void ixxat_convert(const struct ixxat_usb_adapter *pAdapter,
  *
  * Returns 0 on success.
  */
-static int ixxat_usb_netif_rx(struct ixxat_time_ref* timeref, struct sk_buff *skb, __le32 ts_tick)
+static int ixxat_usb_netif_rx(struct ixxat_time_ref* timeref,
+			      struct sk_buff *skb, __le32 ts_tick)
 {
 	u64 ts_ns;
 	struct skb_shared_hwtstamps *hwts = skb_hwtstamps(skb);
@@ -1333,7 +1341,10 @@ fail:
  * the IXXAT USB CAN message format.
  */
 static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
-				struct sk_buff *skb, u8 *obuf, u8 selfReception, u32 uMsgIdx)
+				struct sk_buff *skb,
+				u8 *obuf,
+				u8 selfReception,
+				u32 uMsgIdx)
 {
 	int size;
 	struct canfd_frame *cf = (struct canfd_frame *)skb->data;
@@ -1399,8 +1410,8 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
  * and returns an error code based on the status.
  */
 static int ixxat_evaluate_usb_status (struct net_device *netdev,
-		struct urb *urb,
-		u8 ep_msg)
+				      struct urb *urb,
+				      u8 ep_msg)
 {
 	/* 0: success, -1: error -> return, -2: error -> retry */
 	int err = 0;
@@ -1852,7 +1863,8 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
  * and FPGA version. They are used to expose device information through sysfs.
  */
 static ssize_t show_serial(struct device *pdev,
-		struct device_attribute *attr, char *buf)
+			   struct device_attribute *attr,
+			   char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
@@ -1866,7 +1878,8 @@ static ssize_t show_serial(struct device *pdev,
 static DEVICE_ATTR(serial, S_IRUGO, show_serial, NULL);
 
 static ssize_t show_firmware_version(struct device *pdev,
-		struct device_attribute *attr, char *buf)
+				     struct device_attribute *attr,
+				     char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
@@ -1884,7 +1897,8 @@ static ssize_t show_firmware_version(struct device *pdev,
 static DEVICE_ATTR(firmware_version, S_IRUGO, show_firmware_version, NULL);
 
 static ssize_t show_hardware(struct device *pdev,
-		struct device_attribute *attr, char *buf)
+			     struct device_attribute *attr,
+			     char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
@@ -1897,7 +1911,8 @@ static ssize_t show_hardware(struct device *pdev,
 static DEVICE_ATTR(hardware, S_IRUGO, show_hardware, NULL);
 
 static ssize_t show_hardware_version(struct device *pdev,
-		struct device_attribute *attr, char *buf)
+				     struct device_attribute *attr,
+				     char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
@@ -1910,7 +1925,8 @@ static ssize_t show_hardware_version(struct device *pdev,
 static DEVICE_ATTR(hardware_version, S_IRUGO, show_hardware_version, NULL);
 
 static ssize_t show_fpga_version(struct device *pdev,
-		struct device_attribute *attr, char *buf)
+				 struct device_attribute *attr,
+				 char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
@@ -2174,7 +2190,8 @@ static const char *ixxat_usb_dev_name(const struct usb_device_id *id)
  *
  * Returns a pointer to the IXXAT USB adapter structure
  */
-static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const struct usb_device_id *id, struct ixxat_fw_info2 *dev_fwinfo)
+static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const struct usb_device_id *id,
+							     struct ixxat_fw_info2 *dev_fwinfo)
 {
 	const struct ixxat_usb_adapter *pAdapter = NULL;
 
@@ -2232,9 +2249,9 @@ static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const struct usb_de
  * This function allocates and initializes a CAN controller for the IXXAT USB device.
  */
 static int ixxat_usb_create_ctrl(struct usb_interface *intf,
-				const struct ixxat_usb_adapter *adapter,
-				u16 ctrl_index,
-				struct ixxat_usb_device_data *devdata)
+				 const struct ixxat_usb_adapter *adapter,
+				 u16 ctrl_index,
+				 struct ixxat_usb_device_data *devdata)
 {
 	struct usb_device *udev = interface_to_usbdev(intf);
 	struct ixxat_usb_candevice *dev;
@@ -2363,7 +2380,7 @@ free_candev:
  * Returns NETDEV_TX_OK on success, or an error code on failure.
  */
 static int ixxat_usb_check_channel(const struct ixxat_usb_adapter *adapter,
-				const struct usb_host_interface *host_intf)
+				   const struct usb_host_interface *host_intf)
 {
 	u16 i;
 	int err = NETDEV_TX_OK;

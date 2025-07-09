@@ -75,7 +75,8 @@ static const struct can_bittiming_const usb2can_bt = {
  *
  * Returns 0 on success, negative error code on failure.
  */
-static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev, struct ixxat_cancaps2 *caps)
+static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
+				   struct ixxat_cancaps2 *caps)
 {
 	const u16 port = dev->ctrl_index;
 	int err;

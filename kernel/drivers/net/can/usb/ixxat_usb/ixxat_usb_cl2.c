@@ -192,7 +192,8 @@ static const struct can_bittiming_const canidm_btd = {
 	.brp_inc = IXXAT_CANIDM_BRP_INC_DATA
 };
 
-static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev, struct ixxat_cancaps2* caps)
+static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
+				   struct ixxat_cancaps2* caps)
 {
 	const u16 port = dev->ctrl_index;
 	int err;
