@@ -100,8 +100,7 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev, struct ixxat
 	if (err)
 		goto fail;
 
-	if (caps)
-	{
+	if (caps) {
 		memset(caps, 0, sizeof(*caps));
 
 		caps->ctrltype = cmd->caps.ctrltype;
@@ -163,11 +162,10 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	if (!cmd)
 		return -ENOMEM;
 
-	if (dev->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
+	if (dev->can.ctrlmode & CAN_CTRLMODE_LOOPBACK)
 		dev->loopback = true;
-	} else {
+	else
 		dev->loopback = false;
-	}
 
 	if (dev->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
 		btr1 |= IXXAT_USB_BTMODE_TSM_CL1;

@@ -50,8 +50,7 @@ MODULE_VERSION("2.0.576-REL");
  */
 static int ixxat_usb_is_legacy_usb2can(const struct usb_device_id *id)
 {
-	if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor)
-	{
+	if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor)	{
 		switch (id->idProduct) {
 			case USB2CAN_COMPACT_PRODUCT_ID:
 			case USB2CAN_EMBEDDED_PRODUCT_ID:
@@ -73,20 +72,17 @@ static int ixxat_usb_is_legacy_usb2can(const struct usb_device_id *id)
  */
 static int ixxat_usb_has_cl2_firmware(const struct usb_device_id *id, struct ixxat_fw_info2 *fwinfo)
 {
-	if (ixxat_usb_is_legacy_usb2can(id))
-	{
+	if (ixxat_usb_is_legacy_usb2can(id)) {
 		int major = le16_to_cpu(fwinfo->major_version);
 		int minor = le16_to_cpu(fwinfo->minor_version);
 		int build = le16_to_cpu(fwinfo->build_version);
 
 		if (IX_MIN_MAJORFWVERSION_SUPP_V2 > major)
 			return 0;
-		if (IX_MIN_MAJORFWVERSION_SUPP_V2 == major)
-		{
+		if (IX_MIN_MAJORFWVERSION_SUPP_V2 == major) {
 			if (IX_MIN_MINORFWVERSION_SUPP_V2 > minor)
 				return 0;
-			if (IX_MIN_MINORFWVERSION_SUPP_V2 == minor)
-			{
+			if (IX_MIN_MINORFWVERSION_SUPP_V2 == minor) {
 				if (IX_MIN_BUILDFWVERSION_SUPP_V2 > build)
 					return 0;
 			}
@@ -106,8 +102,7 @@ static int ixxat_usb_has_cl2_firmware(const struct usb_device_id *id, struct ixx
 static int ixxat_usb_needs_firmware_update(const struct usb_device_id *id, struct ixxat_fw_info2 *fwinfo)
 {
 	/* firmware update is recomended for devices with cl1 firmware */
-	if (ixxat_usb_is_legacy_usb2can(id))
-	{
+	if (ixxat_usb_is_legacy_usb2can(id)) {
 		return !ixxat_usb_has_cl2_firmware(id, fwinfo);
 	}
 	return 0;
@@ -166,8 +161,7 @@ MODULE_DEVICE_TABLE(usb, ixxat_usb_table);
 		int i =0;
 		u16 len = (length > 25)? 25 : length;
 
-		for ( i =0; i< len; i++)
-		{
+		for ( i =0; i< len; i++) {
 			sprintf (szBuf, "%02x ", pbdata[i]);
 			strcat (caDump, szBuf);
 		}
@@ -371,8 +365,7 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 
 	/* firmware responses may be smaller then requested response size
 	   but should be not smaller than the response header size */
-	if (pos < sizeof(struct ixxat_usb_dal_res))
-	{
+	if (pos < sizeof(struct ixxat_usb_dal_res)) {
 		dev_err(&dev->dev, "Command answer size failure: got %u expected %u\n", pos, res_size);
 		ret = -EBADMSG;
 	}
@@ -408,15 +401,13 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref, u32 ts_cloc
 	timeref->tick_divider = ts_clock_freq;
 
 	/* remove not significant zero bits from multiplier and divider */
-	while (((timeref->tick_multiplier & 0x1) == 0) && ((timeref->tick_divider & 0x1) == 0))
-	{
+	while (((timeref->tick_multiplier & 0x1) == 0) && ((timeref->tick_divider & 0x1) == 0))	{
 		timeref->tick_multiplier >>= 1;
 		timeref->tick_divider >>= 1;
 	}
 
 	/* check if multiplier is divisible by divider without remainder */
-	if (0 == (timeref->tick_multiplier % timeref->tick_divider))
-	{
+	if (0 == (timeref->tick_multiplier % timeref->tick_divider)) {
 		timeref->tick_multiplier /= timeref->tick_divider;
 		timeref->tick_divider     = 1;
 	}
@@ -437,8 +428,7 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev, ktime_t t_A,
 	dev_info(&dev->udev->dev,"ixxat_usb_ts_set_start A: %lld B: %lld devtick: %u\n", t_A, t_B, ts_dev_start);
 
 	struct ixxat_usb_device_data* devdata = dev->shareddata;
-	if (devdata)
-	{
+	if (devdata) {
 		unsigned long flags;
 		spin_lock_irqsave(&devdata->access_lock, flags);
 
@@ -1029,7 +1019,6 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 				}
 			}
 			netif_wake_queue(netdev);
-
 		} else {
 			if (ixx_flags & IXXAT_USB_FDMSG_FLAGS_EDL)
 				skb = alloc_canfd_skb(netdev, &cf);
@@ -1039,7 +1028,6 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
  			if (!skb) {
 				err = -ENOMEM;
 			} else {
-
 				ixxat_convert(dev->adapter, cf, rx, datalen);
 
 				netdev->stats.rx_packets++;
@@ -1360,9 +1348,8 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 	if (cf->can_id & CAN_EFF_FLAG) {
 		flags |= IXXAT_USB_MSG_FLAGS_EXT;
 		msg_id = cf->can_id & CAN_EFF_MASK;
-	} else {
+	} else
 		msg_id = cf->can_id & CAN_SFF_MASK;
-	}
 
 	if (can_is_canfd_skb(skb)) {
 		flags |= IXXAT_USB_FDMSG_FLAGS_EDL;
@@ -1371,9 +1358,8 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 			flags |= IXXAT_USB_FDMSG_FLAGS_FDR;
 
 		flags |= IXXAT_USB_ENCODE_DLC(can_fd_len2dlc(cf->len));
-	} else {
+	} else
 		flags |= IXXAT_USB_ENCODE_DLC(cf->len);
-	}
 
 	msg_base->size = sizeof(*msg_base) + cf->len - 1;
 	if (dev->adapter == &usb2can_cl1) {
@@ -1691,12 +1677,10 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 
 		size = ixxat_usb_encode_msg(dev, skb, obuf, selfReception, MsgIdx + IXXAT_USB_MSG_IDX_OFFSET);
 
-		if (isloopback) {
+		if (isloopback)
 			can_put_echo_skb(skb, netdev, MsgIdx, 0);
-		}
-		else {
+		else
 			dev_kfree_skb(skb);
-		}
 
 #ifdef DEBUG
 		showdump(obuf, size);
@@ -1965,8 +1949,7 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 
 	ix_trace_printk (">> ixxat_usb_disconnect\n");
 
-	if (dev)
-	{
+	if (dev) {
 		struct ixxat_usb_device_data *devdata = dev->shareddata;
 
 		/* unregister the given device and all previous devices */
@@ -2106,8 +2089,7 @@ static int ixxat_usb_stop(struct net_device *netdev)
 
 	if (dev->state & IXXAT_USB_STATE_STARTED) {
 		err = ixxat_usb_stop_ctrl(dev);
-		if (err)
-		{
+		if (err) {
 			/* netdev_warn(netdev, "Error %d: Cannot stop device\n",err); */
 			ix_trace_printk ("Error %d: Cannot stop device\n",err);
 		}
@@ -2142,10 +2124,8 @@ static const struct ethtool_ops ixxat_ethtool_ops = {
  */
 static const char *ixxat_usb_dev_name(const struct usb_device_id *id)
 {
-	if (IXXAT_USB_VENDOR_ID == id->idVendor)
-	{
-		switch (id->idProduct)
-		{
+	if (IXXAT_USB_VENDOR_ID == id->idVendor) {
+		switch (id->idProduct) {
 			case USB2CAN_FD_PRO_PRODUCT_ID:
 				return "Ixxat USB-to-CAN/FD Pro";
 		  case USB2CAN_FD_STANDARD_PRODUCT_ID:
@@ -2155,9 +2135,7 @@ static const char *ixxat_usb_dev_name(const struct usb_device_id *id)
 			case USB2CAN_FD_PRO_MODULE_PRODUCT_ID:
 				return "Ixxat USB-to-CAN/FD Pro Module";
 		}
-	}
-	else if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor)
-	{
+	} else if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor) {
 		switch (id->idProduct) {
 			case USB2CAN_COMPACT_PRODUCT_ID:
 				return "IXXAT USB Compact";
@@ -2200,10 +2178,8 @@ static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const struct usb_de
 {
 	const struct ixxat_usb_adapter *pAdapter = NULL;
 
-	if (IXXAT_USB_VENDOR_ID == id->idVendor)
-	{
-		switch(id->idProduct)
-		{
+	if (IXXAT_USB_VENDOR_ID == id->idVendor) {
+		switch(id->idProduct) {
 			case USB2CAN_FD_PRO_PRODUCT_ID:
 			case USB2CAN_FD_STANDARD_PRODUCT_ID:
 			case USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID:
@@ -2211,8 +2187,7 @@ static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const struct usb_de
 			pAdapter = &usb2can_fd;
 		}
 	}
-	else if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor)
-	{
+	else if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor) {
 		switch (id->idProduct) {
 			case USB2CAN_COMPACT_PRODUCT_ID:
 			case USB2CAN_EMBEDDED_PRODUCT_ID:
@@ -2455,22 +2430,17 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	printk(IX_DRIVER_TAG "KERNELVERSION: 0x%x (%i)", LINUX_VERSION_CODE, LINUX_VERSION_CODE);
 
 	err = ixxat_usb_get_fw_info(udev, &devdata->fw_info);
-	if (err) {
+	if (err)
 		dev_err(&udev->dev, "Error %d: Failed to get firmware information. Maybe firmware update needed.\n", err);
-	}
-	else
-	{
-		if (IXXAT_USB_DEV_FWTYPE_BAL != le32_to_cpu(devdata->fw_info.firmware_type))
-		{
+	else {
+		if (IXXAT_USB_DEV_FWTYPE_BAL != le32_to_cpu(devdata->fw_info.firmware_type)) {
 			dev_err(&udev->dev, "Error %d: Unknown firmware type. Expected %u, got %u. Maybe firmware or driver update needed.\n", err, IXXAT_USB_DEV_FWTYPE_BAL, le32_to_cpu(devdata->fw_info.firmware_type));
 			err = -EFAULT;
 		}
 
-		if (!err)
-		{
+		if (!err) {
 			/* check if FW supports get_fw_info2 command */
-			if ( ixxat_usb_has_cl2_firmware(id, &devdata->fw_info) )
-			{
+			if ( ixxat_usb_has_cl2_firmware(id, &devdata->fw_info) ) {
 				err = ixxat_usb_get_fw_info2(udev, &devdata->fw_info);
 				if (err) {
 					dev_err(&udev->dev, "Error %d: Failed to get firmware info2. Maybe firmare update needed.\n", err);
@@ -2479,11 +2449,10 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		}
 	}
 
-	if (err) {
+	if (err)
 		adapter = ixxat_usb_get_adapter(id, NULL);
-	} else {
+	else
 		adapter = ixxat_usb_get_adapter(id, &devdata->fw_info);
-	}
 
 	if (adapter) {
 		dev_info(&udev->dev, "%s\n", ixxat_usb_dev_name(id));
@@ -2518,8 +2487,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 				, le16_to_cpu(devdata->fw_info.revision)
 				, le32_to_cpu(devdata->fw_info.firmware_type));
 
-			if ( ixxat_usb_needs_firmware_update(id, &devdata->fw_info) )
-			{
+			if (ixxat_usb_needs_firmware_update(id, &devdata->fw_info)) {
 				printk(IX_DRIVER_TAG "                  Firmware update recommended.\n");
 			}
 		}
