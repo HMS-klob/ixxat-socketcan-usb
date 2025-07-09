@@ -19,26 +19,26 @@
 #define IXXAT_LNX_KERNEL_ADAPT_H
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
-	#define can_fd_dlc2len(dlc)		can_dlc2len(get_canfd_dlc(dlc))
-	#define can_fd_len2dlc(dlc)		can_len2dlc(dlc)
-	#define can_cc_dlc2len(dlc)		get_can_dlc(dlc)
+#define can_fd_dlc2len(dlc)		can_dlc2len(get_canfd_dlc(dlc))
+#define can_fd_len2dlc(dlc)		can_len2dlc(dlc)
+#define can_cc_dlc2len(dlc)		get_can_dlc(dlc)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 12, 0)
-	#define can_get_echo_skb(dev,idx,pLen)    can_get_echo_skb(dev,idx)
-	#define can_put_echo_skb(skb,dev,idx,len) can_put_echo_skb(skb,dev,idx)
+#define can_get_echo_skb(dev,idx,pLen)    can_get_echo_skb(dev,idx)
+#define can_put_echo_skb(skb,dev,idx,len) can_put_echo_skb(skb,dev,idx)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 13, 0)
-	#define can_free_echo_skb(dev,idx,pLen)   can_free_echo_skb(dev,idx)
+#define can_free_echo_skb(dev,idx,pLen)   can_free_echo_skb(dev,idx)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 19, 0)
-	#define netif_napi_add_weight(dev, napi, poll, wait) netif_napi_add(dev, napi, poll, wait)
+#define netif_napi_add_weight(dev, napi, poll, wait) netif_napi_add(dev, napi, poll, wait)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0)
-	#define can_dev_dropped_skb(netdev, skb) can_dropped_invalid_skb(netdev, skb))
+#define can_dev_dropped_skb(netdev, skb) can_dropped_invalid_skb(netdev, skb))
 #endif
 
 

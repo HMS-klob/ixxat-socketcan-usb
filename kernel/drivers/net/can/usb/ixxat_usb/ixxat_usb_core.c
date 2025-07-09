@@ -103,9 +103,9 @@ static int ixxat_usb_needs_firmware_update(const struct usb_device_id *id, struc
 
 
 #if defined(CONFIG_TRACING) && defined(DEBUG)
-	#define ix_trace_printk(...) trace_printk(__VA_ARGS__)
+#define ix_trace_printk(...) trace_printk(__VA_ARGS__)
 #else
-	#define ix_trace_printk(...)
+#define ix_trace_printk(...)
 #endif
 
 
