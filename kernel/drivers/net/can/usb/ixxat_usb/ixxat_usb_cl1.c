@@ -1,5 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
-
+/* SPDX-License-Identifier: GPL-2.0 */
 /* CAN driver adapter for IXXAT USB-to-CAN CL1
  *
  * Copyright (C) 2018-2024 HMS Industrial Networks <socketcan@hms-networks.de>
@@ -58,7 +57,7 @@
 #define IXXAT_USB_CAN_CMD_INIT		0x325
 
 static const struct can_bittiming_const usb2can_bt = {
-	.name = KBUILD_MODNAME, // IXXAT_USB_CTRL_NAME,
+	.name = KBUILD_MODNAME,
 	.tseg1_min = IXXAT_USB2CAN_TSEG1_MIN,
 	.tseg1_max = IXXAT_USB2CAN_TSEG1_MAX,
 	.tseg2_min = IXXAT_USB2CAN_TSEG2_MIN,
@@ -69,6 +68,13 @@ static const struct can_bittiming_const usb2can_bt = {
 	.brp_inc = IXXAT_USB2CAN_BRP_INC,
 };
 
+/* ixxat_usb_get_ctrl_caps - get controller capabilities
+ * @dev: pointer to the IXXAT USB CAN device
+ * @caps: pointer to the structure to store capabilities (can be NULL)
+ * This function retrieves the capabilities of the IXXAT USB CAN controller.
+ *
+ * Returns 0 on success, negative error code on failure.
+ */
 static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev, struct ixxat_cancaps2 *caps)
 {
 	const u16 port = dev->ctrl_index;
@@ -102,16 +108,17 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev, struct ixxat
 		caps->buscoupling = cmd->caps.buscoupling;
 		caps->features = cmd->caps.features;
 		caps->can_clock_freq = cmd->caps.can_clock_freq;
-	
-		// not available
-		// caps->ixxat_canbtp sdr_range_min
-		// caps->ixxat_canbtp sdr_range_max
-		// caps->ixxat_canbtp fdr_range_min
-		// caps->ixxat_canbtp fdr_range_max
+
+		/* these are not available in CL1
+		   caps->sdr_range_min
+		   caps->sdr_range_max
+		   caps->fdr_range_min
+		   caps->fdr_range_max
+		*/
 
 		caps->ts_clock_freq = cmd->caps.can_clock_freq;
 		caps->ts_clock_divisor = cmd->caps.ts_clock_divisor;
-	
+
 		caps->cms_clock_freq = cmd->caps.can_clock_freq;
 		caps->cms_clock_divisor = cmd->caps.cms_clock_divisor;
 		caps->cms_max_ticks = cmd->caps.cms_max_ticks;
@@ -127,14 +134,20 @@ fail:
 	return err;
 }
 
-
+/* ixxat_usb_init_ctrl - initialize the controller
+ * @dev: pointer to the IXXAT USB CAN device
+ * This function initializes the IXXAT USB CAN controller with the specified
+ * bittiming parameters and control modes.
+ *
+ * Returns 0 on success, negative error code on failure.
+ */
 static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 {
-	// not supported !
-	//#define CAN_CTRLMODE_ONE_SHOT		0x08	//One-Shot mode
-	//#define CAN_CTRLMODE_PRESUME_ACK	0x40	//Ignore missing CAN ACKs
-	//#define CAN_CTRLMODE_CC_LEN8_DLC	0x100	//Classic CAN DLC option
-
+	/* not supported:
+	   #define CAN_CTRLMODE_ONE_SHOT		0x08
+	   #define CAN_CTRLMODE_PRESUME_ACK		0x40
+	   #define CAN_CTRLMODE_CC_LEN8_DLC		0x100
+	*/
 	const struct can_bittiming *bt = &dev->can.bittiming;
 	const u16 port = dev->ctrl_index;
 	int err;
@@ -150,7 +163,7 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	if (!cmd)
 		return -ENOMEM;
 
-	if (dev->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) { // Loopback mode
+	if (dev->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
 		dev->loopback = true;
 	} else {
 		dev->loopback = false;

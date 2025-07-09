@@ -1,5 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
-
+/* SPDX-License-Identifier: GPL-2.0 */
 /* CAN driver adapter for IXXAT USB-to-CAN CL2
  *
  * Copyright (C) 2018-2024 HMS Industrial Networks <socketcan@hms-networks.de>
@@ -134,7 +133,7 @@
 #define IXXAT_USB_CAN_CMD_INIT2		0x337
 
 static const struct can_bittiming_const usb2canV2_bt = {
-	.name = KBUILD_MODNAME, //IXXAT_USB_CTRL_NAME,
+	.name = KBUILD_MODNAME,
 	.tseg1_min = IXXAT_USB2CANV2_TSEG1_MIN,
 	.tseg1_max = IXXAT_USB2CANV2_TSEG1_MAX,
 	.tseg2_min = IXXAT_USB2CANV2_TSEG2_MIN,
@@ -146,7 +145,7 @@ static const struct can_bittiming_const usb2canV2_bt = {
 };
 
 static const struct can_bittiming_const usb2canFD_bt = {
-	.name = KBUILD_MODNAME, //IXXAT_USB_CTRL_NAME,
+	.name = KBUILD_MODNAME,
 	.tseg1_min = IXXAT_USB2CANFD_TSEG1_MIN,
 	.tseg1_max = IXXAT_USB2CANFD_TSEG1_MAX,
 	.tseg2_min = IXXAT_USB2CANFD_TSEG2_MIN,
@@ -158,7 +157,7 @@ static const struct can_bittiming_const usb2canFD_bt = {
 };
 
 static const struct can_bittiming_const usb2canFD_btd = {
-	.name = KBUILD_MODNAME, //IXXAT_USB_CTRL_NAME,
+	.name = KBUILD_MODNAME,
 	.tseg1_min = IXXAT_USB2CANFD_TSEG1_MIN_DATA,
 	.tseg1_max = IXXAT_USB2CANFD_TSEG1_MAX_DATA,
 	.tseg2_min = IXXAT_USB2CANFD_TSEG2_MIN_DATA,
@@ -170,7 +169,7 @@ static const struct can_bittiming_const usb2canFD_btd = {
 };
 
 static const struct can_bittiming_const canidm_bt = {
-	.name = KBUILD_MODNAME, //IXXAT_USB_CTRL_NAME,
+	.name = KBUILD_MODNAME,
 	.tseg1_min = IXXAT_CANIDM_TSEG1_MIN,
 	.tseg1_max = IXXAT_CANIDM_TSEG1_MAX,
 	.tseg2_min = IXXAT_CANIDM_TSEG2_MIN,
@@ -182,7 +181,7 @@ static const struct can_bittiming_const canidm_bt = {
 };
 
 static const struct can_bittiming_const canidm_btd = {
-	.name = KBUILD_MODNAME, //IXXAT_USB_CTRL_NAME,
+	.name = KBUILD_MODNAME,
 	.tseg1_min = IXXAT_CANIDM_TSEG1_MIN_DATA,
 	.tseg1_max = IXXAT_CANIDM_TSEG1_MAX_DATA,
 	.tseg2_min = IXXAT_CANIDM_TSEG2_MIN_DATA,
@@ -230,11 +229,11 @@ fail:
 
 static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 {
-	// not supported !
-	//#define CAN_CTRLMODE_ONE_SHOT		0x08	// One-Shot mode
-	//#define CAN_CTRLMODE_PRESUME_ACK	0x40	// Ignore missing CAN ACKs
-	//#define CAN_CTRLMODE_CC_LEN8_DLC	0x100	// Classic CAN DLC option
-
+	/* not supported:
+	   #define CAN_CTRLMODE_ONE_SHOT		0x08
+	   #define CAN_CTRLMODE_PRESUME_ACK		0x40
+	   #define CAN_CTRLMODE_CC_LEN8_DLC		0x100
+	*/
 	const struct can_bittiming *bt = &dev->can.bittiming;
 	const struct can_bittiming *btd = &dev->can.data_bittiming;
 	const u16 port = dev->ctrl_index;
@@ -250,7 +249,7 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	if (!cmd)
 		return -ENOMEM;
 
-	if (dev->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) { // Loopback mode
+	if (dev->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
 		dev->loopback = true;
 	} else {
 		dev->loopback = false;

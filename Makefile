@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0
 mod-name += ix_usb_can
 KERNEL_SRC          ?= /lib/modules/$(shell uname -r)/build
 MOD_DIR             := kernel/drivers/net/can/usb/ixxat_usb
