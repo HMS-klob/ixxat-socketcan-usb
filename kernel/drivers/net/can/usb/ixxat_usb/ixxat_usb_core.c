@@ -83,10 +83,9 @@ static int ixxat_usb_has_cl2_firmware(const struct usb_device_id *id,
 		if (IX_MIN_MAJORFWVERSION_SUPP_V2 == major) {
 			if (IX_MIN_MINORFWVERSION_SUPP_V2 > minor)
 				return 0;
-			if (IX_MIN_MINORFWVERSION_SUPP_V2 == minor) {
-				if (IX_MIN_BUILDFWVERSION_SUPP_V2 > build)
-					return 0;
-			}
+			if ((IX_MIN_MINORFWVERSION_SUPP_V2 == minor) &&
+			    (IX_MIN_BUILDFWVERSION_SUPP_V2 > build))
+				return 0;
 		}
 
 		return 1;
@@ -104,9 +103,8 @@ static int ixxat_usb_needs_firmware_update(const struct usb_device_id *id,
 					   struct ixxat_fw_info2 *fwinfo)
 {
 	/* firmware update is recomended for devices with cl1 firmware */
-	if (ixxat_usb_is_legacy_usb2can(id)) {
+	if (ixxat_usb_is_legacy_usb2can(id))
 		return !ixxat_usb_has_cl2_firmware(id, fwinfo);
-	}
 	return 0;
 }
 
@@ -187,16 +185,13 @@ static struct ixxat_tx_urb_context *ixxat_usb_get_tx_context(struct ixxat_usb_ca
 
 	spin_lock_irqsave(&dev->dev_lock, flags);
 
-	/* find free URB */
 	for (UrbIdx = 0; UrbIdx < IXXAT_USB_MAX_TX_URBS; UrbIdx++) {
-		/* is urb allocated */
-		if (dev->tx_contexts[UrbIdx].urb) {
-			/* is urb free */
-			if (dev->tx_contexts[UrbIdx].urb_index == IXXAT_USB_FREE_ENTRY) {
-				context = &dev->tx_contexts[UrbIdx];
-				context->urb_index = UrbIdx;
-				break;
-			}
+		/* is urb allocated and free */
+		if ((dev->tx_contexts[UrbIdx].urb) &&
+		    (dev->tx_contexts[UrbIdx].urb_index == IXXAT_USB_FREE_ENTRY)) {
+			context = &dev->tx_contexts[UrbIdx];
+			context->urb_index = UrbIdx;
+			break;
 		}
 	}
 
@@ -246,7 +241,7 @@ static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_candevice *dev)
 
 		if (0 == (dev->msgs & Mask)) {
 			dev->msgs |= Mask;
-		break;
+		        break;
 		}
 
 		MsgIdx = (MsgIdx + 1) % dev->msg_max;
@@ -1033,9 +1028,9 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 			else
 				skb = alloc_can_skb(netdev, (struct can_frame **)&cf);
 
- 			if (!skb) {
+ 			if (!skb)
 				err = -ENOMEM;
-			} else {
+			else {
 				ixxat_convert(dev->adapter, cf, rx, datalen);
 
 				netdev->stats.rx_packets++;
@@ -1110,9 +1105,9 @@ static int ixxat_usb_handle_status(struct ixxat_usb_candevice *dev,
 			dev->can.state = new_state;
 
 		skb = alloc_can_err_skb(netdev, &can_frame);
-		if (!skb) {
+		if (!skb)
 			err = -ENOMEM;
-		} else {
+		else {
 
 			switch (new_state) {
 			case CAN_STATE_ERROR_ACTIVE:
@@ -1179,8 +1174,7 @@ static int ixxat_usb_handle_error(struct ixxat_usb_candevice *dev,
 		return -EBADMSG;
 	}
 
-	if (dev->can.state == CAN_STATE_BUS_OFF) {
-	} else {
+	if (dev->can.state != CAN_STATE_BUS_OFF) {
 
 		if (dev->adapter == &usb2can_cl1) {
 			raw_error = rx->cl1.data[IXXAT_USB_CAN_ERROR_CODE];
@@ -1323,7 +1317,6 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 
 fail:
 	if (err) {
-
 		netdev_err(netdev, "Error %d: Buffer decoding failed\n", err);
 		ret = -1;
 	}
@@ -1437,7 +1430,7 @@ static int ixxat_evaluate_usb_status (struct net_device *netdev,
 	}
 
 #ifdef DEBUG
-	if ( urb->status != 0) {
+	if (urb->status != 0) {
 		switch (urb->status) {
 			case 0: /* success */
 				err = 0;
@@ -1482,16 +1475,15 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 
 	err = ixxat_evaluate_usb_status(netdev, urb, dev->ep_msg_in);
 
-	if ( 0 == err )	{
+	if (0 == err) {
 		ret = 0;
 
-		if (urb->actual_length > 0) {
+		if (urb->actual_length > 0)
 			if (dev->state & IXXAT_USB_STATE_STARTED)
 				ret = ixxat_usb_decode_buf(urb);
-		}
 
 		/* resubmit_urb: */
-		if ( 0 == ret ) {
+		if (0 == ret) {
 			/* ix_trace_printk ("callback: fill_bulk_urb %x \n", dev->ep_msg_in); */
 			usb_fill_bulk_urb(urb, udev,
 				usb_rcvbulkpipe(udev, dev->ep_msg_in),
@@ -2457,11 +2449,10 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 		if (!err) {
 			/* check if FW supports get_fw_info2 command */
-			if ( ixxat_usb_has_cl2_firmware(id, &devdata->fw_info) ) {
+			if (ixxat_usb_has_cl2_firmware(id, &devdata->fw_info)) {
 				err = ixxat_usb_get_fw_info2(udev, &devdata->fw_info);
-				if (err) {
+				if (err)
 					dev_err(&udev->dev, "Error %d: Failed to get firmware info2. Maybe firmare update needed.\n", err);
-				}
 			}
 		}
 	}

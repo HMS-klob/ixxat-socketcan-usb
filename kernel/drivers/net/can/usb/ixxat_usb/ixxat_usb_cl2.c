@@ -217,9 +217,8 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 	if (err)
 		goto fail;
 
-	if (caps){
+	if (caps)
 		memcpy(caps, &cmd->caps, sizeof(*caps));
-	}
 
 fail:
 	kfree(cmd);
