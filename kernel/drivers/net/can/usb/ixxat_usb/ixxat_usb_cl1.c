@@ -80,7 +80,7 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 {
 	const u16 port = dev->ctrl_index;
 	int err;
-	struct ixxat_usb_getcaps_cl1_cmd* cmd;
+	struct ixxat_usb_getcaps_cl1_cmd *cmd;
 	const u32 cmd_size = sizeof(*cmd);
 	const u32 req_size = sizeof(cmd->req);
 	const u32 rcv_size = cmd_size - req_size;
@@ -110,11 +110,11 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 		caps->can_clock_freq = cmd->caps.can_clock_freq;
 
 		/* these are not available in CL1
-		   caps->sdr_range_min
-		   caps->sdr_range_max
-		   caps->fdr_range_min
-		   caps->fdr_range_max
-		*/
+		 *  caps->sdr_range_min
+		 *  caps->sdr_range_max
+		 *  caps->fdr_range_min
+		 *  caps->fdr_range_max
+		 */
 
 		caps->ts_clock_freq = cmd->caps.can_clock_freq;
 		caps->ts_clock_divisor = cmd->caps.ts_clock_divisor;
@@ -144,10 +144,10 @@ fail:
 static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 {
 	/* not supported:
-	   #define CAN_CTRLMODE_ONE_SHOT		0x08
-	   #define CAN_CTRLMODE_PRESUME_ACK		0x40
-	   #define CAN_CTRLMODE_CC_LEN8_DLC		0x100
-	*/
+	 *  #define CAN_CTRLMODE_ONE_SHOT		0x08
+	 *  #define CAN_CTRLMODE_PRESUME_ACK		0x40
+	 *  #define CAN_CTRLMODE_CC_LEN8_DLC		0x100
+	 */
 	const struct can_bittiming *bt = &dev->can.bittiming;
 	const u16 port = dev->ctrl_index;
 	int err;

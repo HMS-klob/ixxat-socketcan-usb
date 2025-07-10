@@ -50,15 +50,14 @@ MODULE_VERSION("2.0.576-REL");
  */
 static int ixxat_usb_is_legacy_usb2can(const struct usb_device_id *id)
 {
-	if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor)	{
+	if (id->idVendor == IXXAT_USB_VENDOR_ID_LEGACY) {
 		switch (id->idProduct) {
-			case USB2CAN_COMPACT_PRODUCT_ID:
-			case USB2CAN_EMBEDDED_PRODUCT_ID:
-			case USB2CAN_PROFESSIONAL_PRODUCT_ID:
-			case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
-			case USB2CAN_PLUGIN_PRODUCT_ID:
-				return 1;
-				break;
+		case USB2CAN_COMPACT_PRODUCT_ID:
+		case USB2CAN_EMBEDDED_PRODUCT_ID:
+		case USB2CAN_PROFESSIONAL_PRODUCT_ID:
+		case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
+		case USB2CAN_PLUGIN_PRODUCT_ID:
+			return 1;
 		}
 	}
 	return 0;
@@ -78,13 +77,13 @@ static int ixxat_usb_has_cl2_firmware(const struct usb_device_id *id,
 		int minor = le16_to_cpu(fwinfo->minor_version);
 		int build = le16_to_cpu(fwinfo->build_version);
 
-		if (IX_MIN_MAJORFWVERSION_SUPP_V2 > major)
+		if (major < IX_MIN_MAJORFWVERSION_SUPP_V2)
 			return 0;
-		if (IX_MIN_MAJORFWVERSION_SUPP_V2 == major) {
-			if (IX_MIN_MINORFWVERSION_SUPP_V2 > minor)
+		if (major == IX_MIN_MAJORFWVERSION_SUPP_V2) {
+			if (minor < IX_MIN_MINORFWVERSION_SUPP_V2)
 				return 0;
-			if ((IX_MIN_MINORFWVERSION_SUPP_V2 == minor) &&
-			    (IX_MIN_BUILDFWVERSION_SUPP_V2 > build))
+			if ((minor == IX_MIN_MINORFWVERSION_SUPP_V2) &&
+			    (build < IX_MIN_BUILDFWVERSION_SUPP_V2))
 				return 0;
 		}
 
@@ -145,31 +144,31 @@ MODULE_DEVICE_TABLE(usb, ixxat_usb_table);
 
 
 #ifdef DEBUG
-	static void showdevcaps(struct ixxat_dev_caps dev_caps) {
-		int i = 0;
+static void showdevcaps(struct ixxat_dev_caps dev_caps)
+{
+	int i = 0;
 
-		ix_trace_printk ("CtrlCount = %i \n", dev_caps.bus_ctrl_count);
+	ix_trace_printk("CtrlCount = %i\n", dev_caps.bus_ctrl_count);
+	for (i = 0; i < dev_caps.bus_ctrl_count; i++)
+		ix_trace_printk("Type = %i\n", dev_caps.bus_ctrl_types[i]);
+}
 
-		for ( i = 0; i < dev_caps.bus_ctrl_count; i++ ) {
-			ix_trace_printk ("Type = %i \n", dev_caps.bus_ctrl_types[i]);
-		}
+static int showdump(u8 *pbdata, u16 length)
+{
+	char caDump[100] = "Dump: ";
+	char szBuf[10] = "";
+	int i = 0;
+	u16 len = (length > 25) ? 25 : length;
+
+	for (i = 0; i < len; i++) {
+		sprintf(szBuf, "%02x ", pbdata[i]);
+		strcat(caDump, szBuf);
 	}
+	strcat(caDump, "\n");
 
-	static int showdump( u8 * pbdata, u16 length) {
-		char caDump[100] = "Dump: ";
-		char szBuf[10]="";
-		int i =0;
-		u16 len = (length > 25)? 25 : length;
-
-		for ( i =0; i< len; i++) {
-			sprintf (szBuf, "%02x ", pbdata[i]);
-			strcat (caDump, szBuf);
-		}
-		strcat (caDump, "\n");
-
-		ix_trace_printk ( caDump );
-		return 0;
-	}
+	ix_trace_printk(caDump);
+	return 0;
+}
 #endif
 
 /* ixxat_usb_get_tx_context - get a free URB context for transmission
@@ -210,6 +209,7 @@ static void ixxat_usb_rel_tx_context(struct ixxat_usb_candevice *dev,
 				     struct ixxat_tx_urb_context *context)
 {
 	unsigned long flags;
+
 	spin_lock_irqsave(&dev->dev_lock, flags);
 
 	if (context)
@@ -239,9 +239,9 @@ static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_candevice *dev)
 	while (LoopCnt < dev->msg_max) {
 		Mask = (1 << MsgIdx);
 
-		if (0 == (dev->msgs & Mask)) {
+		if ((dev->msgs & Mask) == 0) {
 			dev->msgs |= Mask;
-		        break;
+			break;
 		}
 
 		MsgIdx = (MsgIdx + 1) % dev->msg_max;
@@ -361,7 +361,8 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 	}
 
 	/* firmware responses may be smaller then requested response size
-	   but should be not smaller than the response header size */
+	 * but should be not smaller than the response header size
+	 */
 	if (pos < sizeof(struct ixxat_usb_dal_res)) {
 		dev_err(&dev->dev, "Command answer size failure: got %u expected %u\n", pos, res_size);
 		ret = -EBADMSG;
@@ -394,8 +395,9 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 				     u32 ts_clock_freq)
 {
 	/* calculate tick multiplier and divider
-	   divide by clock frequency -> resolution [1s]
-	   multiply by TICK_FACTOR -> resolution [1ns] */
+	 * divide by clock frequency -> resolution [1s]
+	 * multiply by TICK_FACTOR -> resolution [1ns]
+	 */
 	timeref->tick_multiplier = (u64)ts_clock_divisor * TICK_FACTOR;
 	timeref->tick_divider = ts_clock_freq;
 
@@ -406,7 +408,7 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 	}
 
 	/* check if multiplier is divisible by divider without remainder */
-	if (0 == (timeref->tick_multiplier % timeref->tick_divider)) {
+	if ((timeref->tick_multiplier % timeref->tick_divider) == 0) {
 		timeref->tick_multiplier /= timeref->tick_divider;
 		timeref->tick_divider     = 1;
 	}
@@ -427,11 +429,13 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 				   ktime_t t_B,
 				   u32 ts_dev_start)
 {
-	dev_info(&dev->udev->dev,"ixxat_usb_ts_set_start A: %lld B: %lld devtick: %u\n", t_A, t_B, ts_dev_start);
+	struct ixxat_usb_device_data *devdata = dev->shareddata;
 
-	struct ixxat_usb_device_data* devdata = dev->shareddata;
+	dev_info(&dev->udev->dev, "%s A: %lld B: %lld devtick: %u\n", __func__, t_A, t_B, ts_dev_start);
+
 	if (devdata) {
 		unsigned long flags;
+
 		spin_lock_irqsave(&devdata->access_lock, flags);
 
 		if (!devdata->timeref_valid) {
@@ -448,7 +452,7 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 #error "Invalid IX_SYNCTOHOSTCLOCK setting"
 #endif
 			devdata->ts_dev_start = ts_dev_start;
-			dev_info(&dev->udev->dev,"set  kt_host_start: %lld devtick: %u\n", devdata->kt_host_start, ts_dev_start);
+			dev_info(&dev->udev->dev, "set kt_host_start: %lld devtick: %u\n", devdata->kt_host_start, ts_dev_start);
 		}
 		spin_unlock_irqrestore(&devdata->access_lock, flags);
 	}
@@ -670,6 +674,7 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 	kt_host_B = ktime_get_real_ns();
 
 	u32 start_offset = 0;
+
 	if (!err)
 		start_offset = le32_to_cpu(cmd->time);
 
@@ -787,8 +792,6 @@ static void ixxat_usb_free_usb_communication(struct ixxat_usb_candevice *dev)
 	u32 SkbIdx;
 	u32 UrbIdx;
 
-	ix_trace_printk (">> ixxat_usb_free_usb_communication\n");
-
 	netif_stop_queue(netdev);
 	usb_kill_anchored_urbs(&dev->rx_anchor);
 	usb_kill_anchored_urbs(&dev->tx_anchor);
@@ -805,13 +808,12 @@ static void ixxat_usb_free_usb_communication(struct ixxat_usb_candevice *dev)
 			dev->tx_contexts[UrbIdx].urb_index = IXXAT_USB_FREE_ENTRY;
 	}
 
-	ix_trace_printk ("<< ixxat_usb_free_usb_communication\n");
-
 	/* Annotation:
-		The Urbs are released within the system with (usb_free_urb)
-		 dependant on the reference count
-		With the Urbs the assigned buffers are also deleted.
-		This is caused by urb->transfer_flags |= URB_FREE_BUFFER; */
+	 * The Urbs are released within the system with (usb_free_urb)
+	 * dependant on the reference count
+	 * With the Urbs the assigned buffers are also deleted.
+	 * This is caused by urb->transfer_flags |= URB_FREE_BUFFER;
+	 */
 }
 
 /* ixxat_usb_restart - restart (stop/start) the controller
@@ -933,7 +935,7 @@ static void ixxat_convert(const struct ixxat_usb_adapter *pAdapter,
  *
  * Returns 0 on success.
  */
-static int ixxat_usb_netif_rx(struct ixxat_time_ref* timeref,
+static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
 			      struct sk_buff *skb, __le32 ts_tick)
 {
 	u64 ts_ns;
@@ -941,6 +943,7 @@ static int ixxat_usb_netif_rx(struct ixxat_time_ref* timeref,
 
 	/* calculate tick offset */
 	u64 ticks  = timeref->ts_overrun_ticks;
+
 	ticks     |= le32_to_cpu(ts_tick);
 
 #if (IX_SYNCTOHOST_NONE == IX_SYNCTOHOSTCLOCK)
@@ -1007,7 +1010,8 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 		if (ixx_flags & IXXAT_USB_MSG_FLAGS_SRR) {
 			if (dev->adapter == &usb2can_cl1) {
 				/* do nothing because the tx_packets are already handled
-				   in the write callback ! */
+				 * in the write callback !
+				 */
 			} else {
 				netdev->stats.tx_bytes += datalen;
 				netdev->stats.tx_packets++;
@@ -1015,10 +1019,10 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 				MsgIdx = le32_to_cpu(rx->cl2.client_id);
 
 				if (MsgIdx >= IXXAT_USB_MSG_IDX_OFFSET) {
-						MsgIdx -= IXXAT_USB_MSG_IDX_OFFSET;
+					MsgIdx -= IXXAT_USB_MSG_IDX_OFFSET;
 
-						len = can_get_echo_skb(netdev, MsgIdx, NULL);
-						ixxat_usb_msg_free_idx(dev, MsgIdx);
+					len = can_get_echo_skb(netdev, MsgIdx, NULL);
+					ixxat_usb_msg_free_idx(dev, MsgIdx);
 				}
 			}
 			netif_wake_queue(netdev);
@@ -1028,7 +1032,7 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 			else
 				skb = alloc_can_skb(netdev, (struct can_frame **)&cf);
 
- 			if (!skb)
+			if (!skb)
 				err = -ENOMEM;
 			else {
 				ixxat_convert(dev->adapter, cf, rx, datalen);
@@ -1296,6 +1300,7 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 
 		case IXXAT_USB_CAN_TIMEOVR:
 			u64 time = le32_to_cpu(can_msg->base.msg_id);
+
 			dev->time_ref.ts_overrun_ticks += (time << 32);
 			break;
 
@@ -1321,7 +1326,7 @@ fail:
 		ret = -1;
 	}
 
-  return ret;
+	return ret;
 }
 
 /* ixxat_usb_encode_msg - encode a CAN message into USB format
@@ -1382,8 +1387,7 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 		if (selfReception) {
 			flags |= IXXAT_USB_MSG_FLAGS_SRR;
 			can_msg.cl2.client_id = cpu_to_le32(uMsgIdx);
-		}
-		else
+		} else
 			can_msg.cl2.client_id = 0;
 	}
 
@@ -1402,9 +1406,9 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
  * This function evaluates the status of a USB request block (urb)
  * and returns an error code based on the status.
  */
-static int ixxat_evaluate_usb_status (struct net_device *netdev,
-				      struct urb *urb,
-				      u8 ep_msg)
+static int ixxat_evaluate_usb_status(struct net_device *netdev,
+				     struct urb *urb,
+				     u8 ep_msg)
 {
 	/* 0: success, -1: error -> return, -2: error -> retry */
 	int err = 0;
@@ -1413,46 +1417,46 @@ static int ixxat_evaluate_usb_status (struct net_device *netdev,
 		err = -1;
 	else {
 		switch (urb->status) {
-			case 0: /* success */
-				err = 0;
-				break;
-			case -EPROTO:
-			case -EILSEQ:
-			case -ENOENT:
-			case -ECONNRESET:
-			case -ESHUTDOWN:
-				err = -1;
-				break;
-			default:
-				err = -2;
-				break;
+		case 0: /* success */
+			err = 0;
+			break;
+		case -EPROTO:
+		case -EILSEQ:
+		case -ENOENT:
+		case -ECONNRESET:
+		case -ESHUTDOWN:
+			err = -1;
+			break;
+		default:
+			err = -2;
+			break;
 		}
 	}
 
 #ifdef DEBUG
 	if (urb->status != 0) {
 		switch (urb->status) {
-			case 0: /* success */
-				err = 0;
-				break;
-			case -EPROTO:
-				netdev_err(netdev, "EP: %x, Protocol error /(%d)\n", ep_msg, urb->status);
-				break;
-			case -EILSEQ:
-				netdev_err(netdev, "EP: %x, Illegal byte sequence /(%d)\n", ep_msg, urb->status);
-				break;
-			case -ENOENT:
-				netdev_err(netdev, "EP: %x, No such file or directory /(%d)\n", ep_msg, urb->status);
-				break;
-			case -ECONNRESET:
-				netdev_err(netdev, "EP: %x, Connection reset by peer /(%d)\n", ep_msg, urb->status);
-				break;
-			case -ESHUTDOWN:
-				netdev_err(netdev, "EP: %x, Cannot send after transport endpoint shutdown /(%d)\n", ep_msg, urb->status);
-				break;
-			default:
-				netdev_err(netdev, "EP: %x, Urb Status /(%d)\n", ep_msg, urb->status);
-				break;
+		case 0: /* success */
+			err = 0;
+			break;
+		case -EPROTO:
+			netdev_err(netdev, "EP: %x, Protocol error /(%d)\n", ep_msg, urb->status);
+			break;
+		case -EILSEQ:
+			netdev_err(netdev, "EP: %x, Illegal byte sequence /(%d)\n", ep_msg, urb->status);
+			break;
+		case -ENOENT:
+			netdev_err(netdev, "EP: %x, No such file or directory /(%d)\n", ep_msg, urb->status);
+			break;
+		case -ECONNRESET:
+			netdev_err(netdev, "EP: %x, Connection reset by peer /(%d)\n", ep_msg, urb->status);
+			break;
+		case -ESHUTDOWN:
+			netdev_err(netdev, "EP: %x, Cannot send after transport endpoint shutdown /(%d)\n", ep_msg, urb->status);
+			break;
+		default:
+			netdev_err(netdev, "EP: %x, Urb Status /(%d)\n", ep_msg, urb->status);
+			break;
 		}
 	}
 #endif
@@ -1475,7 +1479,7 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 
 	err = ixxat_evaluate_usb_status(netdev, urb, dev->ep_msg_in);
 
-	if (0 == err) {
+	if (err == 0) {
 		ret = 0;
 
 		if (urb->actual_length > 0)
@@ -1483,8 +1487,8 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 				ret = ixxat_usb_decode_buf(urb);
 
 		/* resubmit_urb: */
-		if (0 == ret) {
-			/* ix_trace_printk ("callback: fill_bulk_urb %x \n", dev->ep_msg_in); */
+		if (ret == 0) {
+			/* ix_trace_printk("callback: fill_bulk_urb %x\n", dev->ep_msg_in); */
 			usb_fill_bulk_urb(urb, udev,
 				usb_rcvbulkpipe(udev, dev->ep_msg_in),
 				urb->transfer_buffer, adapter->buffer_size_rx,
@@ -1534,7 +1538,6 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 		return;
 	case -2:
 		goto prepare_urb;
-		break;
 	}
 
 	/* find correct MsgIdx with the CAN Id and Len */
@@ -1581,15 +1584,17 @@ static u8 determineLoopMode(bool loopback, bool global_loopback, bool oldDev)
 	u8 loopMode = IX_LOOP_DIS;
 
 	/* exact statistics means that all messages are sent with active
-	   self reception ( overhead ) so that the statistic counter are incremented
-	   after the message was really on the can bus, otherwise the counter is
-	   incremented after the WriteURB returns */
+	 * self reception (overhead) so that the statistic counter are incremented
+	 * after the message was really on the can bus, otherwise the counter is
+	 * incremented after the WriteURB returns
+	 */
 	const bool statistics_exact = IX_STATISTICS_EXACT;
 
 	/* is loopback set with ip link .. loopback on */
 	if (global_loopback == true) {
 		/* is loopback set with setsockopt
-		   can be changed between message transmission */
+		 * can be changed between message transmission
+		 */
 
 		if (loopback)
 			loopMode = (IX_LOOP_SELF_RX | IX_LOOPBACK);
@@ -1601,7 +1606,8 @@ static u8 determineLoopMode(bool loopback, bool global_loopback, bool oldDev)
 	}
 
 	/* the old firmware doesn't support a clientid
-	   -> so there is no exact loopback or statistic possible */
+	 * -> so there is no exact loopback or statistic possible
+	 */
 	if (oldDev)
 		loopMode &= ~IX_LOOP_SELF_RX;
 
@@ -1743,7 +1749,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 			break;
 		}
 
-		ix_trace_printk ("setup: kmalloc %x \n", adapter->buffer_size_rx);
+		ix_trace_printk("setup: kmalloc %x\n", adapter->buffer_size_rx);
 		buf = kmalloc(adapter->buffer_size_rx, GFP_KERNEL);
 
 		if (buf) {
@@ -1756,7 +1762,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 			break;
 		}
 
-		ix_trace_printk ("setup: fill_bulk_urb %i \n", dev->ep_msg_in);
+		ix_trace_printk("setup: fill_bulk_urb %i\n", dev->ep_msg_in);
 		usb_fill_bulk_urb(urb, udev,
 				  usb_rcvbulkpipe(udev, dev->ep_msg_in), buf,
 				  adapter->buffer_size_rx,
@@ -1854,29 +1860,29 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
  * such as serial number, firmware version, hardware name, hardware version,
  * and FPGA version. They are used to expose device information through sysfs.
  */
-static ssize_t show_serial(struct device *pdev,
+static ssize_t serial_show(struct device *pdev,
 			   struct device_attribute *attr,
 			   char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
-
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
+
 	if (devdata == NULL)
 		return 0;
 	else
 		return sprintf(buf, "%.*s\n", (int)(sizeof(devdata->dev_info.device_id)), devdata->dev_info.device_id);
 }
-static DEVICE_ATTR(serial, S_IRUGO, show_serial, NULL);
+static DEVICE_ATTR_RO(serial);
 
-static ssize_t show_firmware_version(struct device *pdev,
+static ssize_t firmware_version_show(struct device *pdev,
 				     struct device_attribute *attr,
 				     char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
-
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
+
 	if (devdata == NULL)
 		return 0;
 	else
@@ -1886,49 +1892,52 @@ static ssize_t show_firmware_version(struct device *pdev,
 			, le16_to_cpu(devdata->fw_info.build_version)
 			, le16_to_cpu(devdata->fw_info.revision));
 }
-static DEVICE_ATTR(firmware_version, S_IRUGO, show_firmware_version, NULL);
+static DEVICE_ATTR_RO(firmware_version);
 
-static ssize_t show_hardware(struct device *pdev,
+static ssize_t hardware_show(struct device *pdev,
 			     struct device_attribute *attr,
 			     char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
+
 	if (devdata == NULL)
 		return 0;
 	else
 		return sprintf(buf, "%.*s\n", (int)(sizeof(devdata->dev_info.device_name)), devdata->dev_info.device_name);
 }
-static DEVICE_ATTR(hardware, S_IRUGO, show_hardware, NULL);
+static DEVICE_ATTR_RO(hardware);
 
-static ssize_t show_hardware_version(struct device *pdev,
+static ssize_t hardware_version_show(struct device *pdev,
 				     struct device_attribute *attr,
 				     char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
+
 	if (devdata == NULL)
 		return 0;
 	else
 		return sprintf(buf, "0x%04X\n", devdata->dev_info.device_version);
 }
-static DEVICE_ATTR(hardware_version, S_IRUGO, show_hardware_version, NULL);
+static DEVICE_ATTR_RO(hardware_version);
 
-static ssize_t show_fpga_version(struct device *pdev,
+static ssize_t fpga_version_show(struct device *pdev,
 				 struct device_attribute *attr,
 				 char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
+
 	if (devdata == NULL)
 		return 0;
 	else
-	    return sprintf(buf, "0x%08X\n", devdata->dev_info.device_fpga_version);
+		return sprintf(buf, "0x%08X\n", devdata->dev_info.device_fpga_version);
 }
-static DEVICE_ATTR(fpga_version, S_IRUGO, show_fpga_version, NULL);
+static DEVICE_ATTR_RO(fpga_version);
 
 static struct attribute *ixxat_pdev_attrs[] = {
 	&dev_attr_serial.attr,
@@ -1955,18 +1964,16 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 
 	dev = usb_get_intfdata(intf);
 
-	ix_trace_printk (">> ixxat_usb_disconnect\n");
-
 	if (dev) {
 		struct ixxat_usb_device_data *devdata = dev->shareddata;
 
 		/* unregister the given device and all previous devices */
 		for (; dev; dev = prev_dev) {
 			struct net_device *netdev = dev->netdev;
+			char name[IFNAMSIZ];
 
 			prev_dev = dev->prev_dev;
 
-			char name[IFNAMSIZ];
 			strscpy(name, netdev->name, IFNAMSIZ);
 
 			/* sysfs_remove_group(&dev->netdev->dev.kobj, &ixxat_pdev_group); */
@@ -1984,8 +1991,6 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 
 		usb_set_intfdata(intf, NULL);
 	}
-
-	ix_trace_printk ("<< ixxat_usb_disconnect\n");
 }
 
 /* ixxat_usb_start - start the IXXAT USB CAN device
@@ -2091,15 +2096,13 @@ static int ixxat_usb_stop(struct net_device *netdev)
 	int err = 0;
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 
-	ix_trace_printk (">> ixxat_usb_stop\n");
-
 	ixxat_usb_free_usb_communication(dev);
 
 	if (dev->state & IXXAT_USB_STATE_STARTED) {
 		err = ixxat_usb_stop_ctrl(dev);
 		if (err) {
 			/* netdev_warn(netdev, "Error %d: Cannot stop device\n",err); */
-			ix_trace_printk ("Error %d: Cannot stop device\n",err);
+			ix_trace_printk("Error %d: Cannot stop device\n", err);
 		}
 	}
 
@@ -2107,7 +2110,6 @@ static int ixxat_usb_stop(struct net_device *netdev)
 	close_candev(netdev);
 	dev->can.state = CAN_STATE_STOPPED;
 
-	ix_trace_printk (">> ixxat_usb_stop\n");
 	return err;
 }
 
@@ -2132,43 +2134,43 @@ static const struct ethtool_ops ixxat_ethtool_ops = {
  */
 static const char *ixxat_usb_dev_name(const struct usb_device_id *id)
 {
-	if (IXXAT_USB_VENDOR_ID == id->idVendor) {
+	if (id->idVendor == IXXAT_USB_VENDOR_ID) {
 		switch (id->idProduct) {
-			case USB2CAN_FD_PRO_PRODUCT_ID:
-				return "Ixxat USB-to-CAN/FD Pro";
-		  case USB2CAN_FD_STANDARD_PRODUCT_ID:
+		case USB2CAN_FD_PRO_PRODUCT_ID:
+			return "Ixxat USB-to-CAN/FD Pro";
+		case USB2CAN_FD_STANDARD_PRODUCT_ID:
 			return "Ixxat USB-to-CAN/FD Standard";
-			case USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID:
-				return "Ixxat USB-to-CAN/FD Standard Brick";
-			case USB2CAN_FD_PRO_MODULE_PRODUCT_ID:
-				return "Ixxat USB-to-CAN/FD Pro Module";
+		case USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID:
+			return "Ixxat USB-to-CAN/FD Standard Brick";
+		case USB2CAN_FD_PRO_MODULE_PRODUCT_ID:
+			return "Ixxat USB-to-CAN/FD Pro Module";
 		}
-	} else if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor) {
+	} else if (id->idVendor == IXXAT_USB_VENDOR_ID_LEGACY) {
 		switch (id->idProduct) {
-			case USB2CAN_COMPACT_PRODUCT_ID:
-				return "IXXAT USB Compact";
-			case USB2CAN_EMBEDDED_PRODUCT_ID:
-				return "IXXAT USB Embedded";
-			case USB2CAN_PROFESSIONAL_PRODUCT_ID:
-				return "IXXAT USB Professional";
-			case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
-				return "IXXAT USB Automotive";
-			case USB2CAN_PLUGIN_PRODUCT_ID:
-				return "IXXAT USB Plugin";
-			case USB2CAN_FD_COMPACT_PRODUCT_ID:
-				return "IXXAT USB Compact FD";
-			case USB2CAN_FD_PROFESSIONAL_PRODUCT_ID:
-				return "IXXAT USB Professional FD";
-			case USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID:
-				return "IXXAT USB Automotive FD";
-			case USB2CAN_FD_PCIE_MINI_PRODUCT_ID:
-				return "IXXAT USB PCIE Mini FD";
-			case USB2CAR_PRODUCT_ID:
-				return "IXXAT USB-to-Car";
-			case CAN_IDM101_PRODUCT_ID:
-				return "IXXAT IDM 101";
-			case CAN_IDM200_PRODUCT_ID:
-				return "IXXAT IDM 200";
+		case USB2CAN_COMPACT_PRODUCT_ID:
+			return "IXXAT USB Compact";
+		case USB2CAN_EMBEDDED_PRODUCT_ID:
+			return "IXXAT USB Embedded";
+		case USB2CAN_PROFESSIONAL_PRODUCT_ID:
+			return "IXXAT USB Professional";
+		case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
+			return "IXXAT USB Automotive";
+		case USB2CAN_PLUGIN_PRODUCT_ID:
+			return "IXXAT USB Plugin";
+		case USB2CAN_FD_COMPACT_PRODUCT_ID:
+			return "IXXAT USB Compact FD";
+		case USB2CAN_FD_PROFESSIONAL_PRODUCT_ID:
+			return "IXXAT USB Professional FD";
+		case USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID:
+			return "IXXAT USB Automotive FD";
+		case USB2CAN_FD_PCIE_MINI_PRODUCT_ID:
+			return "IXXAT USB PCIE Mini FD";
+		case USB2CAR_PRODUCT_ID:
+			return "IXXAT USB-to-Car";
+		case CAN_IDM101_PRODUCT_ID:
+			return "IXXAT IDM 101";
+		case CAN_IDM200_PRODUCT_ID:
+			return "IXXAT IDM 200";
 		}
 	}
 	return "IXXAT USB Unknown";
@@ -2187,46 +2189,44 @@ static const struct ixxat_usb_adapter *ixxat_usb_get_adapter(const struct usb_de
 {
 	const struct ixxat_usb_adapter *pAdapter = NULL;
 
-	if (IXXAT_USB_VENDOR_ID == id->idVendor) {
-		switch(id->idProduct) {
-			case USB2CAN_FD_PRO_PRODUCT_ID:
-			case USB2CAN_FD_STANDARD_PRODUCT_ID:
-			case USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID:
-			case USB2CAN_FD_PRO_MODULE_PRODUCT_ID:
-			pAdapter = &usb2can_fd;
-		}
-	}
-	else if (IXXAT_USB_VENDOR_ID_LEGACY == id->idVendor) {
+	if (id->idVendor == IXXAT_USB_VENDOR_ID) {
 		switch (id->idProduct) {
-			case USB2CAN_COMPACT_PRODUCT_ID:
-			case USB2CAN_EMBEDDED_PRODUCT_ID:
-			case USB2CAN_PROFESSIONAL_PRODUCT_ID:
-			case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
-			case USB2CAN_PLUGIN_PRODUCT_ID:
-				pAdapter = &usb2can_cl1;
-
-				if (dev_fwinfo) {
-					if (ixxat_usb_has_cl2_firmware(id, dev_fwinfo)) {
+		case USB2CAN_FD_PRO_PRODUCT_ID:
+		case USB2CAN_FD_STANDARD_PRODUCT_ID:
+		case USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID:
+		case USB2CAN_FD_PRO_MODULE_PRODUCT_ID:
+		pAdapter = &usb2can_fd;
+		}
+	} else if (id->idVendor == IXXAT_USB_VENDOR_ID_LEGACY) {
+		switch (id->idProduct) {
+		case USB2CAN_COMPACT_PRODUCT_ID:
+		case USB2CAN_EMBEDDED_PRODUCT_ID:
+		case USB2CAN_PROFESSIONAL_PRODUCT_ID:
+		case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
+		case USB2CAN_PLUGIN_PRODUCT_ID:
+			pAdapter = &usb2can_cl1;
+			if (dev_fwinfo) {
+				if (ixxat_usb_has_cl2_firmware(id, dev_fwinfo))
 					pAdapter = &usb2can_v2;
-				}
 			}
 			break;
 
-			case USB2CAN_FD_COMPACT_PRODUCT_ID:
-			case USB2CAN_FD_PROFESSIONAL_PRODUCT_ID:
-			case USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID:
-			case USB2CAN_FD_PCIE_MINI_PRODUCT_ID:
-			case USB2CAR_PRODUCT_ID:
-				pAdapter = &usb2can_fd;
-				break;
+		case USB2CAN_FD_COMPACT_PRODUCT_ID:
+		case USB2CAN_FD_PROFESSIONAL_PRODUCT_ID:
+		case USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID:
+		case USB2CAN_FD_PCIE_MINI_PRODUCT_ID:
+		case USB2CAR_PRODUCT_ID:
+			pAdapter = &usb2can_fd;
+			break;
 
-			case CAN_IDM101_PRODUCT_ID:
-			case CAN_IDM200_PRODUCT_ID:
-				pAdapter = &can_fd_idm;
-				break;
+		case CAN_IDM101_PRODUCT_ID:
+		case CAN_IDM200_PRODUCT_ID:
+			pAdapter = &can_fd_idm;
+			break;
 
-			default:
-				pAdapter = NULL;
+		default:
+			pAdapter = NULL;
+			break;
 		}
 	}
 
@@ -2257,8 +2257,9 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 	if (netdev) {
 		dev = netdev_priv(netdev);
 
-		/* must be identical to the can.echo_skb_max set
-		   This is necessary to correctly handle the loopback option */
+		/* Must be identical to the can.echo_skb_max set.
+		 * This is necessary to correctly handle the loopback option.
+		 */
 		dev->msg_max = IXXAT_USB_MAX_MSGS;
 
 		dev->shareddata = devdata;
@@ -2306,10 +2307,12 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 		usb_set_intfdata(intf, dev);
 
 		struct ixxat_cancaps2 caps;
+
 		dev->adapter->get_ctrl_caps(dev, &caps);
 
 		u32 ts_clock_divisor = le32_to_cpu(caps.ts_clock_divisor);
 		u32 ts_clock_freq  = le32_to_cpu(caps.ts_clock_freq);
+
 		ixxat_usb_ts_set_cancaps(&dev->time_ref, ts_clock_divisor, ts_clock_freq);
 
 		SET_NETDEV_DEV(netdev, &intf->dev);
@@ -2416,8 +2419,8 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 {
 	struct usb_device *udev = interface_to_usbdev(intf);
 	const struct ixxat_usb_adapter *adapter;
-	struct ixxat_dev_caps dev_caps    = {0};
-	struct ixxat_usb_device_data* devdata;
+	struct ixxat_usb_device_data *devdata;
+	struct ixxat_dev_caps dev_caps = {0};
 
 	u16 ctrlidx;
 	int err;
@@ -2436,13 +2439,13 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	devdata->ts_dev_start = 0;
 	spin_lock_init(&devdata->access_lock);
 
-	printk(IX_DRIVER_TAG "KERNELVERSION: 0x%x (%i)", LINUX_VERSION_CODE, LINUX_VERSION_CODE);
+	pr_info(IX_DRIVER_TAG "KERNELVERSION: 0x%x (%i)", LINUX_VERSION_CODE, LINUX_VERSION_CODE);
 
 	err = ixxat_usb_get_fw_info(udev, &devdata->fw_info);
 	if (err)
 		dev_err(&udev->dev, "Error %d: Failed to get firmware information. Maybe firmware update needed.\n", err);
 	else {
-		if (IXXAT_USB_DEV_FWTYPE_BAL != le32_to_cpu(devdata->fw_info.firmware_type)) {
+		if (le32_to_cpu(devdata->fw_info.firmware_type) != IXXAT_USB_DEV_FWTYPE_BAL) {
 			dev_err(&udev->dev, "Error %d: Unknown firmware type. Expected %u, got %u. Maybe firmware or driver update needed.\n", err, IXXAT_USB_DEV_FWTYPE_BAL, le32_to_cpu(devdata->fw_info.firmware_type));
 			err = -EFAULT;
 		}
@@ -2469,9 +2472,8 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 		if (err == NETDEV_TX_OK) {
 			err = ixxat_usb_power_ctrl(udev, IXXAT_USB_POWER_WAKEUP);
-			if (err != NETDEV_TX_OK) {
+			if (err != NETDEV_TX_OK)
 				dev_err(&udev->dev, "Error %d: Failed to exec IXXAT_USB_BRD_CMD_POWER command.\n", err);
-			}
 			msleep(IXXAT_USB_POWER_WAKEUP_TIME);
 		}
 
@@ -2484,20 +2486,19 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		}
 
 		if (err == NETDEV_TX_OK) {
-			printk(IX_DRIVER_TAG "Device type     : %.*s\n", (int)(sizeof(devdata->dev_info.device_name)), devdata->dev_info.device_name);
-			printk(IX_DRIVER_TAG "Device id       : %.*s\n", (int)(sizeof(devdata->dev_info.device_id)), devdata->dev_info.device_id);
-			printk(IX_DRIVER_TAG "Device version  : 0x%08X\n", devdata->dev_info.device_version);
-			printk(IX_DRIVER_TAG "FPGA version    : 0x%08X\n", devdata->dev_info.device_fpga_version);
-			printk(IX_DRIVER_TAG "Firmware version: %d.%d.%d.%d (type: %d)"
+			pr_info(IX_DRIVER_TAG "Device type     : %.*s\n", (int)(sizeof(devdata->dev_info.device_name)), devdata->dev_info.device_name);
+			pr_info(IX_DRIVER_TAG "Device id       : %.*s\n", (int)(sizeof(devdata->dev_info.device_id)), devdata->dev_info.device_id);
+			pr_info(IX_DRIVER_TAG "Device version  : 0x%08X\n", devdata->dev_info.device_version);
+			pr_info(IX_DRIVER_TAG "FPGA version    : 0x%08X\n", devdata->dev_info.device_fpga_version);
+			pr_info(IX_DRIVER_TAG "Firmware version: %d.%d.%d.%d (type: %d)"
 				, le16_to_cpu(devdata->fw_info.major_version)
 				, le16_to_cpu(devdata->fw_info.minor_version)
 				, le16_to_cpu(devdata->fw_info.build_version)
 				, le16_to_cpu(devdata->fw_info.revision)
 				, le32_to_cpu(devdata->fw_info.firmware_type));
 
-			if (ixxat_usb_needs_firmware_update(id, &devdata->fw_info)) {
-				printk(IX_DRIVER_TAG "                  Firmware update recommended.\n");
-			}
+			if (ixxat_usb_needs_firmware_update(id, &devdata->fw_info))
+				pr_warn(IX_DRIVER_TAG "                  Firmware update recommended.\n");
 		}
 
 		if (err == NETDEV_TX_OK) {

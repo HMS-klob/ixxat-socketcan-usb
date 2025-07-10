@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /* CAN driver base for IXXAT USB-to-CAN
  *
  * Copyright (C) 2018-2024 HMS Industrial Networks <socketcan@hms-networks.de>
@@ -17,11 +17,11 @@
 #define IXXAT_USB_CORE_H
 
 /* #define IXXAT_USB_DRIVER_NAME  KBUILD_MODNAME  -> "ix_usb_can"
-   #define IXXAT_USB_CTRL_NAME "ixxat_usb" */
+ * #define IXXAT_USB_CTRL_NAME "ixxat_usb"
+ */
 
 #define IXXAT_USB_VENDOR_ID_LEGACY		0x08d8
 #define IXXAT_USB_VENDOR_ID			0x08db
-
 
 /* supported device ids: CL1 */
 #define USB2CAN_COMPACT_PRODUCT_ID		0x0008
@@ -125,8 +125,8 @@
 #define IXXAT_USB_MSG_FLAGS_RTR			0x00400000
 #define IXXAT_USB_MSG_FLAGS_EXT			0x00800000
 
-#define IXXAT_USB_DECODE_DLC(flags)	(((flags) & IXXAT_USB_MSG_FLAGS_DLC) >> 16)
-#define IXXAT_USB_ENCODE_DLC(len)	(((len) << 16) & IXXAT_USB_MSG_FLAGS_DLC)
+#define IXXAT_USB_DECODE_DLC(flags)		(((flags) & IXXAT_USB_MSG_FLAGS_DLC) >> 16)
+#define IXXAT_USB_ENCODE_DLC(len)		(((len) << 16) & IXXAT_USB_MSG_FLAGS_DLC)
 
 #define IXXAT_USB_FDMSG_FLAGS_EDL		0x00000400
 #define IXXAT_USB_FDMSG_FLAGS_FDR		0x00000800
@@ -227,8 +227,8 @@ struct ixxat_canbtp {
 
 /* struct ixxat_dev_info IXXAT usb device information
  * @device_name: Name of the device
- * @device_id: Device identification ( unique device id)
- * @device_version: Device version ( 0, 1, ...)
+ * @device_id: Device identification (unique device id)
+ * @device_version: Device version (0, 1, ...)
  * @device_fpga_version: Version of FPGA design
  *
  * Contains device information of IXXAT USB devices
@@ -290,8 +290,7 @@ struct ixxat_fw_info2 {
  *
  * Contains CAN controller capabilities information
  */
-struct ixxat_cancaps
-{
+struct ixxat_cancaps {
 	__le16 ctrltype;
 	__le16 buscoupling;
 	__le32 features;
@@ -325,8 +324,7 @@ struct ixxat_cancaps
  *
  * Contains CANFD controller capabilities information
  */
-struct ixxat_cancaps2
-{
+struct ixxat_cancaps2 {
 	__le16 ctrltype;
 	__le16 buscoupling;
 	__le32 features;
@@ -365,13 +363,13 @@ struct ixxat_cancaps2
  *
  * A: controller start command (request) is sent to the device
  * B: controller start command (response) returns from device and returns device time stamp of C
- * C: assumed CAN controller start time stamp, is is assumed to be in the middle between
+ * C: assumed CAN controller start time stamp, it is assumed to be in the middle between
  *    A and B (A + (t_start/2))
  * D: controller start info message arrives over the message fifo, it contains the
  *    device time stamp of C, too
  * E: controller stop command (request) is sent to the device
  * F: controller stop command (response) returns
- * G: assumed CAN controller stop time stamp, is is assumed to be in the middle between
+ * G: assumed CAN controller stop time stamp, it is assumed to be in the middle between
  *    E and F (E + (t_stop/2))
  * H: controller stop info message arrives over the message fifo, it contains the
  *    device time stamp of G
@@ -385,7 +383,7 @@ struct ixxat_cancaps2
  * The current time stamp correlated to the host clock (t_current_host) can then be
  * determined via
  *
- *     t_host_current = t_host_C + conv_to_nsec( t_dev_current - t_dev_C )
+ *     t_host_current = t_host_C + conv_to_nsec(t_dev_current - t_dev_C)
  *
  * struct ixxat_time_ref Time reference
  * tick_multiplier:	    used to convert ticks to ns
@@ -404,7 +402,7 @@ struct ixxat_time_ref {
  * @dev: IXXAT USB device
  * @urb: USB request block
  * @urb_index: index of this URB (used to mark the context as occupied)
- * @msg_index: index of message ( client_id)
+ * @msg_index: index of message (client_id)
  * @msg_packet_len: Data length code (only used if no loopback is enabled)
  * @msg_packet_no: number of packets (only used if no loopback is enabled)
  *
