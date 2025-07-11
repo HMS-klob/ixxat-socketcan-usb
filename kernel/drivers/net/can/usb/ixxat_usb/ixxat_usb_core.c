@@ -251,8 +251,9 @@ static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_candevice *dev)
 	if (LoopCnt < dev->msg_max) {
 		dev->msg_lastindex = MsgIdx;
 		ret = MsgIdx;
-	} else
+	} else {
 		ret = IXXAT_USB_E_FAILED;
+	}
 
 	spin_unlock_irqrestore(&dev->dev_lock, flags);
 
@@ -1032,9 +1033,9 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 			else
 				skb = alloc_can_skb(netdev, (struct can_frame **)&cf);
 
-			if (!skb)
+			if (!skb) {
 				err = -ENOMEM;
-			else {
+			} else {
 				ixxat_convert(dev->adapter, cf, rx, datalen);
 
 				netdev->stats.rx_packets++;
@@ -1109,9 +1110,9 @@ static int ixxat_usb_handle_status(struct ixxat_usb_candevice *dev,
 			dev->can.state = new_state;
 
 		skb = alloc_can_err_skb(netdev, &can_frame);
-		if (!skb)
+		if (!skb) {
 			err = -ENOMEM;
-		else {
+		} else {
 
 			switch (new_state) {
 			case CAN_STATE_ERROR_ACTIVE:
@@ -1357,8 +1358,9 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 	if (cf->can_id & CAN_EFF_FLAG) {
 		flags |= IXXAT_USB_MSG_FLAGS_EXT;
 		msg_id = cf->can_id & CAN_EFF_MASK;
-	} else
+	} else {
 		msg_id = cf->can_id & CAN_SFF_MASK;
+	}
 
 	if (can_is_canfd_skb(skb)) {
 		flags |= IXXAT_USB_FDMSG_FLAGS_EDL;
@@ -1367,8 +1369,9 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 			flags |= IXXAT_USB_FDMSG_FLAGS_FDR;
 
 		flags |= IXXAT_USB_ENCODE_DLC(can_fd_len2dlc(cf->len));
-	} else
+	} else {
 		flags |= IXXAT_USB_ENCODE_DLC(cf->len);
+	}
 
 	msg_base->size = sizeof(*msg_base) + cf->len - 1;
 	if (dev->adapter == &usb2can_cl1) {
@@ -1387,8 +1390,9 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 		if (selfReception) {
 			flags |= IXXAT_USB_MSG_FLAGS_SRR;
 			can_msg.cl2.client_id = cpu_to_le32(uMsgIdx);
-		} else
+		} else {
 			can_msg.cl2.client_id = 0;
+		}
 	}
 
 	msg_base->flags = cpu_to_le32(flags);
@@ -1413,9 +1417,9 @@ static int ixxat_evaluate_usb_status(struct net_device *netdev,
 	/* 0: success, -1: error -> return, -2: error -> retry */
 	int err = 0;
 
-	if (!netif_device_present(netdev))
+	if (!netif_device_present(netdev)) {
 		err = -1;
-	else {
+	} else {
 		switch (urb->status) {
 		case 0: /* success */
 			err = 0;
@@ -2442,9 +2446,9 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	pr_info(IX_DRIVER_TAG "KERNELVERSION: 0x%x (%i)", LINUX_VERSION_CODE, LINUX_VERSION_CODE);
 
 	err = ixxat_usb_get_fw_info(udev, &devdata->fw_info);
-	if (err)
+	if (err) {
 		dev_err(&udev->dev, "Error %d: Failed to get firmware information. Maybe firmware update needed.\n", err);
-	else {
+	} else {
 		if (le32_to_cpu(devdata->fw_info.firmware_type) != IXXAT_USB_DEV_FWTYPE_BAL) {
 			dev_err(&udev->dev, "Error %d: Unknown firmware type. Expected %u, got %u. Maybe firmware or driver update needed.\n", err, IXXAT_USB_DEV_FWTYPE_BAL, le32_to_cpu(devdata->fw_info.firmware_type));
 			err = -EFAULT;
