@@ -24,10 +24,9 @@
 
 #include "ixxat_kernel_adapt.h"
 
-MODULE_AUTHOR("HMS Technology Center Ravensburg Gmbh <socketcan@hms-networks.de>");
+MODULE_AUTHOR("HMS Technology Center GmbH <socketcan@hms-networks.de>");
 MODULE_DESCRIPTION("SocketCAN driver for HMS Ixxat USB-to-CAN V2, USB-to-CAN-FD family adapters");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("2.0.576-REL");
 
 #define IX_STATISTICS_EXACT		0
 
