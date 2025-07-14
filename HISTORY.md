@@ -2,6 +2,30 @@
 
 ## History
 
+### 2.0.607	(2025-07-14)
+
+- README.md: add usage patterns
+- adjust source to kernel coding guidelines
+- fix erors and warnings found by checkpatch.pl
+
+
+### 2.0.604	(2025-06-03)
+
+- free shared device data on disconnect
+- renamed ixxat_usb_device to ixxat_usb_candevice because it is the device struct to encapsulate a single CAN (device)
+  create a separate ixxat_usb_device struct that holds usb device specific data (fw info, device info, clock start offset)
+  implement different possibilities to synchronize device ticks to host clock, select it via IX_SYNCTOHOSTCLOCK define
+- move dmesg output of CAN controller clock settings after device creation
+- add ethtool_ops to support hardware timestamps
+- fix calculation of timestamps and use of timer overrun messages
+- read controller capabilities (includes ts clock info) from devices
+- add support for new USB-to-CAN/FD (new device ids)
+- cleanup code (move kernel version dependent part to ixxat_kernel_adapt.h)
+
+## Previous packages
+
+prior to 2.0.576 packages had been released packaged as .tgz files:
+
 ### 2.0.576	(2024-10-24)
 
 - remove assignments to can.restart_ms as this should be done only by the SocketCAN framework and not the individual driver (ICBT-1301)
