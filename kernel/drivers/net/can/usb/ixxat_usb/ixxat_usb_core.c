@@ -56,12 +56,10 @@ MODULE_LICENSE("GPL v2");
 #ifdef IXXAT_DEBUG
 static void showdevcaps(struct ixxat_dev_caps *dev_caps)
 {
-	int i;
+	int i, bus_ctrl_count = le16_to_cpu(dev_caps->bus_ctrl_count);
 
-	/* WTF? %i WTF? le16 bus_ctrl_count */
-	ix_trace_printk(KBUILD_MODNAME ": CtrlCount = %d\n",
-			dev_caps->bus_ctrl_count);
-	for (i = 0; i < dev_caps->bus_ctrl_count; i++)
+	ix_trace_printk(KBUILD_MODNAME ": CtrlCount = %d\n", bus_ctrl_count);
+	for (i = 0; i < bus_ctrl_count; i++)
 		ix_trace_printk(KBUILD_MODNAME ": Type = %d\n",
 				dev_caps->bus_ctrl_types[i]);
 }
