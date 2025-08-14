@@ -975,10 +975,8 @@ static void ixxat_usb_free_usb_communication(struct ixxat_usb_candevice *dev)
  */
 static int ixxat_usb_restart(struct ixxat_usb_candevice *dev)
 {
-	int err;
 	struct net_device *netdev = dev->netdev;
-
-	err = ixxat_usb_stop_ctrl(dev);
+	int err = ixxat_usb_stop_ctrl(dev);
 	if (err)
 		goto fail;
 
