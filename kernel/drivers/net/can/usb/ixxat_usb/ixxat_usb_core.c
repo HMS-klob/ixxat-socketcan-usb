@@ -1499,13 +1499,9 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 {
 	int size;
 	struct canfd_frame *cf = (struct canfd_frame *)skb->data;
-	struct ixxat_can_msg can_msg = { {0} };
+	struct ixxat_can_msg can_msg;
 	struct ixxat_can_msg_base *msg_base = &can_msg.base;
-	u32 flags = 0;
-	u32 msg_id = 0;
-
-	if (cf->can_id & CAN_RTR_FLAG)
-		flags |= IXXAT_USB_MSG_FLAGS_RTR;
+	u32 flags = 0, msg_id;
 
 	if (cf->can_id & CAN_EFF_FLAG) {
 		flags |= IXXAT_USB_MSG_FLAGS_EXT;
@@ -1514,10 +1510,13 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 		msg_id = cf->can_id & CAN_SFF_MASK;
 	}
 
-	if (can_is_canfd_skb(skb)) {
+	if (cf->can_id & CAN_RTR_FLAG) {
+		flags |= IXXAT_USB_MSG_FLAGS_RTR;
+
+	} else if (can_is_canfd_skb(skb)) {
 		flags |= IXXAT_USB_FDMSG_FLAGS_EDL;
 
-		if (!(cf->can_id & CAN_RTR_FLAG) && (cf->flags & CANFD_BRS))
+		if (cf->flags & CANFD_BRS)
 			flags |= IXXAT_USB_FDMSG_FLAGS_FDR;
 
 		flags |= IXXAT_USB_ENCODE_DLC(can_fd_len2dlc(cf->len));
@@ -1526,6 +1525,7 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 	}
 
 	msg_base->size = sizeof(*msg_base) + cf->len - 1;
+
 	if (dev->adapter == &usb2can_cl1) {
 		msg_base->size += sizeof(can_msg.cl1);
 		msg_base->size -= sizeof(can_msg.cl1.data);
