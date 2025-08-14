@@ -2030,29 +2030,28 @@ static ssize_t serial_show(struct device *pdev, struct device_attribute *attr,
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
 
-	if (devdata == NULL)
-		return 0;
-	else
-		return sprintf(buf, "%.*s\n", (int)(sizeof(devdata->dev_info.device_id)), devdata->dev_info.device_id);
+	return (devdata) ?
+		snprintf(buf, PAGE_SIZE, "%.*s\n",
+			(int)sizeof(devdata->dev_info.device_id),
+			devdata->dev_info.device_id) :
+		0;
 }
 static DEVICE_ATTR_RO(serial);
 
 static ssize_t firmware_version_show(struct device *pdev,
-				     struct device_attribute *attr,
-				     char *buf)
+				     struct device_attribute *attr, char *buf)
 {
 	struct net_device *netdev = to_net_dev(pdev);
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
 
-	if (devdata == NULL)
-		return 0;
-	else
-		return sprintf(buf, "%d.%d.%d.%d\n"
-			, le16_to_cpu(devdata->fw_info.major_version)
-			, le16_to_cpu(devdata->fw_info.minor_version)
-			, le16_to_cpu(devdata->fw_info.build_version)
-			, le16_to_cpu(devdata->fw_info.revision));
+	return (devdata) ?
+		snprintf(buf, PAGE_SIZE, "%d.%d.%d.%d\n",
+			 le16_to_cpu(devdata->fw_info.major_version),
+			 le16_to_cpu(devdata->fw_info.minor_version),
+			 le16_to_cpu(devdata->fw_info.build_version),
+			 le16_to_cpu(devdata->fw_info.revision)) :
+		0;
 }
 static DEVICE_ATTR_RO(firmware_version);
 
@@ -2064,10 +2063,11 @@ static ssize_t hardware_show(struct device *pdev,
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
 
-	if (devdata == NULL)
-		return 0;
-	else
-		return sprintf(buf, "%.*s\n", (int)(sizeof(devdata->dev_info.device_name)), devdata->dev_info.device_name);
+	return (devdata) ?
+		snprintf(buf, PAGE_SIZE, "%.*s\n",
+			 (int)sizeof(devdata->dev_info.device_name),
+			 devdata->dev_info.device_name) :
+		0;
 }
 static DEVICE_ATTR_RO(hardware);
 
@@ -2079,10 +2079,10 @@ static ssize_t hardware_version_show(struct device *pdev,
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
 
-	if (devdata == NULL)
-		return 0;
-	else
-		return sprintf(buf, "0x%04X\n", devdata->dev_info.device_version);
+	return (devdata) ?
+		snprintf(buf, PAGE_SIZE, "0x%04X\n",
+			 devdata->dev_info.device_version) :
+		0;
 }
 static DEVICE_ATTR_RO(hardware_version);
 
@@ -2094,10 +2094,10 @@ static ssize_t fpga_version_show(struct device *pdev,
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
 
-	if (devdata == NULL)
-		return 0;
-	else
-		return sprintf(buf, "0x%08X\n", devdata->dev_info.device_fpga_version);
+	return (devdata) ?
+		snprintf(buf, PAGE_SIZE, "0x%08X\n",
+			 devdata->dev_info.device_fpga_version) :
+		0;
 }
 static DEVICE_ATTR_RO(fpga_version);
 
