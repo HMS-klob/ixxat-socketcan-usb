@@ -387,38 +387,29 @@ static void ixxat_usb_rel_tx_context(struct ixxat_usb_candevice *dev,
  */
 static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_candevice *dev)
 {
-	u32 ret;
+	u32 msg_idx, msg_cnt;
 	unsigned long flags;
-
-	u32 MsgIdx = 0;
-	u32 LoopCnt = 0;
-	u64 Mask;
 
 	spin_lock_irqsave(&dev->dev_lock, flags);
 
-	MsgIdx = (dev->msg_lastindex + 1) % dev->msg_max;
-	while (LoopCnt < dev->msg_max) {
-		Mask = (1 << MsgIdx);
+	/* Note: dev::msg_max = 32 */
+	msg_idx = (dev->msg_lastindex + 1) % dev->msg_max;
 
-		if ((dev->msgs & Mask) == 0) {
-			dev->msgs |= Mask;
+	for (msg_cnt = 0; msg_cnt < dev->msg_max; msg_cnt++) {
+		u64 msg_mask = 1ULL << msg_idx;
+
+		if (!(dev->msgs & msg_mask)) {
+			dev->msgs |= msg_mask;
+			dev->msg_lastindex = msg_idx;
 			break;
 		}
 
-		MsgIdx = (MsgIdx + 1) % dev->msg_max;
-		LoopCnt++;
-	}
-
-	if (LoopCnt < dev->msg_max) {
-		dev->msg_lastindex = MsgIdx;
-		ret = MsgIdx;
-	} else {
-		ret = IXXAT_USB_E_FAILED;
+		msg_idx = (msg_idx + 1) % dev->msg_max;
 	}
 
 	spin_unlock_irqrestore(&dev->dev_lock, flags);
 
-	return ret;
+	return (msg_cnt < dev->msg_max) ? msg_idx : IXXAT_USB_E_FAILED;
 }
 
 /* ixxat_usb_msg_free_idx - free a message index
