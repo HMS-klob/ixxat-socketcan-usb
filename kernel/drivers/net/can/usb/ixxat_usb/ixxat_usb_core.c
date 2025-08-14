@@ -543,13 +543,16 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 	timeref->tick_divider = ts_clock_freq;
 
 	/* remove not significant zero bits from multiplier and divider */
-	while (((timeref->tick_multiplier & 0x1) == 0) && ((timeref->tick_divider & 0x1) == 0))	{
+	while (!(timeref->tick_multiplier & 0x1) &&
+		!(timeref->tick_divider & 0x1)) {
+
 		timeref->tick_multiplier >>= 1;
 		timeref->tick_divider >>= 1;
 	}
 
 	/* check if multiplier is divisible by divider without remainder */
-	if ((timeref->tick_multiplier % timeref->tick_divider) == 0) {
+	/* TODO: check 32-bit compilation against / */
+	if (!(timeref->tick_multiplier % timeref->tick_divider)) {
 		timeref->tick_multiplier /= timeref->tick_divider;
 		timeref->tick_divider     = 1;
 	}
