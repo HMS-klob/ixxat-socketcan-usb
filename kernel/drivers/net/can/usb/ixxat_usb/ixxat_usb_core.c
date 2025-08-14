@@ -414,23 +414,20 @@ static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_candevice *dev)
 
 /* ixxat_usb_msg_free_idx - free a message index
  * @dev: pointer to the IXXAT USB CAN device
- * @MsgIdx: message index to free, if 0xFFFFFFFF all messages are freed
+ * @msg_idx: message index to free, if 0xFFFFFFFF all messages are freed
  */
-static void ixxat_usb_msg_free_idx(struct ixxat_usb_candevice *dev, u32 MsgIdx)
+static void ixxat_usb_msg_free_idx(struct ixxat_usb_candevice *dev, u32 msg_idx)
 {
 	unsigned long flags;
-	u64 Mask;
 
 	spin_lock_irqsave(&dev->dev_lock, flags);
 
-	if (MsgIdx == 0xFFFFFFFF) {
+	if (msg_idx == 0xFFFFFFFF) {
 		dev->msgs = 0;
 		dev->msg_lastindex = 0;
-	} else {
-		if (MsgIdx < dev->msg_max) {
-			Mask = (1 << MsgIdx);
-			dev->msgs &= ~Mask;
-		}
+
+	} else if (msg_idx < dev->msg_max) {
+		dev->msgs &= ~(1ULL << msg_idx);
 	}
 
 	spin_unlock_irqrestore(&dev->dev_lock, flags);
