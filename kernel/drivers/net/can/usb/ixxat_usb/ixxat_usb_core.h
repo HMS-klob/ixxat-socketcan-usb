@@ -485,27 +485,6 @@ struct ixxat_usb_candevice {
 	struct can_berr_counter bec;
 };
 
-/* struct ixxat_usb_device_data IXXAT USB device data
- * @timeref_valid: Time reference valid
- * @kt_host_start: Host start time
- * @ts_dev_start: Device start time
- * @head: Head of the list of IXXAT USB CAN devices for this device
- */
-struct ixxat_usb_device_data {
-
-	/* used to lock write access to the device members */
-	spinlock_t access_lock;
-
-	/* device and firmware info */
-	struct ixxat_dev_info dev_info;
-	struct ixxat_fw_info2 fw_info;
-
-	/* time reference of first controller start */
-	bool    timeref_valid;
-	ktime_t kt_host_start;
-	u32     ts_dev_start;
-};
-
 /* struct ixxat_usb_dal_req IXXAT device request block
  * @size: Request size
  * @port: Request port
@@ -707,6 +686,47 @@ struct ixxat_usb_fwinfo2_cmd {
 	struct ixxat_usb_dal_res res;
 	struct ixxat_fw_info2 info;
 } __packed;
+
+/* USB command buffer */
+union ixxat_usb_cmd {
+	struct ixxat_usb_caps_cmd caps;
+	struct ixxat_usb_info_cmd info;
+	struct ixxat_usb_fwinfo_cmd fwinfo;
+	struct ixxat_usb_fwinfo2_cmd fwinfo2;
+	struct ixxat_usb_start_cmd start;
+	struct ixxat_usb_stop_cmd stop;
+	struct ixxat_usb_power_cmd power;
+	struct ixxat_usb_dal_cmd dal;
+
+	struct ixxat_usb_init_cl1_cmd cl1;
+	struct ixxat_usb_getcaps_cl1_cmd caps_cl1;
+
+	struct ixxat_usb_init_cl2_cmd cl2;
+	struct ixxat_usb_getcaps_cl2_cmd caps_cl2;
+};
+
+/* struct ixxat_usb_device_data IXXAT USB device data
+ * @timeref_valid: Time reference valid
+ * @kt_host_start: Host start time
+ * @ts_dev_start: Device start time
+ */
+struct ixxat_usb_device_data {
+
+	/* used to lock write access to the device members */
+	spinlock_t access_lock;
+
+	/* device and firmware info */
+	struct ixxat_dev_info dev_info;
+	struct ixxat_fw_info2 fw_info;
+
+	/* time reference of first controller start */
+	bool    timeref_valid;
+	ktime_t kt_host_start;
+	u32     ts_dev_start;
+
+	/* USB commands buffer */
+	union ixxat_usb_cmd cmd;
+};
 
 /* struct ixxat_usb_adapter IXXAT USB device adapter
  * @clock: Clock frequency
