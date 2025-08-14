@@ -213,6 +213,9 @@ static const struct usb_device_id ixxat_usb_table[] = {
 
 MODULE_DEVICE_TABLE(usb, ixxat_usb_table);
 
+/* multiply by 100.000.000 to get 1ns resolution */
+const u64 TICK_FACTOR = 1000000000ULL;
+
 #ifdef IXXAT_DEBUG
 static void showdevcaps(struct ixxat_dev_caps *dev_caps)
 {
@@ -537,9 +540,6 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 fail:
 	return ret;
 }
-
-/* multiply by 100.000.000 to get 1ns resolution */
-const u64 TICK_FACTOR = 1000000000;
 
 /* ixxat_usb_ts_set_cancaps - set timestamp multiplier/divider
  * from controller timestamp clock settings
