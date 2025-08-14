@@ -71,10 +71,10 @@
 #define IXXAT_USB_POWER_WAKEUP_TIME		500
 
 #define IXXAT_USB_FWTYPE_RES			0	/* reserved */
-#define IXXAT_USB_FWTYPE_FLD			1	/* flash loader firmware */
-#define IXXAT_USB_DEV__CCL			2	/* CCL conform firmware */
-#define IXXAT_USB_DEV_FWTYPE_BAL		3	/* BAL conform firmware */
-#define IXXAT_USB_DEV_FWTYPE_BMG		4	/* BMG conform firmware */
+#define IXXAT_USB_FWTYPE_FLD			1	/* flash loader FW */
+#define IXXAT_USB_DEV__CCL			2	/* CCL conform FW */
+#define IXXAT_USB_DEV_FWTYPE_BAL		3	/* BAL conform FW */
+#define IXXAT_USB_DEV_FWTYPE_BMG		4	/* BMG conform FW */
 
 #define IXXAT_USB_OPMODE_STANDARD		BIT(0)
 #define IXXAT_USB_OPMODE_EXTENDED		BIT(1)
@@ -125,8 +125,11 @@
 #define IXXAT_USB_MSG_FLAGS_RTR			0x00400000
 #define IXXAT_USB_MSG_FLAGS_EXT			0x00800000
 
-#define IXXAT_USB_DECODE_DLC(flags)		(((flags) & IXXAT_USB_MSG_FLAGS_DLC) >> 16)
-#define IXXAT_USB_ENCODE_DLC(len)		(((len) << 16) & IXXAT_USB_MSG_FLAGS_DLC)
+#define IXXAT_USB_DECODE_DLC(flags)		\
+				(((flags) & IXXAT_USB_MSG_FLAGS_DLC) >> 16)
+
+#define IXXAT_USB_ENCODE_DLC(len)		\
+				(((len) << 16) & IXXAT_USB_MSG_FLAGS_DLC)
 
 #define IXXAT_USB_FDMSG_FLAGS_EDL		0x00000400
 #define IXXAT_USB_FDMSG_FLAGS_FDR		0x00000800
@@ -248,7 +251,6 @@ struct ixxat_dev_info {
  *
  * Contains device information of IXXAT USB devices
  */
-
 struct ixxat_fw_info {
 	__le32 firmware_type;
 	__le16 res;
@@ -347,7 +349,8 @@ struct ixxat_cancaps2 {
  *
  * Every device maintains an internal clock used for message timestamps.
  * The resolution of the clock is reported by the controller capabilities and
- * denotes the resolution of one clock tick by the two values: ts_clock_freq/ts_clock_divisor
+ * denotes the resolution of one clock tick by the two values:
+ * ts_clock_freq/ts_clock_divisor
  * The following timeline occurs during the operation of a controller:
  *
  *         t_start                                      t_stop
@@ -362,17 +365,18 @@ struct ixxat_cancaps2 {
  *           C                                            G
  *
  * A: controller start command (request) is sent to the device
- * B: controller start command (response) returns from device and returns device time stamp of C
- * C: assumed CAN controller start time stamp, it is assumed to be in the middle between
- *    A and B (A + (t_start/2))
- * D: controller start info message arrives over the message fifo, it contains the
- *    device time stamp of C, too
+ * B: controller start command (response) returns from device and returns device
+ *    time stamp of C
+ * C: assumed CAN controller start time stamp, it is assumed to be in the middle
+ *     between A and B (A + (t_start/2))
+ * D: controller start info message arrives over the message fifo, it contains
+ *    the device time stamp of C, too
  * E: controller stop command (request) is sent to the device
  * F: controller stop command (response) returns
- * G: assumed CAN controller stop time stamp, it is assumed to be in the middle between
- *    E and F (E + (t_stop/2))
- * H: controller stop info message arrives over the message fifo, it contains the
- *    device time stamp of G
+ * G: assumed CAN controller stop time stamp, it is assumed to be in the middle
+ *    between E and F (E + (t_stop/2))
+ * H: controller stop info message arrives over the message fifo, it contains
+ *    the device time stamp of G
  *
  * To correlate the start timestamp to the host clock we determine:
  *
@@ -380,14 +384,14 @@ struct ixxat_cancaps2 {
  *              = t_host_A + ((t_host_A - t_host_B) / 2)
  *
  * t_C_host then corresponds to the device clock tick at C (t_C_device).
- * The current time stamp correlated to the host clock (t_current_host) can then be
- * determined via
+ * The current time stamp correlated to the host clock (t_current_host) can then
+ * be determined via
  *
  *     t_host_current = t_host_C + conv_to_nsec(t_dev_current - t_dev_C)
  *
  * struct ixxat_time_ref Time reference
- * tick_multiplier:	    used to convert ticks to ns
- * tick_divider:	    used to convert ticks to ns
+ * tick_multiplier:	used to convert ticks to ns
+ * tick_divider:	used to convert ticks to ns
  * @ts_overrun_ticks:	number of timer overruns since start
  *
  * Contains time references of the device and the host
@@ -728,7 +732,8 @@ struct ixxat_usb_adapter {
 	const u8 ep_msg_out[IXXAT_USB_MAX_CHANNEL];
 	const u8 ep_offs;
 
-	int (*get_ctrl_caps)(struct ixxat_usb_candevice *dev, struct ixxat_cancaps2 *caps);
+	int (*get_ctrl_caps)(struct ixxat_usb_candevice *dev,
+			     struct ixxat_cancaps2 *caps);
 	int (*init_ctrl)(struct ixxat_usb_candevice *dev);
 };
 
