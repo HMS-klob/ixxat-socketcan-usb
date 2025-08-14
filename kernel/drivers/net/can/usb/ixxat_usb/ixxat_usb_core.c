@@ -70,6 +70,9 @@ static void showdump(u8 *pbdata, u16 length)
 	int i, l = strlen(dump);
 	int len = (length > 25) ? 25 : length;
 
+	/* SGr: uses snprintf() to control the overflow of the local variable
+	 * and simplify the use of the strcat/sprintf combination
+	 */
 	for (i = 0; i < len; i++)
 		l += snprintf(dump + l, sizeof(dump) - l, "%02x ", pbdata[i]);
 
