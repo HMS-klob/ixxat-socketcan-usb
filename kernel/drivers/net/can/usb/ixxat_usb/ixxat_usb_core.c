@@ -461,8 +461,6 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
  * This function sends a command to the IXXAT USB device and waits for the
  * response. It retries the command up to IXXAT_USB_MAX_COM_REQ times if the
  * command fails to be sent or the response is not received.
- * The function uses USB control messages to send the command and receive the response.
- * The timeout for the control messages is set to IXXAT_USB_MSG_TIMEOUT milliseconds.
  *
  * Returns >= 0 on success, negative error code on failure.
  * If the response size is wrong it returns -EBADMSG.
@@ -470,64 +468,59 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
 int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 		       const u16 req_size, void *res, const u16 res_size)
 {
-	const int to = msecs_to_jiffies(IXXAT_USB_MSG_TIMEOUT);
-	const u8 rq = 0xff;
-	const u8 rti = USB_TYPE_VENDOR | USB_DIR_IN;
-	const u8 rto = USB_TYPE_VENDOR | USB_DIR_OUT;
-	int i;
-	int pos = 0;
-	int rcp = usb_rcvctrlpipe(dev, 0);
-	int scp = usb_sndctrlpipe(dev, 0);
-	int ret = 0;
 	struct ixxat_usb_dal_res *dal_res = res;
+	int i, ret = 0, pos = 0;
 
-	for (i = 0; i < IXXAT_USB_MAX_COM_REQ; ++i) {
-		ret = usb_control_msg(dev, scp, rq, rto, port, 0, req, req_size, to);
-		if (ret < 0)
-			msleep(IXXAT_USB_MSG_CYCLE);
-		else
+	/* Send the command */
+	for (i = 0; i < IXXAT_USB_MAX_COM_REQ; i++) {
+		ret = usb_control_msg(dev, usb_sndctrlpipe(dev, 0), 0xff,
+				      USB_TYPE_VENDOR | USB_DIR_OUT,
+				      port, 0, req, req_size,
+				      msecs_to_jiffies(IXXAT_USB_MSG_TIMEOUT));
+		if (ret >= 0)
 			break;
+
+		if (ret != -ETIMEDOUT) {
+			dev_err(&dev->dev, KBUILD_MODNAME
+				": Failed to send TX command (err %d)\n", ret);
+			return ret;
+		}
 	}
 
-	if (ret < 0) {
-		dev_err(&dev->dev, "Error %d: TX command failure\n", ret);
-		goto fail;
-	}
+	/* Wait for the response */
+	for (i = 0; i < IXXAT_USB_MAX_COM_REQ; i++) {
+		ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), 0xff,
+				USB_TYPE_VENDOR | USB_DIR_IN,
+				port, 0, res + pos, res_size - pos,
+				msecs_to_jiffies(IXXAT_USB_MSG_TIMEOUT));
 
-	for (i = 0; i < IXXAT_USB_MAX_COM_REQ; ++i) {
-		const int rs = res_size - pos;
-		void *rb = res + pos;
-
-		ret = usb_control_msg(dev, rcp, rq, rti, port, 0, rb, rs, to);
-		if (ret < 0) {
-			msleep(IXXAT_USB_MSG_CYCLE);
+		if (ret == -ETIMEDOUT)
 			continue;
+
+		if (ret < 0) {
+			dev_err(&dev->dev, KBUILD_MODNAME
+				": Failed to get TX response (err %d)\n", ret);
+			return ret;
 		}
 
 		pos += ret;
-		if (pos < res_size)
-			msleep(IXXAT_USB_MSG_CYCLE);
-		else
+		if (pos >= res_size)
 			break;
+
+		msleep(IXXAT_USB_MSG_CYCLE);
 	}
 
 	/* firmware responses may be smaller then requested response size
 	 * but should be not smaller than the response header size
 	 */
 	if (pos < sizeof(struct ixxat_usb_dal_res)) {
-		dev_err(&dev->dev, "Command answer size failure: got %u expected %u\n", pos, res_size);
-		ret = -EBADMSG;
+		dev_err(&dev->dev, KBUILD_MODNAME
+			": Invalid cmd rsp size %u (%u expected)\n",
+			pos, res_size);
+		return -EBADMSG;
 	}
 
-	if (ret < 0) {
-		dev_err(&dev->dev, "Error %d: RX command failure\n", ret);
-		goto fail;
-	}
-
-	ret = le32_to_cpu(dal_res->code);
-
-fail:
-	return ret;
+	return le32_to_cpu(dal_res->code);
 }
 
 /* ixxat_usb_ts_set_cancaps - set timestamp multiplier/divider
