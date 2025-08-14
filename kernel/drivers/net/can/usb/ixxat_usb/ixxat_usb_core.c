@@ -2422,7 +2422,8 @@ free_candev:
 	return err;
 }
 
-/* ixxat_usb_check_channel - check if the USB interface matches the known endpoints
+/* ixxat_usb_check_channel - check if the USB interface matches the known
+ * endpoints
  * @adapter: pointer to the IXXAT USB adapter structure
  * @host_intf: pointer to the USB host interface descriptor
  *
@@ -2435,15 +2436,15 @@ free_candev:
 static int ixxat_usb_check_channel(const struct ixxat_usb_adapter *adapter,
 				   const struct usb_host_interface *host_intf)
 {
+	int match = 0;
 	u16 i;
-	int err = NETDEV_TX_OK;
 
 	for (i = 0; i < host_intf->desc.bNumEndpoints; i++) {
 		const u8 epaddr = host_intf->endpoint[i].desc.bEndpointAddress;
-		int match = 0;
 		u8 j;
 
 		/* Check if usb-endpoint address matches known usb-endpoints */
+		match = 0;
 		for (j = 0; j < IXXAT_USB_MAX_CHANNEL; j++) {
 			u8 ep_msg_in = adapter->ep_msg_in[j];
 			u8 ep_msg_out = adapter->ep_msg_out[j];
@@ -2454,13 +2455,11 @@ static int ixxat_usb_check_channel(const struct ixxat_usb_adapter *adapter,
 			}
 		}
 
-		if (!match) {
-			err = -ENODEV;
+		if (!match)
 			break;
-		}
 	}
 
-	return err;
+	return match ? NETDEV_TX_OK : -ENODEV;
 }
 
 /* ixxat_usb_probe - probe the IXXAT USB device
