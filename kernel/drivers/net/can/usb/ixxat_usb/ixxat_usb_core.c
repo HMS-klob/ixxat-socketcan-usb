@@ -64,6 +64,150 @@ MODULE_LICENSE("GPL v2");
 #else
 #define ix_trace_printk(...)
 #endif
+/* struct ixxat_driver_info IXXAT USB device static information
+ * @name	commercial name
+ * @adapter	IXXAT USB adapter family
+ * @is_legacy	Legacy USB device
+ */
+struct ixxat_driver_info {
+	const char *name;
+	const struct ixxat_usb_adapter *adapter;
+	bool is_legacy;
+};
+
+/* IXXAT_USB_VENDOR_ID_LEGACY products information */
+static const struct ixxat_driver_info legacy_usb2can_compact = {
+	.name = "IXXAT USB Compact",
+	.adapter = &usb2can_cl1,
+	.is_legacy = true,
+};
+static const struct ixxat_driver_info legacy_usb2can_embedded = {
+	.name = "IXXAT USB Embedded",
+	.adapter = &usb2can_cl1,
+	.is_legacy = true,
+};
+static const struct ixxat_driver_info legacy_usb2can_pro = {
+	.name = "IXXAT USB Professional",
+	.adapter = &usb2can_cl1,
+	.is_legacy = true,
+};
+static const struct ixxat_driver_info legacy_usb2can_auto = {
+	.name = "IXXAT USB Automotive",
+	.adapter = &usb2can_cl1,
+	.is_legacy = true,
+};
+static const struct ixxat_driver_info legacy_usb2can_plugin = {
+	.name = "IXXAT USB Plugin",
+	.adapter = &usb2can_cl1,
+	.is_legacy = true,
+};
+static const struct ixxat_driver_info legacy_usb2can_fd_compact = {
+	.name = "IXXAT USB Compact FD",
+	.adapter = &usb2can_fd,
+};
+static const struct ixxat_driver_info legacy_usb2can_fd_pro = {
+	.name = "IXXAT USB Professional FD",
+	.adapter = &usb2can_fd,
+};
+static const struct ixxat_driver_info legacy_usb2can_fd_auto = {
+	.name = "IXXAT USB Automotive FD",
+	.adapter = &usb2can_fd,
+};
+static const struct ixxat_driver_info legacy_usb2can_fd_pcie_mini = {
+	.name = "IXXAT USB PCIE Mini FD",
+	.adapter = &usb2can_fd,
+};
+static const struct ixxat_driver_info legacy_usb2car = {
+	.name = "IXXAT USB-to-Car",
+	.adapter = &usb2can_fd,
+};
+static const struct ixxat_driver_info legacy_can_idm101 = {
+	.name = "IXXAT IDM 101",
+	.adapter = &can_fd_idm,
+};
+static const struct ixxat_driver_info legacy_can_idm200 = {
+	.name = "IXXAT IDM 200",
+	.adapter = &can_fd_idm,
+};
+
+/* IXXAT_USB_VENDOR_ID products information */
+static const struct ixxat_driver_info usb2can_fd_pro = {
+	.name = "Ixxat USB-to-CAN/FD Pro",
+	.adapter = &usb2can_fd,
+};
+static const struct ixxat_driver_info usb2can_fd_std = {
+	.name = "Ixxat USB-to-CAN/FD Standard",
+	.adapter = &usb2can_fd,
+};
+static const struct ixxat_driver_info usb2can_fd_std_brick = {
+	.name = "Ixxat USB-to-CAN/FD Standard Brick",
+	.adapter = &usb2can_fd,
+};
+static const struct ixxat_driver_info usb2can_fd_pro_module = {
+	.name = "Ixxat USB-to-CAN/FD Pro Module",
+	.adapter = &usb2can_fd,
+};
+
+/* Table of devices that work with this driver */
+static const struct usb_device_id ixxat_usb_table[] = {
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_COMPACT_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&legacy_usb2can_compact,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_EMBEDDED_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&legacy_usb2can_embedded,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY,
+		     USB2CAN_PROFESSIONAL_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&legacy_usb2can_pro,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_AUTOMOTIVE_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&legacy_usb2can_auto,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_PLUGIN_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&legacy_usb2can_plugin,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_FD_COMPACT_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&legacy_usb2can_fd_compact,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY,
+		     USB2CAN_FD_PROFESSIONAL_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&legacy_usb2can_fd_pro,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY,
+		     USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&legacy_usb2can_fd_auto,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY,
+		     USB2CAN_FD_PCIE_MINI_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&legacy_usb2can_fd_pcie_mini,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAR_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&legacy_usb2car,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, CAN_IDM101_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&legacy_can_idm101,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, CAN_IDM200_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&legacy_can_idm200,
+	},
+
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_PRO_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&usb2can_fd_pro,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_STANDARD_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&usb2can_fd_std,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&usb2can_fd_std_brick,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_PRO_MODULE_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&usb2can_fd_pro_module,
+	},
+	{ } /* Terminating entry */
+};
+
+MODULE_DEVICE_TABLE(usb, ixxat_usb_table);
+
 #ifdef IXXAT_DEBUG
 static void showdevcaps(struct ixxat_dev_caps *dev_caps)
 {
@@ -95,21 +239,14 @@ static void showdump(u8 *pbdata, u16 length)
 /* ixxat_usb_is_legacy_usb2can - check if device is a legacy USB2CAN device
  * @id: USB device id
  *
- * Returns 1 if the device is a legacy USB2CAN device, 0 otherwise.
+ * Returns true if the device is a legacy USB2CAN device.
  */
-static int ixxat_usb_is_legacy_usb2can(const struct usb_device_id *id)
+static bool ixxat_usb_is_legacy_usb2can(const struct usb_device_id *id)
 {
-	if (id->idVendor == IXXAT_USB_VENDOR_ID_LEGACY) {
-		switch (id->idProduct) {
-		case USB2CAN_COMPACT_PRODUCT_ID:
-		case USB2CAN_EMBEDDED_PRODUCT_ID:
-		case USB2CAN_PROFESSIONAL_PRODUCT_ID:
-		case USB2CAN_AUTOMOTIVE_PRODUCT_ID:
-		case USB2CAN_PLUGIN_PRODUCT_ID:
-			return 1;
-		}
-	}
-	return 0;
+	const struct ixxat_driver_info *drv_info =
+		(const struct ixxat_driver_info *)id->driver_info;
+
+	return drv_info->is_legacy;
 }
 
 /* ixxat_usb_has_cl2_firmware - check if device has CL2 firmware
@@ -141,6 +278,29 @@ static int ixxat_usb_has_cl2_firmware(const struct usb_device_id *id,
 	return 0;
 }
 
+/* ixxat_usb_get_adapter - get the IXXAT USB adapter based on the USB device ID
+ * @id: pointer to the USB device ID structure
+ * @dev_fwinfo: pointer to the firmware info structure (optional)
+ *
+ * This function retrieves the appropriate IXXAT USB adapter
+ * based on the USB device ID and the firmware information.
+ *
+ * Returns a pointer to the IXXAT USB adapter structure
+ */
+static const struct ixxat_usb_adapter *
+	ixxat_usb_get_adapter(const struct usb_device_id *id,
+			      struct ixxat_fw_info2 *dev_fwinfo)
+{
+	const struct ixxat_driver_info *drv_info =
+		(const struct ixxat_driver_info *)id->driver_info;
+
+	if ((drv_info->adapter == &usb2can_cl1) &&
+	    (ixxat_usb_has_cl2_firmware(id, dev_fwinfo)))
+		return &usb2can_v2;
+
+	return drv_info->adapter;
+}
+
 /* ixxat_usb_needs_firmware_update - check if firmware update is needed
  * @id: USB device id
  * @fwinfo: Firmware info of the device
@@ -159,32 +319,6 @@ static int ixxat_usb_needs_firmware_update(const struct usb_device_id *id,
 
 /* Prefix for debug output - makes for easier grepping */
 #define IX_DRIVER_TAG "ix_usb_can: "
-
-
-
-/* Table of devices that work with this driver */
-static const struct usb_device_id ixxat_usb_table[] = {
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_COMPACT_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_EMBEDDED_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_PROFESSIONAL_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_AUTOMOTIVE_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_PLUGIN_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_FD_COMPACT_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_FD_PROFESSIONAL_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAN_FD_PCIE_MINI_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, USB2CAR_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, CAN_IDM101_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, CAN_IDM200_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID,        USB2CAN_FD_PRO_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID,        USB2CAN_FD_STANDARD_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID,        USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID) },
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID,        USB2CAN_FD_PRO_MODULE_PRODUCT_ID) },
-	{ } /* Terminating entry */
-};
-
-MODULE_DEVICE_TABLE(usb, ixxat_usb_table);
-
 
 	return (ixxat_usb_is_legacy_usb2can(id)) ?
 		!ixxat_usb_has_cl2_firmware(id, fwinfo) : 0;
