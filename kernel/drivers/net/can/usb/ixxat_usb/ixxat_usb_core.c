@@ -57,6 +57,11 @@ MODULE_LICENSE("GPL v2");
 #define IX_MIN_MINORFWVERSION_SUPP_V2	0x07
 #define IX_MIN_BUILDFWVERSION_SUPP_V2	0x00
 
+#define IX_FW_VER(a, b, c)	(((a) << 16) + ((b) << 8) + (c))
+#define IX_FW_CL2		IX_FW_VER(IX_MIN_MAJORFWVERSION_SUPP_V2, \
+					  IX_MIN_MINORFWVERSION_SUPP_V2, \
+					  IX_MIN_MINORFWVERSION_SUPP_V2)
+
 #if defined(CONFIG_TRACING) && defined(DEBUG)
 #define ix_trace_printk(...)		trace_printk(__VA_ARGS__)
 #elif defined(IXXAT_DEBUG)
@@ -251,30 +256,21 @@ static bool ixxat_usb_is_legacy_usb2can(const struct usb_device_id *id)
 
 /* ixxat_usb_has_cl2_firmware - check if device has CL2 firmware
  * @id: USB device id
- * @fwinfo: Firmware info of the device
+ * @fwinfo: Firmware info of the device (may be NULL)
  *
- * Returns 1 if the device has CL2 firmware, 0 otherwise.
+ * Returns != 0 if the device has CL2 firmware, 0 otherwise.
  */
 static int ixxat_usb_has_cl2_firmware(const struct usb_device_id *id,
 				      struct ixxat_fw_info2 *fwinfo)
 {
-	if (ixxat_usb_is_legacy_usb2can(id)) {
+	if (ixxat_usb_is_legacy_usb2can(id) && fwinfo) {
 		int major = le16_to_cpu(fwinfo->major_version);
 		int minor = le16_to_cpu(fwinfo->minor_version);
 		int build = le16_to_cpu(fwinfo->build_version);
 
-		if (major < IX_MIN_MAJORFWVERSION_SUPP_V2)
-			return 0;
-		if (major == IX_MIN_MAJORFWVERSION_SUPP_V2) {
-			if (minor < IX_MIN_MINORFWVERSION_SUPP_V2)
-				return 0;
-			if ((minor == IX_MIN_MINORFWVERSION_SUPP_V2) &&
-			    (build < IX_MIN_BUILDFWVERSION_SUPP_V2))
-				return 0;
-		}
-
-		return 1;
+		return IX_FW_VER(major, minor, build) >= IX_FW_CL2;
 	}
+
 	return 0;
 }
 
