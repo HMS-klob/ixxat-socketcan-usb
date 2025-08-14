@@ -612,26 +612,23 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 
 /* ixxat_usb_get_dev_caps - get device capabilities
  * @dev: pointer to the USB device
+ * @devdata: pointer to the USB device private data area
  * @dev_caps: pointer to the device capabilities structure to fill
  * This function retrieves the device capabilities from the IXXAT USB device.
  *
  * Returns 0 on success, negative error code on failure.
  */
 static int ixxat_usb_get_dev_caps(struct usb_device *dev,
+				  struct ixxat_usb_device_data *devdata,
 				  struct ixxat_dev_caps *dev_caps)
 {
-	int i;
-	int err;
-	struct ixxat_usb_caps_cmd *cmd;
+	struct ixxat_usb_caps_cmd *cmd = &devdata->cmd.caps;
 	const u32 cmd_size = sizeof(*cmd);
 	const u32 req_size = sizeof(cmd->req);
 	const u32 rcv_size = cmd_size - req_size;
 	const u32 snd_size = req_size + sizeof(cmd->res);
 	u16 num_ctrl;
-
-	cmd = kmalloc(cmd_size, GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
+	int i, err;
 
 	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
 	cmd->req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_DEVCAPS);
@@ -640,10 +637,10 @@ static int ixxat_usb_get_dev_caps(struct usb_device *dev,
 	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size,
 				 &cmd->res, rcv_size);
 	if (err)
-		goto fail;
+		return err;
 
 	dev_caps->bus_ctrl_count = cmd->caps.bus_ctrl_count;
-	num_ctrl = le16_to_cpu(dev_caps->bus_ctrl_count);
+	num_ctrl = le16_to_cpu(cmd->caps.bus_ctrl_count);
 	if (num_ctrl > ARRAY_SIZE(dev_caps->bus_ctrl_types)) {
 		err = -EINVAL;
 		goto fail;
@@ -653,30 +650,25 @@ static int ixxat_usb_get_dev_caps(struct usb_device *dev,
 		dev_caps->bus_ctrl_types[i] = cmd->caps.bus_ctrl_types[i];
 
 fail:
-	kfree(cmd);
 	return err;
 }
 
 /* ixxat_usb_get_dev_info - get device information
  * @dev: pointer to the USB device
- * @dev_info: pointer to the device information structure to fill
+ * @devdata: pointer to the USB device private data area
  * This function retrieves the device information from the IXXAT USB device.
  *
  * Returns 0 on success, negative error code on failure.
  */
 static int ixxat_usb_get_dev_info(struct usb_device *dev,
-				  struct ixxat_dev_info *dev_info)
+				  struct ixxat_usb_device_data *devdata)
 {
-	int err;
-	struct ixxat_usb_info_cmd *cmd;
+	struct ixxat_usb_info_cmd *cmd = &devdata->cmd.info;
 	const u32 cmd_size = sizeof(*cmd);
 	const u32 req_size = sizeof(cmd->req);
 	const u32 rcv_size = cmd_size - req_size;
 	const u32 snd_size = req_size + sizeof(cmd->res);
-
-	cmd = kmalloc(cmd_size, GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
+	int err;
 
 	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
 	cmd->req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_DEVINFO);
@@ -684,44 +676,37 @@ static int ixxat_usb_get_dev_info(struct usb_device *dev,
 
 	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size,
 				 &cmd->res, rcv_size);
-	if (err)
-		goto fail;
+	if (!err) {
+		struct ixxat_dev_info *dev_info = &devdata->dev_info;
 
-	if (dev_info) {
 		memcpy(dev_info->device_id, &cmd->info.device_id,
 		       sizeof(cmd->info.device_id));
 		memcpy(dev_info->device_name, &cmd->info.device_name,
 		       sizeof(cmd->info.device_name));
+
 		dev_info->device_fpga_version = cmd->info.device_fpga_version;
 		dev_info->device_version = cmd->info.device_version;
 	}
-
-fail:
-	kfree(cmd);
 
 	return err;
 }
 
 /* ixxat_usb_get_fw_info - get firmware information (V1)
  * @dev: pointer to the USB device
- * @dev_info: pointer to the firmware information structure to fill
+ * @devdata: pointer to the USB device private data area
  * This function retrieves the firmware information from the IXXAT USB device.
  *
  * Returns 0 on success, negative error code on failure.
  */
 static int ixxat_usb_get_fw_info(struct usb_device *dev,
-				 struct ixxat_fw_info2 *dev_info)
+				 struct ixxat_usb_device_data *devdata)
 {
-	int err;
-	struct ixxat_usb_fwinfo_cmd *cmd;
+	struct ixxat_usb_fwinfo_cmd *cmd = &devdata->cmd.fwinfo;
 	const u32 cmd_size = sizeof(*cmd);
 	const u32 req_size = sizeof(cmd->req);
 	const u32 rcv_size = cmd_size - req_size;
 	const u32 snd_size = req_size + sizeof(cmd->res);
-
-	cmd = kmalloc(cmd_size, GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
+	int err;
 
 	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
 	cmd->req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_FWINFO);
@@ -729,43 +714,35 @@ static int ixxat_usb_get_fw_info(struct usb_device *dev,
 
 	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size,
 				 &cmd->res, rcv_size);
-	if (err)
-		goto fail;
+	if (!err) {
+		struct ixxat_fw_info2 *fw_info = &devdata->fw_info;
 
-	if (dev_info) {
-		dev_info->firmware_type = cmd->info.firmware_type;
-		dev_info->major_version = cmd->info.major_version;
-		dev_info->minor_version = cmd->info.minor_version;
-		dev_info->build_version = cmd->info.build_version;
-		dev_info->revision = 0;
+		fw_info->firmware_type = cmd->info.firmware_type;
+		fw_info->major_version = cmd->info.major_version;
+		fw_info->minor_version = cmd->info.minor_version;
+		fw_info->build_version = cmd->info.build_version;
+		fw_info->revision = 0;
 	}
-
-fail:
-	kfree(cmd);
 
 	return err;
 }
 
 /* ixxat_usb_get_fw_info2 - get firmware information (V2)
  * @dev: pointer to the USB device
- * @dev_info: pointer to the firmware information structure to fill
+ * @devdata: pointer to the USB device private data area
  * This function retrieves the firmware information from the IXXAT USB device.
  *
  * Returns 0 on success, negative error code on failure.
  */
 static int ixxat_usb_get_fw_info2(struct usb_device *dev,
-				  struct ixxat_fw_info2 *dev_info)
+				  struct ixxat_usb_device_data *devdata)
 {
-	int err;
-	struct ixxat_usb_fwinfo2_cmd *cmd;
+	struct ixxat_usb_fwinfo2_cmd *cmd = &devdata->cmd.fwinfo2;
 	const u32 cmd_size = sizeof(*cmd);
 	const u32 req_size = sizeof(cmd->req);
 	const u32 rcv_size = cmd_size - req_size;
 	const u32 snd_size = req_size + sizeof(cmd->res);
-
-	cmd = kmalloc(cmd_size, GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
+	int err;
 
 	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
 	cmd->req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_FWINFO2);
@@ -773,19 +750,15 @@ static int ixxat_usb_get_fw_info2(struct usb_device *dev,
 
 	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size,
 				 &cmd->res, rcv_size);
-	if (err)
-		goto fail;
+	if (!err) {
+		struct ixxat_fw_info2 *fw_info = &devdata->fw_info;
 
-	if (dev_info) {
-		dev_info->firmware_type = cmd->info.firmware_type;
-		dev_info->major_version = cmd->info.major_version;
-		dev_info->minor_version = cmd->info.minor_version;
-		dev_info->build_version = cmd->info.build_version;
-		dev_info->revision = cmd->info.revision;
+		fw_info->firmware_type = cmd->info.firmware_type;
+		fw_info->major_version = cmd->info.major_version;
+		fw_info->minor_version = cmd->info.minor_version;
+		fw_info->build_version = cmd->info.build_version;
+		fw_info->revision = cmd->info.revision;
 	}
-
-fail:
-	kfree(cmd);
 
 	return err;
 }
@@ -798,20 +771,15 @@ fail:
  */
 static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 {
-	ktime_t kt_host_A;
-	ktime_t kt_host_B;
-
+	struct ixxat_usb_start_cmd *cmd = &dev->shareddata->cmd.start;
 	const u16 port = dev->ctrl_index;
-	int err;
-	struct ixxat_usb_start_cmd *cmd;
 	const u32 cmd_size = sizeof(*cmd);
 	const u32 req_size = sizeof(cmd->req);
 	const u32 rcv_size = cmd_size - req_size;
 	const u32 snd_size = req_size + sizeof(cmd->res);
-
-	cmd = kmalloc(cmd_size, GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
+	ktime_t kt_host_A, kt_host_B;
+	u32 start_offset = 0;
+	int err;
 
 	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
 	cmd->req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_START);
@@ -834,12 +802,6 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 	ixxat_usb_ts_set_start(dev, kt_host_A, kt_host_B, start_offset);
 	dev->time_ref.ts_overrun_ticks = 0;
 
-	if (err)
-		goto fail;
-
-fail:
-	kfree(cmd);
-
 	return err;
 }
 
@@ -851,15 +813,10 @@ fail:
  */
 static int ixxat_usb_stop_ctrl(struct ixxat_usb_candevice *dev)
 {
+	struct ixxat_usb_stop_cmd *cmd = &dev->shareddata->cmd.stop;
 	const u16 port = dev->ctrl_index;
-	int err;
-	struct ixxat_usb_stop_cmd *cmd;
 	const u32 rcv_size = sizeof(cmd->res);
 	const u32 snd_size = sizeof(*cmd);
-
-	cmd = kmalloc(snd_size, GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
 
 	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
 	cmd->req.size = cpu_to_le32(snd_size - rcv_size);
@@ -867,16 +824,13 @@ static int ixxat_usb_stop_ctrl(struct ixxat_usb_candevice *dev)
 	cmd->req.port = cpu_to_le16(port);
 	cmd->action = cpu_to_le32(IXXAT_USB_STOP_ACTION_CLEARALL);
 
-	err = ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
-				 rcv_size);
-
-	kfree(cmd);
-
-	return err;
+	return ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
+				  rcv_size);
 }
 
 /* ixxat_usb_power_ctrl - control the power mode of the device
  * @dev: pointer to the USB device
+ * @devdata: pointer to the USB device private data area
  * @mode: power mode to set (e.g. IXXAT_USB_POWER_WAKEUP)
  *
  * This function sends a command to the IXXAT USB device to control its power
@@ -884,27 +838,21 @@ static int ixxat_usb_stop_ctrl(struct ixxat_usb_candevice *dev)
  *
  * Returns 0 on success, negative error code on failure.
  */
-static int ixxat_usb_power_ctrl(struct usb_device *dev, u8 mode)
+static int ixxat_usb_power_ctrl(struct usb_device *dev,
+				struct ixxat_usb_device_data *devdata, u8 mode)
 {
-	int err;
-	struct ixxat_usb_power_cmd *cmd;
+	struct ixxat_usb_power_cmd *cmd = &devdata->cmd.power;
 	const u32 rcv_size = sizeof(cmd->res);
 	const u32 snd_size = sizeof(*cmd);
-
-	cmd = kmalloc(snd_size, GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
 
 	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
 	cmd->req.size = cpu_to_le32(snd_size - rcv_size);
 	cmd->req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_POWER);
 	cmd->mode = mode;
 
-	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size,
-				 &cmd->res, rcv_size);
-	kfree(cmd);
-
-	return err;
+	return ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port),
+				  cmd, snd_size,
+				  &cmd->res, rcv_size);
 }
 
 /* ixxat_usb_reset_ctrl - reset the controller
@@ -915,24 +863,17 @@ static int ixxat_usb_power_ctrl(struct usb_device *dev, u8 mode)
  */
 static int ixxat_usb_reset_ctrl(struct ixxat_usb_candevice *dev)
 {
+	struct ixxat_usb_dal_cmd *cmd = &dev->shareddata->cmd.dal;
 	const u16 port = dev->ctrl_index;
-	int err;
-	struct ixxat_usb_dal_cmd *cmd;
 	const u32 snd_size = sizeof(*cmd);
 	const u32 rcv_size = sizeof(cmd->res);
-
-	cmd = kmalloc(snd_size, GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
 
 	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
 	cmd->req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_RESET);
 	cmd->req.port = cpu_to_le16(port);
 
-	err = ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
-				 rcv_size);
-	kfree(cmd);
-	return err;
+	return ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
+				  rcv_size);
 }
 
 /* ixxat_usb_free_usb_communication - free USB communication resources
