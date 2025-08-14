@@ -317,21 +317,12 @@ static const struct ixxat_usb_adapter *
  * @id: USB device id
  * @fwinfo: Firmware info of the device
  *
- * Returns 1 if firmware update is recommended, 0 otherwise.
+ * Returns != 0 if firmware update is recommended, 0 otherwise.
  */
 static int ixxat_usb_needs_firmware_update(const struct usb_device_id *id,
 					   struct ixxat_fw_info2 *fwinfo)
 {
 	/* firmware update is recomended for devices with cl1 firmware */
-	if (ixxat_usb_is_legacy_usb2can(id))
-		return !ixxat_usb_has_cl2_firmware(id, fwinfo);
-	return 0;
-}
-
-
-/* Prefix for debug output - makes for easier grepping */
-#define IX_DRIVER_TAG "ix_usb_can: "
-
 	return (ixxat_usb_is_legacy_usb2can(id)) ?
 		!ixxat_usb_has_cl2_firmware(id, fwinfo) : 0;
 }
