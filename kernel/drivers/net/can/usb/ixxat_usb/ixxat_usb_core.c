@@ -336,17 +336,17 @@ static struct ixxat_tx_urb_context *
 	ixxat_usb_get_tx_context(struct ixxat_usb_candevice *dev)
 {
 	struct ixxat_tx_urb_context *context = NULL;
-	u32 UrbIdx = 0;
 	unsigned long flags;
+	int i;
 
 	spin_lock_irqsave(&dev->dev_lock, flags);
 
-	for (UrbIdx = 0; UrbIdx < IXXAT_USB_MAX_TX_URBS; UrbIdx++) {
+	for (i = 0; i < IXXAT_USB_MAX_TX_URBS; i++) {
 		/* is urb allocated and free */
-		if ((dev->tx_contexts[UrbIdx].urb) &&
-		    (dev->tx_contexts[UrbIdx].urb_index == IXXAT_USB_FREE_ENTRY)) {
-			context = &dev->tx_contexts[UrbIdx];
-			context->urb_index = UrbIdx;
+		if ((dev->tx_contexts[i].urb) &&
+		    (dev->tx_contexts[i].urb_index == IXXAT_USB_FREE_ENTRY)) {
+			context = &dev->tx_contexts[i];
+			context->urb_index = i;
 			break;
 		}
 	}
@@ -951,8 +951,7 @@ static int ixxat_usb_reset_ctrl(struct ixxat_usb_candevice *dev)
 static void ixxat_usb_free_usb_communication(struct ixxat_usb_candevice *dev)
 {
 	struct net_device *netdev = dev->netdev;
-	u32 SkbIdx;
-	u32 UrbIdx;
+	u32 skb_idx, urb_idx;
 
 	netif_stop_queue(netdev);
 	usb_kill_anchored_urbs(&dev->rx_anchor);
@@ -962,13 +961,13 @@ static void ixxat_usb_free_usb_communication(struct ixxat_usb_candevice *dev)
 	/* reset msg idx store */
 	ixxat_usb_msg_free_idx(dev, 0xFFFFFFFF);
 
-	for (SkbIdx = 0; SkbIdx < dev->can.echo_skb_max; SkbIdx++)
-		can_free_echo_skb(netdev, SkbIdx, NULL);
+	for (skb_idx = 0; skb_idx < dev->can.echo_skb_max; skb_idx++)
+		can_free_echo_skb(netdev, skb_idx, NULL);
 
-	for (UrbIdx = 0; UrbIdx < IXXAT_USB_MAX_TX_URBS; UrbIdx++) {
-		if (dev->tx_contexts[UrbIdx].urb_index != IXXAT_USB_FREE_ENTRY)
-			dev->tx_contexts[UrbIdx].urb_index = IXXAT_USB_FREE_ENTRY;
-	}
+	for (urb_idx = 0; urb_idx < IXXAT_USB_MAX_TX_URBS; urb_idx++)
+		if (dev->tx_contexts[urb_idx].urb_index != IXXAT_USB_FREE_ENTRY)
+			dev->tx_contexts[urb_idx].urb_index =
+				IXXAT_USB_FREE_ENTRY;
 
 	/* Annotation:
 	 * The Urbs are released within the system with (usb_free_urb)
@@ -1045,7 +1044,7 @@ static int ixxat_usb_get_berr_counter(const struct net_device *netdev,
 }
 
 /* ixxat_convert - convert IXXAT CAN message to canfd_frame
- * @pAdapter: pointer to the IXXAT USB adapter
+ * @adapter: pointer to the IXXAT USB adapter
  * @cf: pointer to the canfd_frame to fill
  * @rx: pointer to the IXXAT CAN message to convert
  * @datalen: data length of the CAN message
@@ -1053,7 +1052,7 @@ static int ixxat_usb_get_berr_counter(const struct net_device *netdev,
  * This function converts an IXXAT CAN message to a canfd_frame structure.
  * It fills the can_id, len, flags, and data fields of the canfd_frame.
  */
-static void ixxat_convert(const struct ixxat_usb_adapter *pAdapter,
+static void ixxat_convert(const struct ixxat_usb_adapter *adapter,
 			  struct canfd_frame *cf,
 			  struct ixxat_can_msg *rx,
 			  u8 datalen)
@@ -1497,16 +1496,15 @@ fail:
  * @dev: pointer to the IXXAT USB CAN device
  * @skb: pointer to the socket buffer containing the CAN message
  * @obuf: output buffer to fill with the encoded message
- * @selfReception: flag indicating if the message is for self-reception
- * @uMsgIdx: message index for self-reception
+ * @self_rcv: flag indicating if the message is for self-reception
+ * @umsg_idx: message index for self-reception
+ *
  * This function encodes a CAN message from the socket buffer into
  * the IXXAT USB CAN message format.
  */
 static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
-				struct sk_buff *skb,
-				u8 *obuf,
-				u8 selfReception,
-				u32 uMsgIdx)
+				struct sk_buff *skb, u8 *obuf, u8 self_rcv,
+				u32 umsg_idx)
 {
 	int size;
 	struct canfd_frame *cf = (struct canfd_frame *)skb->data;
@@ -1542,7 +1540,7 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 		msg_base->size -= sizeof(can_msg.cl1.data);
 		memcpy(can_msg.cl1.data, cf->data, cf->len);
 
-		if (selfReception)
+		if (self_rcv)
 			flags |= IXXAT_USB_MSG_FLAGS_SRR;
 
 	} else {
@@ -1550,9 +1548,9 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 		msg_base->size -= sizeof(can_msg.cl2.data);
 		memcpy(can_msg.cl2.data, cf->data, cf->len);
 
-		if (selfReception) {
+		if (self_rcv) {
 			flags |= IXXAT_USB_MSG_FLAGS_SRR;
-			can_msg.cl2.client_id = cpu_to_le32(uMsgIdx);
+			can_msg.cl2.client_id = cpu_to_le32(umsg_idx);
 		} else {
 			can_msg.cl2.client_id = 0;
 		}
@@ -1738,24 +1736,27 @@ prepare_urb:
 #define IX_LOOP_SELF_RX		0x01	/* enable self reception */
 #define IX_LOOPBACK		0x02	/* pass on message to application */
 
-/* determineLoopMode - determine the loop mode for message transmission
+/* ixxat_fix_loop_mode - determine the loop mode for message transmission
  * @loopback: boolean indicating if loopback is set with setsockopt
  * @global_loopback: boolean indicating if global loopback is set
- * @oldDev: boolean indicating if the device is an old version (without client ID)
+ * @old_dev: boolean indicating if the device is an old version (without client
+ * ID)
+ *
  * This function determines the loop mode for message transmission based on the
  * loopback settings and the device version. It returns the appropriate loop
  * mode.
  */
-static u8 determineLoopMode(bool loopback, bool global_loopback, bool oldDev)
+static u8 ixxat_fix_loop_mode(bool loopback, bool global_loopback, bool old_dev)
 {
 	/* decision if this message should be loopbacked !! */
-	u8 loopMode = IX_LOOP_DIS;
+	u8 loop_mode = IX_LOOP_DIS;
 
 	/* exact statistics means that all messages are sent with active
-	 * self reception (overhead) so that the statistic counter are incremented
-	 * after the message was really on the can bus, otherwise the counter is
-	 * incremented after the WriteURB returns
+	 * self reception (overhead) so that the statistic counter are
+	 * incremented after the message was really written on the can bus,
+	 * otherwise the counter is incremented after the WriteURB returns.
 	 */
+	/* SGr Note: this kind of choice makes nosense in vanilla context */
 	const bool statistics_exact = IX_STATISTICS_EXACT;
 
 	/* is loopback set with ip link .. loopback on */
@@ -1765,21 +1766,20 @@ static u8 determineLoopMode(bool loopback, bool global_loopback, bool oldDev)
 		 */
 
 		if (loopback)
-			loopMode = (IX_LOOP_SELF_RX | IX_LOOPBACK);
+			loop_mode = IX_LOOP_SELF_RX | IX_LOOPBACK;
 	}
 
-	if ((loopMode & IX_LOOP_SELF_RX) != IX_LOOP_SELF_RX) {
+	if ((loop_mode & IX_LOOP_SELF_RX) != IX_LOOP_SELF_RX)
 		if (statistics_exact)
-			loopMode = IX_LOOP_SELF_RX;
-	}
+			loop_mode = IX_LOOP_SELF_RX;
 
 	/* the old firmware doesn't support a clientid
 	 * -> so there is no exact loopback or statistic possible
 	 */
-	if (oldDev)
-		loopMode &= ~IX_LOOP_SELF_RX;
+	if (old_dev)
+		loop_mode &= ~IX_LOOP_SELF_RX;
 
-	return loopMode;
+	return loop_mode;
 }
 
 /* ixxat_usb_start_xmit - start transmission of a CAN message
