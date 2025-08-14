@@ -554,7 +554,7 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 	/* TODO: check 32-bit compilation against / */
 	if (!(timeref->tick_multiplier % timeref->tick_divider)) {
 		timeref->tick_multiplier /= timeref->tick_divider;
-		timeref->tick_divider     = 1;
+		timeref->tick_divider = 1;
 	}
 }
 
