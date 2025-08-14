@@ -572,34 +572,42 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 				   ktime_t t_A, ktime_t t_B, u32 ts_dev_start)
 {
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
+	unsigned long flags;
 	dev_info(&dev->udev->dev,
 		 "%s A: %lld B: %lld devtick: %u\n",
 		 __func__, t_A, t_B, ts_dev_start);
 
+	spin_lock_irqsave(&devdata->access_lock, flags);
 
-	if (devdata) {
-		unsigned long flags;
+	if (!devdata->timeref_valid) {
 
-		spin_lock_irqsave(&devdata->access_lock, flags);
+		devdata->timeref_valid = true;
 
-		if (!devdata->timeref_valid) {
-			devdata->timeref_valid = true;
-#if (IX_SYNCTOHOST_NONE == IX_SYNCTOHOSTCLOCK)
-			devdata->kt_host_start = 0;
-#elif (IX_SYNCTOHOST_BEFORESTART == IX_SYNCTOHOSTCLOCK)
-			devdata->kt_host_start = t_A;
-#elif (IX_SYNCTOHOST_AFTERSTART == IX_SYNCTOHOSTCLOCK)
-			devdata->kt_host_start = t_B;
-#elif (IX_SYNCTOHOST_ONSTART == IX_SYNCTOHOSTCLOCK)
-			devdata->kt_host_start = t_A + ktime_divns(ktime_sub(t_B, t_A), 2);
+		devdata->kt_host_start = 0;
+#if IX_SYNCTOHOSTCLOCK == IX_SYNCTOHOST_NONE
+		devdata->kt_host_start = 0;
+
+#elif IX_SYNCTOHOSTCLOCK == IX_SYNCTOHOST_BEFORESTART
+		devdata->kt_host_start = t_A;
+
+#elif IIX_SYNCTOHOSTCLOCK == X_SYNCTOHOST_AFTERSTART
+		devdata->kt_host_start = t_B;
+
+#elif IX_SYNCTOHOSTCLOCK == IX_SYNCTOHOST_ONSTART
+		devdata->kt_host_start = t_A +
+					 ktime_divns(ktime_sub(t_B, t_A), 2);
 #else
 #error "Invalid IX_SYNCTOHOSTCLOCK setting"
 #endif
-			devdata->ts_dev_start = ts_dev_start;
-			dev_info(&dev->udev->dev, "set kt_host_start: %lld devtick: %u\n", devdata->kt_host_start, ts_dev_start);
-		}
-		spin_unlock_irqrestore(&devdata->access_lock, flags);
+#endif
+		devdata->ts_dev_start = ts_dev_start;
+
+		dev_info(&dev->udev->dev,
+			 "set kt_host_start: %lld devtick: %u\n",
+			 devdata->kt_host_start, ts_dev_start);
 	}
+
+	spin_unlock_irqrestore(&devdata->access_lock, flags);
 }
 
 /* ixxat_usb_get_dev_caps - get device capabilities
