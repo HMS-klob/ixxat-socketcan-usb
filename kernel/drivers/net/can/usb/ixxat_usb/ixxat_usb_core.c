@@ -241,6 +241,22 @@ static void showdump(u8 *pbdata, u16 length)
 	ix_trace_printk(KBUILD_MODNAME ": %s", dump);
 }
 #endif
+/* ixxat_usb_dev_name - return the name of the IXXAT USB device
+ * @param id: pointer to the USB device ID structure
+ *
+ * This function returns the name of the IXXAT USB device.
+ * It is used to identify the device in logs and user interfaces.
+ *
+ * Returns the name of the device as a string.
+ */
+static const char *ixxat_usb_dev_name(const struct usb_device_id *id)
+{
+	const struct ixxat_driver_info *drv_info =
+		(const struct ixxat_driver_info *)id->driver_info;
+
+	return drv_info->name;
+}
+
 /* ixxat_usb_is_legacy_usb2can - check if device is a legacy USB2CAN device
  * @id: USB device id
  *
