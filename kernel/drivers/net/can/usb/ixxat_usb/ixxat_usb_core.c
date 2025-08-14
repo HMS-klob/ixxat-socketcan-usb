@@ -368,14 +368,15 @@ static struct ixxat_tx_urb_context *
 static void ixxat_usb_rel_tx_context(struct ixxat_usb_candevice *dev,
 				     struct ixxat_tx_urb_context *context)
 {
-	unsigned long flags;
+	if (context) {
+		unsigned long flags;
 
-	spin_lock_irqsave(&dev->dev_lock, flags);
+		spin_lock_irqsave(&dev->dev_lock, flags);
 
-	if (context)
 		context->urb_index = IXXAT_USB_FREE_ENTRY;
 
-	spin_unlock_irqrestore(&dev->dev_lock, flags);
+		spin_unlock_irqrestore(&dev->dev_lock, flags);
+	}
 }
 
 /* ixxat_usb_msg_get_next_idx - get next free message index
