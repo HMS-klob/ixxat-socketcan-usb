@@ -510,7 +510,7 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 		msleep(IXXAT_USB_MSG_CYCLE);
 	}
 
-	/* firmware responses may be smaller then requested response size
+	/* firmware responses may be smaller than requested response size
 	 * but should be not smaller than the response header size
 	 */
 	if (pos < sizeof(struct ixxat_usb_dal_res)) {
