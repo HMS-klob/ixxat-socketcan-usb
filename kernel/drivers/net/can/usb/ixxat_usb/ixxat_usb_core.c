@@ -24,6 +24,10 @@
 
 #include "ixxat_kernel_adapt.h"
 
+#ifdef DEBUG
+#define IXXAT_DEBUG
+#endif
+
 MODULE_AUTHOR("HMS Technology Center GmbH <socketcan@hms-networks.de>");
 MODULE_DESCRIPTION("SocketCAN driver for HMS Ixxat USB-to-CAN V2, USB-to-CAN-FD family adapters");
 MODULE_LICENSE("GPL v2");
@@ -42,6 +46,40 @@ MODULE_LICENSE("GPL v2");
 #define IX_MIN_MINORFWVERSION_SUPP_V2	0x07
 #define IX_MIN_BUILDFWVERSION_SUPP_V2	0x00
 
+#if defined(CONFIG_TRACING) && defined(DEBUG)
+#define ix_trace_printk(...)		trace_printk(__VA_ARGS__)
+#elif defined(IXXAT_DEBUG)
+#define ix_trace_printk(...)		pr_info(__VA_ARGS__)
+#else
+#define ix_trace_printk(...)
+#endif
+#ifdef IXXAT_DEBUG
+static void showdevcaps(struct ixxat_dev_caps *dev_caps)
+{
+	int i;
+
+	/* WTF? %i WTF? le16 bus_ctrl_count */
+	ix_trace_printk(KBUILD_MODNAME ": CtrlCount = %d\n",
+			dev_caps->bus_ctrl_count);
+	for (i = 0; i < dev_caps->bus_ctrl_count; i++)
+		ix_trace_printk(KBUILD_MODNAME ": Type = %d\n",
+				dev_caps->bus_ctrl_types[i]);
+}
+
+static void showdump(u8 *pbdata, u16 length)
+{
+	char dump[100] = "Dump: ";
+	int i, l = strlen(dump);
+	int len = (length > 25) ? 25 : length;
+
+	for (i = 0; i < len; i++)
+		l += snprintf(dump + l, sizeof(dump) - l, "%02x ", pbdata[i]);
+
+	dump[l-1] = '\n';
+
+	ix_trace_printk(KBUILD_MODNAME ": %s", dump);
+}
+#endif
 /* ixxat_usb_is_legacy_usb2can - check if device is a legacy USB2CAN device
  * @id: USB device id
  *
@@ -111,12 +149,6 @@ static int ixxat_usb_needs_firmware_update(const struct usb_device_id *id,
 #define IX_DRIVER_TAG "ix_usb_can: "
 
 
-#if defined(CONFIG_TRACING) && defined(DEBUG)
-#define ix_trace_printk(...) trace_printk(__VA_ARGS__)
-#else
-#define ix_trace_printk(...)
-#endif
-
 
 /* Table of devices that work with this driver */
 static const struct usb_device_id ixxat_usb_table[] = {
@@ -142,33 +174,9 @@ static const struct usb_device_id ixxat_usb_table[] = {
 MODULE_DEVICE_TABLE(usb, ixxat_usb_table);
 
 
-#ifdef DEBUG
-static void showdevcaps(struct ixxat_dev_caps dev_caps)
-{
-	int i = 0;
-
-	ix_trace_printk("CtrlCount = %i\n", dev_caps.bus_ctrl_count);
-	for (i = 0; i < dev_caps.bus_ctrl_count; i++)
-		ix_trace_printk("Type = %i\n", dev_caps.bus_ctrl_types[i]);
+	return (ixxat_usb_is_legacy_usb2can(id)) ?
+		!ixxat_usb_has_cl2_firmware(id, fwinfo) : 0;
 }
-
-static int showdump(u8 *pbdata, u16 length)
-{
-	char caDump[100] = "Dump: ";
-	char szBuf[10] = "";
-	int i = 0;
-	u16 len = (length > 25) ? 25 : length;
-
-	for (i = 0; i < len; i++) {
-		sprintf(szBuf, "%02x ", pbdata[i]);
-		strcat(caDump, szBuf);
-	}
-	strcat(caDump, "\n");
-
-	ix_trace_printk(caDump);
-	return 0;
-}
-#endif
 
 /* ixxat_usb_get_tx_context - get a free URB context for transmission
  * @dev: pointer to the IXXAT USB CAN device
