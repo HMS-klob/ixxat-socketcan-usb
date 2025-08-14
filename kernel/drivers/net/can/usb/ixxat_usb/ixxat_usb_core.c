@@ -1060,8 +1060,8 @@ static void ixxat_convert(const struct ixxat_usb_adapter *adapter,
 	}
 
 	cf->can_id = le32_to_cpu(rx->base.msg_id);
-	cf->len    = datalen;
-	cf->flags  |= flags;
+	cf->len = datalen;
+	cf->flags |= flags;
 
 	if (ixx_flags & IXXAT_USB_MSG_FLAGS_EXT)
 		cf->can_id |= CAN_EFF_FLAG;
