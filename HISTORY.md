@@ -2,11 +2,75 @@
 
 ## History
 
+
+### 2.1.1	(2025-09-29)
+
+- rename "USB-to-CAN/FD Standard Brick" to "USB-to-CAN/FD Standard Card"
+- add support for device id 08DB:0014 ("USB-to-CAN/FD Standard Module")
+- merge fixes submitted by Stephane Grosjean (s.grosjean@peak-system.com)
+   * Remove all local mem allocation and use pre-alloc area to build commands
+     To avoid memory fragmentation, command buffer is allocated at probe time,
+     then used by each command handler function. This needs to pass the
+     "struct ixxat_usb_device_data *devdata" new argument to all of these
+     functions (instead of dev_info pointer, sometimes...)
+   * ixxat_usb_encode_msg(): simplify code and remoe useless initialization
+     - Test RTR flag before everything then CANFD and BRS flag
+     - msg_id nor can_msg don't need to be init
+   * sysfs files: use snprintf(), simplify code and fix 80 columns rule
+   * Remove useless test on devdata and fix 80 columns rule
+     ixxat_usb_ts_set_start() is called only once and devdata in a context
+     where devdata is not NULL
+   * Change "== 0" conditions and use "!" instead and fix 80 columns rule
+   * Fix typo in comment
+   * Remove useless msleep()
+     - usb_control_msg() waits for IXXAT_USB_MSG_TIMEOUT, therefore, no need to
+       wait again in case of error
+     - loop on retrying to send the request only in case of timeout: no need to
+       loop in any other (error) case
+     - same for waiting the response
+     - simplify error messages
+   * Fix Windows style identifiers names
+     'Mask' variable is no more used
+   * Remove Windows style and optimize loop
+     - Local var SHOULD BE declared in the block they're used
+     - Use for() loop over msg_cnt instead of while()
+     - Set msg_lastindex value when an empty entry has been found, just before
+       leaving the loop: this avoids a n+1th test of "msg_cnt" when leaving the
+       loop and simplifies the code (ret variable no more needed)
+   * Code optimization: do spin_lock/spin_unlock *only* if context != NULL
+     No need to block everything in case context is NULL
+   * Move TICK_FACTOR definition on top of the C file
+   * Since driver_info usage, remove previous version of functions which give
+     device name and adapter pointer
+   * Fix Windows-style identifiers names
+   * Update comment regarding return value
+   * Add a util function that gives the name of the USB device
+     (see driver_info new usage)
+   * Simplify test of FW version
+     Add a test on validity of fwinfo pointer too.
+   * Statically defines the name and adapter of USB devices
+     The “driver_info” field of “struct usb_device_id” is a pointer left free
+     for the user to point to a new structure that will statically store the
+     name and address of the device adapter, which will simplify code by
+     avoiding redundant tests on the USB device ID.
+   * Add comment to explain the code change
+   * Fix usage of le16 bus_ctrl_count in loop upper limit
+   * Introduce IXXAT_DEBUG in replacement to DEBUG
+     trace_printk() SHOULDN'T be used outside of a DEBUG kernel but nothing
+     prevents to build the OOT driver with -DDEBUG.
+     Using IXXAT_DEBUG (instead of DEBUG) allows to get simple traces in
+     dmesg log. Of course, in a DEBUG kernel, trace_printk() will be used.
+     Code is rearranged to move these local definitions on top of the C source
+     files.
+   * Reordering the type definition sequence
+
 ### 2.0.607	(2025-07-14)
 
 - README.md: add usage patterns
 - adjust source to kernel coding guidelines
-- fix erors and warnings found by checkpatch.pl
+- fix errors and warnings found by checkpatch.pl
+
+
 
 
 ### 2.0.604	(2025-06-03)

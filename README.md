@@ -13,6 +13,11 @@ The IXXAT USB-To-CAN linux driver provides support for the following devices:
 * IXXAT USB-to-CAN FD MiniPCIe
 * IXXAT USB-to-CAR
 * IXXAT CAN-IDM101
+* IXXAT USB-to-CAN/FD Pro
+* IXXAT USB-to-CAN/FD Standard
+* IXXAT USB-to-CAN/FD Standard Card
+* IXXAT USB-to-CAN/FD Pro Module
+* IXXAT USB-to-CAN/FD Standard Module
 
 ## Install
 

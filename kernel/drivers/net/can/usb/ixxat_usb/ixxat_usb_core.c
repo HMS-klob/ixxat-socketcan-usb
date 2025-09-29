@@ -32,6 +32,9 @@ MODULE_AUTHOR("HMS Technology Center GmbH <socketcan@hms-networks.de>");
 MODULE_DESCRIPTION("SocketCAN driver for HMS Ixxat USB-to-CAN V2, USB-to-CAN-FD family adapters");
 MODULE_LICENSE("GPL v2");
 
+/* Prefix for debug output - makes for easier grepping */
+#define IX_DRIVER_TAG "ix_usb_can: "
+
 /* IX_SYNCTOHOSTCLOCK controls how timestamps are sync'ed between host and
  * device:
  *
@@ -144,12 +147,16 @@ static const struct ixxat_driver_info usb2can_fd_std = {
 	.name = "Ixxat USB-to-CAN/FD Standard",
 	.adapter = &usb2can_fd,
 };
-static const struct ixxat_driver_info usb2can_fd_std_brick = {
-	.name = "Ixxat USB-to-CAN/FD Standard Brick",
+static const struct ixxat_driver_info usb2can_fd_std_card = {
+	.name = "Ixxat USB-to-CAN/FD Standard Card",
 	.adapter = &usb2can_fd,
 };
 static const struct ixxat_driver_info usb2can_fd_pro_module = {
 	.name = "Ixxat USB-to-CAN/FD Pro Module",
+	.adapter = &usb2can_fd,
+};
+static const struct ixxat_driver_info usb2can_fd_standard_module = {
+	.name = "Ixxat USB-to-CAN/FD Standard Module",
 	.adapter = &usb2can_fd,
 };
 
@@ -202,11 +209,14 @@ static const struct usb_device_id ixxat_usb_table[] = {
 	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_STANDARD_PRODUCT_ID),
 	  .driver_info = (kernel_ulong_t)&usb2can_fd_std,
 	},
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID),
-	  .driver_info = (kernel_ulong_t)&usb2can_fd_std_brick,
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_STANDARD_CARD_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&usb2can_fd_std_card,
 	},
 	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_PRO_MODULE_PRODUCT_ID),
 	  .driver_info = (kernel_ulong_t)&usb2can_fd_pro_module,
+	},
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_STANDARD_MODULE_PRODUCT_ID),
+	  .driver_info = (kernel_ulong_t)&usb2can_fd_standard_module,
 	},
 	{ } /* Terminating entry */
 };
@@ -599,7 +609,6 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 #else
 #error "Invalid IX_SYNCTOHOSTCLOCK setting"
 #endif
-#endif
 		devdata->ts_dev_start = ts_dev_start;
 
 		dev_info(&dev->udev->dev,
@@ -793,8 +802,6 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 				 rcv_size);
 
 	kt_host_B = ktime_get_real_ns();
-
-	u32 start_offset = 0;
 
 	if (!err)
 		start_offset = le32_to_cpu(cmd->time);
@@ -1010,7 +1017,7 @@ static void ixxat_convert(const struct ixxat_usb_adapter *adapter,
 	if (ixx_flags & IXXAT_USB_MSG_FLAGS_RTR) {
 		cf->can_id |= CAN_RTR_FLAG;
 	} else {
-		if (pAdapter == &usb2can_cl1)
+		if (adapter == &usb2can_cl1)
 			memcpy(cf->data, rx->cl1.data, datalen);
 		else
 			memcpy(cf->data, rx->cl2.data, datalen);
@@ -1763,7 +1770,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 		obuf = urb->transfer_buffer;
 
 		/* check loopback */
-		loopMode = determineLoopMode((skb->pkt_type == PACKET_LOOPBACK),
+		loopMode = ixxat_fix_loop_mode((skb->pkt_type == PACKET_LOOPBACK),
 										dev->loopback,
 										dev->adapter == &usb2can_cl1);
 
@@ -2437,7 +2444,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 	pr_info(IX_DRIVER_TAG "KERNELVERSION: 0x%x (%i)", LINUX_VERSION_CODE, LINUX_VERSION_CODE);
 
-	err = ixxat_usb_get_fw_info(udev, &devdata->fw_info);
+	err = ixxat_usb_get_fw_info(udev, devdata);
 	if (err) {
 		dev_err(&udev->dev, "Error %d: Failed to get firmware information. Maybe firmware update needed.\n", err);
 	} else {
@@ -2449,7 +2456,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		if (!err) {
 			/* check if FW supports get_fw_info2 command */
 			if (ixxat_usb_has_cl2_firmware(id, &devdata->fw_info)) {
-				err = ixxat_usb_get_fw_info2(udev, &devdata->fw_info);
+				err = ixxat_usb_get_fw_info2(udev, devdata);
 				if (err)
 					dev_err(&udev->dev, "Error %d: Failed to get firmware info2. Maybe firmare update needed.\n", err);
 			}
@@ -2467,14 +2474,14 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		err = ixxat_usb_check_channel(adapter, intf->altsetting);
 
 		if (err == NETDEV_TX_OK) {
-			err = ixxat_usb_power_ctrl(udev, IXXAT_USB_POWER_WAKEUP);
+			err = ixxat_usb_power_ctrl(udev, devdata, IXXAT_USB_POWER_WAKEUP);
 			if (err != NETDEV_TX_OK)
 				dev_err(&udev->dev, "Error %d: Failed to exec IXXAT_USB_BRD_CMD_POWER command.\n", err);
 			msleep(IXXAT_USB_POWER_WAKEUP_TIME);
 		}
 
 		if (err == NETDEV_TX_OK) {
-			err = ixxat_usb_get_dev_info(udev, &devdata->dev_info);
+			err = ixxat_usb_get_dev_info(udev, devdata);
 			if (err) {
 				dev_err(&udev->dev,
 					"Error %d: Failed to get device information\n", err);
@@ -2498,7 +2505,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		}
 
 		if (err == NETDEV_TX_OK) {
-			err = ixxat_usb_get_dev_caps(udev, &dev_caps);
+			err = ixxat_usb_get_dev_caps(udev, devdata, &dev_caps);
 
 			if (err) {
 				dev_err(&intf->dev,

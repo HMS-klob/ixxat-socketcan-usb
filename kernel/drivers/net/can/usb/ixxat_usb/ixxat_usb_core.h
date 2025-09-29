@@ -42,8 +42,9 @@
 /* supported device ids: CL2 */
 #define USB2CAN_FD_PRO_PRODUCT_ID		0x0010
 #define USB2CAN_FD_STANDARD_PRODUCT_ID		0x0011
-#define USB2CAN_FD_STANDARD_BRICK_PRODUCT_ID	0x0012
+#define USB2CAN_FD_STANDARD_CARD_PRODUCT_ID	0x0012
 #define USB2CAN_FD_PRO_MODULE_PRODUCT_ID	0x0013
+#define USB2CAN_FD_STANDARD_MODULE_PRODUCT_ID	0x0014
 
 #define IXXAT_USB_BUS_CAN			1
 
@@ -71,10 +72,10 @@
 #define IXXAT_USB_POWER_WAKEUP_TIME		500
 
 #define IXXAT_USB_FWTYPE_RES			0	/* reserved */
-#define IXXAT_USB_FWTYPE_FLD			1	/* flash loader FW */
-#define IXXAT_USB_DEV__CCL			2	/* CCL conform FW */
-#define IXXAT_USB_DEV_FWTYPE_BAL		3	/* BAL conform FW */
-#define IXXAT_USB_DEV_FWTYPE_BMG		4	/* BMG conform FW */
+#define IXXAT_USB_FWTYPE_FLD			1	/* flash loader firmware */
+#define IXXAT_USB_DEV__CCL			2	/* CCL conform firmware */
+#define IXXAT_USB_DEV_FWTYPE_BAL		3	/* BAL conform firmware */
+#define IXXAT_USB_DEV_FWTYPE_BMG		4	/* BMG conform firmware */
 
 #define IXXAT_USB_OPMODE_STANDARD		BIT(0)
 #define IXXAT_USB_OPMODE_EXTENDED		BIT(1)
