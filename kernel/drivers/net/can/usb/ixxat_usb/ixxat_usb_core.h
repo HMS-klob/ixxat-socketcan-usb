@@ -20,6 +20,10 @@
  * #define IXXAT_USB_CTRL_NAME "ixxat_usb"
  */
 
+/* you may set this to 0 to support building on older kernels or 32bit kernels */
+#define IX_CONFIG_USE_HW_TIMESTAMPS		1
+
+/* vendor ids used by IXXAT devices */
 #define IXXAT_USB_VENDOR_ID_LEGACY		0x08d8
 #define IXXAT_USB_VENDOR_ID			0x08db
 

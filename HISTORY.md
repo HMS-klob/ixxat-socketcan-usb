@@ -2,6 +2,10 @@
 
 ## History
 
+### 2.1.2	(2025-09-30)
+
+- add #define IX_CONFIG_USE_HW_TIMESTAMP to be able to switch on/off 
+  hardware time stamping to support older (maybe 32bit) kernels (e.g. <= 4.9)
 
 ### 2.1.1	(2025-09-29)
 
@@ -69,9 +73,6 @@
 - README.md: add usage patterns
 - adjust source to kernel coding guidelines
 - fix errors and warnings found by checkpatch.pl
-
-
-
 
 ### 2.0.604	(2025-06-03)
 

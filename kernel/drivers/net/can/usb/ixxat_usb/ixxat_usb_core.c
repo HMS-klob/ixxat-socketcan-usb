@@ -15,6 +15,8 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/netdevice.h>
+#include <linux/net_tstamp.h>
 #include <linux/can/dev.h>
 #include <linux/kthread.h>
 #include <linux/usb.h>
@@ -51,6 +53,7 @@ MODULE_LICENSE("GPL v2");
 #define IX_SYNCTOHOST_AFTERSTART	2
 #define IX_SYNCTOHOST_ONSTART		3
 
+/* default sync to host clock setting, see above */
 #define IX_SYNCTOHOSTCLOCK		IX_SYNCTOHOST_NONE
 
 #define IX_STATISTICS_EXACT		0
@@ -222,9 +225,6 @@ static const struct usb_device_id ixxat_usb_table[] = {
 };
 
 MODULE_DEVICE_TABLE(usb, ixxat_usb_table);
-
-/* multiply by 100.000.000 to get 1ns resolution */
-const u64 TICK_FACTOR = 1000000000ULL;
 
 #ifdef IXXAT_DEBUG
 static void showdevcaps(struct ixxat_dev_caps *dev_caps)
@@ -533,6 +533,10 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 	return le32_to_cpu(dal_res->code);
 }
 
+#if IX_CONFIG_USE_HW_TIMESTAMPS
+/* multiply by 100.000.000 to get 1ns resolution */
+const u64 TICK_FACTOR = 1000000000ULL;
+
 /* ixxat_usb_ts_set_cancaps - set timestamp multiplier/divider
  * from controller timestamp clock settings
  * @timeref: pointer to the time reference structure to set
@@ -567,6 +571,7 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 		timeref->tick_divider = 1;
 	}
 }
+#endif
 
 /* ixxat_usb_ts_set_start - set controller start timestamp
  * @dev: pointer to the IXXAT USB CAN device
@@ -807,7 +812,9 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 		start_offset = le32_to_cpu(cmd->time);
 
 	ixxat_usb_ts_set_start(dev, kt_host_A, kt_host_B, start_offset);
+#if IX_CONFIG_USE_HW_TIMESTAMPS
 	dev->time_ref.ts_overrun_ticks = 0;
+#endif
 
 	return err;
 }
@@ -1024,6 +1031,29 @@ static void ixxat_convert(const struct ixxat_usb_adapter *adapter,
 	}
 }
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(5, 8, 0)
+
+/* define 64bit mul_div function which exists only on
+ * kernel 5.9 and higher
+ */
+/*
+ * Will generate an #DE when the result doesn't fit u64, could fix with an
+ * __ex_table[] entry when it becomes an issue.
+ */
+static inline u64 mul_u64_u64_div_u64(u64 a, u64 mul, u64 div)
+{
+	u64 q;
+
+	asm ("mulq %2; divq %3" : "=a" (q)
+				: "a" (a), "rm" (mul), "rm" (div)
+				: "rdx");
+
+	return q;
+}
+#define mul_u64_u64_div_u64 mul_u64_u64_div_u64
+#endif
+
+#if IX_CONFIG_USE_HW_TIMESTAMPS
 /* ixxat_usb_netif_rx - receive a CAN message and pass it to the network stack
  * @timeref: pointer to the time reference structure
  * @skb: pointer to the socket buffer containing the CAN message
@@ -1063,6 +1093,14 @@ static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
 
 	return netif_rx(skb);
 }
+#else
+static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
+			      struct sk_buff *skb, __le32 ts_tick)
+{
+	// skb->tstamp = ktime_get();
+	return netif_rx(skb);
+}
+#endif
 
 /* ixxat_usb_handle_canmsg - handle a received CAN message
  * @dev: pointer to the IXXAT USB CAN device
@@ -1401,9 +1439,12 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			break;
 
 		case IXXAT_USB_CAN_TIMEOVR:
-			u64 time = le32_to_cpu(can_msg->base.msg_id);
-
-			dev->time_ref.ts_overrun_ticks += (time << 32);
+			{
+#if IX_CONFIG_USE_HW_TIMESTAMPS
+				u64 time = le32_to_cpu(can_msg->base.msg_id);
+				dev->time_ref.ts_overrun_ticks += (time << 32);
+#endif
+			}
 			break;
 
 		case IXXAT_USB_CAN_INFO:
@@ -2225,14 +2266,49 @@ static int ixxat_usb_stop(struct net_device *netdev)
 static const struct net_device_ops ixxat_usb_netdev_ops = {
 	.ndo_open = ixxat_usb_open,
 	.ndo_stop = ixxat_usb_stop,
+#if IX_CONFIG_USE_HW_TIMESTAMPS && (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0))
+	/* .ndo_eth_ioctl does not exist on kernel prior to 6.0 */
 	.ndo_eth_ioctl = can_eth_ioctl_hwts,
+#endif
 	.ndo_start_xmit = ixxat_usb_start_xmit,
 	.ndo_change_mtu = can_change_mtu,
 };
 
+#if IX_CONFIG_USE_HW_TIMESTAMPS
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
+
 static const struct ethtool_ops ixxat_ethtool_ops = {
 	.get_ts_info = can_ethtool_op_get_ts_info_hwts
 };
+
+#else
+
+/* generic implementation of ethtool_ops::get_ts_info for CAN devices
+ * supporting hardware timestamps
+ */
+int ixxat_ethtool_op_get_ts_info_hwts(struct net_device *dev,
+				    struct ethtool_ts_info *info)
+{
+	info->so_timestamping =
+		SOF_TIMESTAMPING_TX_SOFTWARE |
+		SOF_TIMESTAMPING_RX_SOFTWARE |
+		SOF_TIMESTAMPING_SOFTWARE |
+		SOF_TIMESTAMPING_TX_HARDWARE |
+		SOF_TIMESTAMPING_RX_HARDWARE |
+		SOF_TIMESTAMPING_RAW_HARDWARE;
+	info->phc_index = -1;
+	info->tx_types = BIT(HWTSTAMP_TX_ON);
+	info->rx_filters = BIT(HWTSTAMP_FILTER_ALL);
+
+	return 0;
+}
+
+static const struct ethtool_ops ixxat_ethtool_ops = {
+	.get_ts_info = ixxat_ethtool_op_get_ts_info_hwts
+};
+
+#endif
+#endif
 
 /* ixxat_usb_create_ctrl - create a CAN controller for the IXXAT USB device
  * @intf: pointer to the USB interface
@@ -2253,6 +2329,11 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 	struct net_device *netdev;
 	int err;
 	int i;
+#if IX_CONFIG_USE_HW_TIMESTAMPS
+	u32 ts_clock_divisor;
+	u32 ts_clock_freq;
+	struct ixxat_cancaps2 caps;
+#endif
 
 	/* number of echo_skb */
 	netdev = alloc_candev(sizeof(*dev), IXXAT_USB_MAX_MSGS);
@@ -2302,21 +2383,23 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 
 		/* configure netdev */
 		netdev->netdev_ops = &ixxat_usb_netdev_ops;
+#if IX_CONFIG_USE_HW_TIMESTAMPS
 		netdev->ethtool_ops = &ixxat_ethtool_ops;
+#endif
 		netdev->flags |= IFF_ECHO;
+
+#if IX_CONFIG_USE_HW_TIMESTAMPS
+		dev->adapter->get_ctrl_caps(dev, &caps);
+
+		ts_clock_divisor = le32_to_cpu(caps.ts_clock_divisor);
+		ts_clock_freq  = le32_to_cpu(caps.ts_clock_freq);
+
+		ixxat_usb_ts_set_cancaps(&dev->time_ref, ts_clock_divisor, ts_clock_freq);
+#endif
 
 		/* link this device into the existing list */
 		dev->prev_dev = usb_get_intfdata(intf);
 		usb_set_intfdata(intf, dev);
-
-		struct ixxat_cancaps2 caps;
-
-		dev->adapter->get_ctrl_caps(dev, &caps);
-
-		u32 ts_clock_divisor = le32_to_cpu(caps.ts_clock_divisor);
-		u32 ts_clock_freq  = le32_to_cpu(caps.ts_clock_freq);
-
-		ixxat_usb_ts_set_cancaps(&dev->time_ref, ts_clock_divisor, ts_clock_freq);
 
 		SET_NETDEV_DEV(netdev, &intf->dev);
 		err = register_candev(netdev);
@@ -2326,16 +2409,24 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 			goto free_candev;
 		}
 
-		netdev_info(netdev, "timestamp clock resolution  : %u / %u\n", ts_clock_freq, ts_clock_divisor);
-		netdev_info(netdev, "timestamp multiplier/divisor: %llu / %llu\n", dev->time_ref.tick_multiplier, dev->time_ref.tick_divider);
-
 		if (dev->prev_dev)
 			(dev->prev_dev)->next_dev = dev;
 
-		netdev->addr_len = sizeof(devdata->dev_info.device_id);
+#if IX_CONFIG_USE_HW_TIMESTAMPS
+		netdev_info(netdev, "timestamp clock resolution  : %u / %u\n", ts_clock_freq, ts_clock_divisor);
+		netdev_info(netdev, "timestamp multiplier/divisor: %llu / %llu\n", dev->time_ref.tick_multiplier, dev->time_ref.tick_divider);
+#endif
+
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0)
-		netdev->dev_addr = dev->dev_info.device_id;
+		// do not set device address because
+		// that triggers a bug in ModemManager (at least in ModemManager 1.10.0 
+		// on debian kernel 4.19.0-22-amd64 #1 SMP Debian 4.19.260-1 (2022-09-29))
+		//
+		// netdev->addr_len = sizeof(devdata->dev_info.device_id);
+		// netdev->dev_addr = devdata->dev_info.device_id;
 #else
+		netdev->addr_len = sizeof(devdata->dev_info.device_id);
 		dev_addr_mod(netdev, 0, devdata->dev_info.device_id, sizeof(devdata->dev_info.device_id));
 #endif
 
