@@ -11,7 +11,8 @@
 
 - rename "USB-to-CAN/FD Standard Brick" to "USB-to-CAN/FD Standard Card"
 - add support for device id 08DB:0014 ("USB-to-CAN/FD Standard Module")
-- merge fixes submitted by Stephane Grosjean (s.grosjean@peak-system.com)
+- merge fixes submitted by Stephane Grosjean (stephane.grosjean@hms-networks.
+  com)
    * Remove all local mem allocation and use pre-alloc area to build commands
      To avoid memory fragmentation, command buffer is allocated at probe time,
      then used by each command handler function. This needs to pass the
