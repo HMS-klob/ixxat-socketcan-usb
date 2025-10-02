@@ -1134,51 +1134,50 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 
 	if (rx->base.size < (min_size - 1)) {
 		netdev_err(netdev, "Error: CAN Invalid data message size\n");
-		err = -EBADMSG;
-	} else {
+		return -EBADMSG;
+	}
 
-		if (ixx_flags & IXXAT_USB_MSG_FLAGS_OVR) {
-			netdev->stats.rx_over_errors++;
-			netdev->stats.rx_errors++;
-			ix_trace_printk("CAN Message overflow\n");
-		}
+	if (ixx_flags & IXXAT_USB_MSG_FLAGS_OVR) {
+		netdev->stats.rx_over_errors++;
+		netdev->stats.rx_errors++;
+		ix_trace_printk("CAN Message overflow\n");
+	}
 
-		if (ixx_flags & IXXAT_USB_MSG_FLAGS_SRR) {
-			if (dev->adapter == &usb2can_cl1) {
-				/* do nothing because the tx_packets are already handled
-				 * in the write callback !
-				 */
-			} else {
-				netdev->stats.tx_bytes += datalen;
-				netdev->stats.tx_packets++;
-
-				MsgIdx = le32_to_cpu(rx->cl2.client_id);
-
-				if (MsgIdx >= IXXAT_USB_MSG_IDX_OFFSET) {
-					MsgIdx -= IXXAT_USB_MSG_IDX_OFFSET;
-
-					len = can_get_echo_skb(netdev, MsgIdx, NULL);
-					ixxat_usb_msg_free_idx(dev, MsgIdx);
-				}
-			}
-			netif_wake_queue(netdev);
+	if (ixx_flags & IXXAT_USB_MSG_FLAGS_SRR) {
+		if (dev->adapter == &usb2can_cl1) {
+			/* do nothing because the tx_packets are already handled
+			 * in the write callback !
+			 */
 		} else {
-			if (ixx_flags & IXXAT_USB_FDMSG_FLAGS_EDL)
-				skb = alloc_canfd_skb(netdev, &cf);
-			else
-				skb = alloc_can_skb(netdev, (struct can_frame **)&cf);
+			netdev->stats.tx_bytes += datalen;
+			netdev->stats.tx_packets++;
 
-			if (!skb) {
-				err = -ENOMEM;
-			} else {
-				ixxat_convert(dev->adapter, cf, rx, datalen);
+			MsgIdx = le32_to_cpu(rx->cl2.client_id);
 
-				netdev->stats.rx_packets++;
-				netdev->stats.rx_bytes += cf->len;
+			if (MsgIdx >= IXXAT_USB_MSG_IDX_OFFSET) {
+				MsgIdx -= IXXAT_USB_MSG_IDX_OFFSET;
 
-				ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
-				err = 0;
+				len = can_get_echo_skb(netdev, MsgIdx, NULL);
+				ixxat_usb_msg_free_idx(dev, MsgIdx);
 			}
+		}
+		netif_wake_queue(netdev);
+	} else {
+		if (ixx_flags & IXXAT_USB_FDMSG_FLAGS_EDL)
+			skb = alloc_canfd_skb(netdev, &cf);
+		else
+			skb = alloc_can_skb(netdev, (struct can_frame **)&cf);
+
+		if (!skb) {
+			err = -ENOMEM;
+		} else {
+			ixxat_convert(dev->adapter, cf, rx, datalen);
+
+			netdev->stats.rx_packets++;
+			netdev->stats.rx_bytes += cf->len;
+
+			ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
+			err = 0;
 		}
 	}
 
