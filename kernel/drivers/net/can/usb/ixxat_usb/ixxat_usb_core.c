@@ -1025,14 +1025,13 @@ static void ixxat_convert(const struct ixxat_usb_adapter *adapter,
 	if (ixx_flags & IXXAT_USB_MSG_FLAGS_EXT)
 		cf->can_id |= CAN_EFF_FLAG;
 
-	if (ixx_flags & IXXAT_USB_MSG_FLAGS_RTR) {
+	if (ixx_flags & IXXAT_USB_MSG_FLAGS_RTR)
 		cf->can_id |= CAN_RTR_FLAG;
-	} else {
-		if (adapter == &usb2can_cl1)
+
+	else if (adapter == &usb2can_cl1)
 			memcpy(cf->data, rx->cl1.data, datalen);
 		else
 			memcpy(cf->data, rx->cl2.data, datalen);
-	}
 }
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(5, 8, 0)
