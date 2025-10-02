@@ -1309,58 +1309,58 @@ static int ixxat_usb_handle_error(struct ixxat_usb_candevice *dev,
 		return -EBADMSG;
 	}
 
-	if (dev->can.state != CAN_STATE_BUS_OFF) {
+	if (dev->can.state == CAN_STATE_BUS_OFF)
+		return 0;
 
-		if (dev->adapter == &usb2can_cl1) {
-			raw_error = rx->cl1.data[IXXAT_USB_CAN_ERROR_CODE];
-			dev->bec.rxerr = rx->cl1.data[IXXAT_USB_CAN_ERROR_COUNTER_RX];
-			dev->bec.txerr = rx->cl1.data[IXXAT_USB_CAN_ERROR_COUNTER_TX];
-		} else {
-			raw_error = rx->cl2.data[IXXAT_USB_CAN_ERROR_CODE];
-			dev->bec.rxerr = rx->cl2.data[IXXAT_USB_CAN_ERROR_COUNTER_RX];
-			dev->bec.txerr = rx->cl2.data[IXXAT_USB_CAN_ERROR_COUNTER_TX];
-		}
-
-		if (raw_error == IXXAT_USB_CAN_ERROR_ACK)
-			netdev->stats.tx_errors++;
-		else
-			netdev->stats.rx_errors++;
-
-		skb = alloc_can_err_skb(netdev, &can_frame);
-		if (!skb)
-			return -ENOMEM;
-
-		switch (raw_error) {
-		case IXXAT_USB_CAN_ERROR_ACK:
-			can_frame->can_id |= CAN_ERR_ACK;
-			break;
-		case IXXAT_USB_CAN_ERROR_BIT:
-			can_frame->can_id |= CAN_ERR_PROT;
-			can_frame->data[2] |= CAN_ERR_PROT_BIT;
-			break;
-		case IXXAT_USB_CAN_ERROR_CRC:
-			can_frame->can_id |= CAN_ERR_PROT;
-			can_frame->data[3] |= CAN_ERR_PROT_LOC_CRC_SEQ;
-			break;
-		case IXXAT_USB_CAN_ERROR_FORM:
-			can_frame->can_id |= CAN_ERR_PROT;
-			can_frame->data[2] |= CAN_ERR_PROT_FORM;
-			break;
-		case IXXAT_USB_CAN_ERROR_STUFF:
-			can_frame->can_id |= CAN_ERR_PROT;
-			can_frame->data[2] |= CAN_ERR_PROT_STUFF;
-			break;
-		default:
-			can_frame->can_id |= CAN_ERR_PROT;
-			can_frame->data[2] |= CAN_ERR_PROT_UNSPEC;
-			break;
-		}
-
-		netdev->stats.rx_packets++;
-		netdev->stats.rx_bytes += can_frame->can_dlc;
-
-		ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
+	if (dev->adapter == &usb2can_cl1) {
+		raw_error = rx->cl1.data[IXXAT_USB_CAN_ERROR_CODE];
+		dev->bec.rxerr = rx->cl1.data[IXXAT_USB_CAN_ERROR_COUNTER_RX];
+		dev->bec.txerr = rx->cl1.data[IXXAT_USB_CAN_ERROR_COUNTER_TX];
+	} else {
+		raw_error = rx->cl2.data[IXXAT_USB_CAN_ERROR_CODE];
+		dev->bec.rxerr = rx->cl2.data[IXXAT_USB_CAN_ERROR_COUNTER_RX];
+		dev->bec.txerr = rx->cl2.data[IXXAT_USB_CAN_ERROR_COUNTER_TX];
 	}
+
+	if (raw_error == IXXAT_USB_CAN_ERROR_ACK)
+		netdev->stats.tx_errors++;
+	else
+		netdev->stats.rx_errors++;
+
+	skb = alloc_can_err_skb(netdev, &can_frame);
+	if (!skb)
+		return -ENOMEM;
+
+	switch (raw_error) {
+	case IXXAT_USB_CAN_ERROR_ACK:
+		can_frame->can_id |= CAN_ERR_ACK;
+		break;
+	case IXXAT_USB_CAN_ERROR_BIT:
+		can_frame->can_id |= CAN_ERR_PROT;
+		can_frame->data[2] |= CAN_ERR_PROT_BIT;
+		break;
+	case IXXAT_USB_CAN_ERROR_CRC:
+		can_frame->can_id |= CAN_ERR_PROT;
+		can_frame->data[3] |= CAN_ERR_PROT_LOC_CRC_SEQ;
+		break;
+	case IXXAT_USB_CAN_ERROR_FORM:
+		can_frame->can_id |= CAN_ERR_PROT;
+		can_frame->data[2] |= CAN_ERR_PROT_FORM;
+		break;
+	case IXXAT_USB_CAN_ERROR_STUFF:
+		can_frame->can_id |= CAN_ERR_PROT;
+		can_frame->data[2] |= CAN_ERR_PROT_STUFF;
+		break;
+	default:
+		can_frame->can_id |= CAN_ERR_PROT;
+		can_frame->data[2] |= CAN_ERR_PROT_UNSPEC;
+		break;
+	}
+
+	netdev->stats.rx_packets++;
+	netdev->stats.rx_bytes += can_frame->can_dlc;
+
+	ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
 
 	return 0;
 }
