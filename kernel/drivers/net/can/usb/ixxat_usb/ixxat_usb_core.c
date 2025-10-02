@@ -205,7 +205,6 @@ static const struct usb_device_id ixxat_usb_table[] = {
 	{ USB_DEVICE(IXXAT_USB_VENDOR_ID_LEGACY, CAN_IDM200_PRODUCT_ID),
 	  .driver_info = (kernel_ulong_t)&legacy_can_idm200,
 	},
-
 	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_PRO_PRODUCT_ID),
 	  .driver_info = (kernel_ulong_t)&usb2can_fd_pro,
 	},
@@ -218,7 +217,8 @@ static const struct usb_device_id ixxat_usb_table[] = {
 	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_PRO_MODULE_PRODUCT_ID),
 	  .driver_info = (kernel_ulong_t)&usb2can_fd_pro_module,
 	},
-	{ USB_DEVICE(IXXAT_USB_VENDOR_ID, USB2CAN_FD_STANDARD_MODULE_PRODUCT_ID),
+	{ USB_DEVICE(IXXAT_USB_VENDOR_ID,
+		     USB2CAN_FD_STANDARD_MODULE_PRODUCT_ID),
 	  .driver_info = (kernel_ulong_t)&usb2can_fd_standard_module,
 	},
 	{ } /* Terminating entry */
@@ -254,6 +254,7 @@ static void showdump(u8 *pbdata, u16 length)
 	ix_trace_printk(KBUILD_MODNAME ": %s", dump);
 }
 #endif
+
 /* ixxat_usb_dev_name - return the name of the IXXAT USB device
  * @param id: pointer to the USB device ID structure
  *
