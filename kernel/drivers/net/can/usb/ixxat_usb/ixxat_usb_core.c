@@ -1118,20 +1118,14 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 	int err = 0;
 	const u32 ixx_flags = le32_to_cpu(rx->base.flags);
 	const u8 dlc = IXXAT_USB_DECODE_DLC(ixx_flags);
+	const u8 datalen = (ixx_flags & IXXAT_USB_FDMSG_FLAGS_EDL) ?
+				can_fd_dlc2len(dlc) : can_cc_dlc2len(dlc);
+	u8 min_size = sizeof(rx->base) + datalen;
 	struct canfd_frame *cf;
 	struct net_device *netdev = dev->netdev;
 	struct sk_buff *skb;
-	u8 datalen;
-	u8 min_size;
 	u32 MsgIdx = 0;
 	int len;
-
-	if (ixx_flags & IXXAT_USB_FDMSG_FLAGS_EDL)
-		datalen = can_fd_dlc2len(dlc);
-	else
-		datalen = can_cc_dlc2len(dlc);
-
-	min_size = sizeof(rx->base) + datalen;
 
 	if (dev->adapter == &usb2can_cl1)
 		min_size += sizeof(rx->cl1) - sizeof(rx->cl1.data);
