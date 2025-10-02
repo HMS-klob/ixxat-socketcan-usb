@@ -10,6 +10,16 @@
 *.obj
 *.elf
 
+# Linux Kernel intermediate files
+*.cmd
+*.mod
+Module.symvers
+modules.order
+*.mod.c
+
+# Swap files
+*.swp
+
 # Linker output
 *.ilk
 *.map
