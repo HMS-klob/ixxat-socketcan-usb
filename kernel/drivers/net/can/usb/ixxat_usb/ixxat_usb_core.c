@@ -1381,13 +1381,11 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 	struct net_device *netdev = dev->netdev;
 	struct ixxat_can_msg *can_msg;
 	int err = 0;
-	u32 pos = 0;
 	u8 *data = urb->transfer_buffer;
-	u32 len = urb->actual_length;
+	u32 len = urb->actual_length, pos, size;
 
-	while (pos < len) {
+	for (pos = 0; pos < len; pos += size) {
 		u32 type;
-		u32 size;
 
 		can_msg = (struct ixxat_can_msg *)&data[pos];
 		if (!can_msg || !can_msg->base.size) {
@@ -1451,8 +1449,6 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			ret = -1;
 			break;
 		}
-
-		pos += size;
 	}
 
 fail:
