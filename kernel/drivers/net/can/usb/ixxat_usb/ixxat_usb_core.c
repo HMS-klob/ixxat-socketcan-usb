@@ -1121,9 +1121,7 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 	const u8 datalen = (ixx_flags & IXXAT_USB_FDMSG_FLAGS_EDL) ?
 				can_fd_dlc2len(dlc) : can_cc_dlc2len(dlc);
 	u8 min_size = sizeof(rx->base) + datalen;
-	struct canfd_frame *cf;
 	struct net_device *netdev = dev->netdev;
-	struct sk_buff *skb;
 
 	if (dev->adapter == &usb2can_cl1)
 		min_size += sizeof(rx->cl1) - sizeof(rx->cl1.data);
@@ -1163,22 +1161,24 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 		}
 		netif_wake_queue(netdev);
 	} else {
+		struct sk_buff *skb;
+		struct canfd_frame *cf;
+
 		if (ixx_flags & IXXAT_USB_FDMSG_FLAGS_EDL)
 			skb = alloc_canfd_skb(netdev, &cf);
 		else
 			skb = alloc_can_skb(netdev, (struct can_frame **)&cf);
 
-		if (!skb) {
-			err = -ENOMEM;
-		} else {
-			ixxat_convert(dev->adapter, cf, rx, datalen);
+		if (!skb)
+			return -ENOMEM;
 
-			netdev->stats.rx_packets++;
-			netdev->stats.rx_bytes += cf->len;
+		ixxat_convert(dev->adapter, cf, rx, datalen);
 
-			ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
-			err = 0;
-		}
+		netdev->stats.rx_packets++;
+		netdev->stats.rx_bytes += cf->len;
+
+		ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
+		err = 0;
 	}
 
 	return err;
