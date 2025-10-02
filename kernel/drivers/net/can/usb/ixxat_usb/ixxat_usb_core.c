@@ -1115,7 +1115,6 @@ static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
 static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 				   struct ixxat_can_msg *rx)
 {
-	int err = 0;
 	const u32 ixx_flags = le32_to_cpu(rx->base.flags);
 	const u8 dlc = IXXAT_USB_DECODE_DLC(ixx_flags);
 	const u8 datalen = (ixx_flags & IXXAT_USB_FDMSG_FLAGS_EDL) ?
@@ -1178,10 +1177,9 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 		netdev->stats.rx_bytes += cf->len;
 
 		ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
-		err = 0;
 	}
 
-	return err;
+	return 0;
 }
 
 /* ixxat_usb_handle_status - handle a received status message
