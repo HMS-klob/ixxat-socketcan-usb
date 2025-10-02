@@ -1438,12 +1438,12 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			break;
 
 		case IXXAT_USB_CAN_TIMEOVR:
-			{
 #if IX_CONFIG_USE_HW_TIMESTAMPS
+			{
 				u64 time = le32_to_cpu(can_msg.base.msg_id);
 				dev->time_ref.ts_overrun_ticks += (time << 32);
-#endif
 			}
+#endif
 			break;
 
 		case IXXAT_USB_CAN_INFO:
