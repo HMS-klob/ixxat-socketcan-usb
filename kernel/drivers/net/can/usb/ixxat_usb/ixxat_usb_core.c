@@ -1376,7 +1376,6 @@ static int ixxat_usb_handle_error(struct ixxat_usb_candevice *dev,
  */
 static int ixxat_usb_decode_buf(struct urb *urb)
 {
-	int ret = 0;
 	struct ixxat_usb_candevice *dev = urb->context;
 	struct net_device *netdev = dev->netdev;
 	int err = 0;
@@ -1396,7 +1395,6 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 		    (size < sizeof(struct ixxat_can_msg_base))) {
 			err = -EBADMSG;
 			netdev_err(netdev, "USB invalid msg size %u\n", size);
-			ret = -1;
 			break;
 		}
 
@@ -1405,7 +1403,6 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			err = -ENOTSUPP;
 			netdev_err(netdev, "Error %d: USB Unsupported msg\n",
 				   err);
-			ret = -1;
 			break;
 		}
 
@@ -1415,7 +1412,6 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			netdev_err(netdev,
 				   "Error %d: USB Invalid message size\n",
 				   err);
-			ret = -1;
 			break;
 		}
 
@@ -1459,18 +1455,15 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			netdev_err(netdev,
 				   "CAN Unhandled rec type 0x%02x (%d): ignored\n",
 				   type, type);
-			ret = -1;
 			break;
 		}
 	}
 
 fail:
-	if (err) {
+	if (err)
 		netdev_err(netdev, "Error %d: Buffer decoding failed\n", err);
-		ret = -1;
-	}
 
-	return ret;
+	return err;
 }
 
 /* ixxat_usb_encode_msg - encode a CAN message into USB format
