@@ -1190,7 +1190,6 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 static int ixxat_usb_handle_status(struct ixxat_usb_candevice *dev,
 				   struct ixxat_can_msg *rx)
 {
-	int err = 0;
 	struct net_device *netdev = dev->netdev;
 	struct can_frame *can_frame;
 	struct sk_buff *skb;
@@ -1205,83 +1204,81 @@ static int ixxat_usb_handle_status(struct ixxat_usb_candevice *dev,
 
 	if (rx->base.size < (min_size - 1)) {
 		netdev_err(netdev, "Error: CAN Invalid status message size\n");
-		err = -EBADMSG;
-	} else {
-		if (dev->adapter == &usb2can_cl1)
-			raw_status = le32_to_cpup((__le32 *)rx->cl1.data);
-		else
-			raw_status = le32_to_cpup((__le32 *)rx->cl2.data);
+		return -EBADMSG;
+	}
 
-		if (raw_status != IXXAT_USB_CAN_STATUS_OK) {
-			if (raw_status & IXXAT_USB_CAN_STATUS_BUSOFF) {
-				dev->can.can_stats.bus_off++;
-				new_state = CAN_STATE_BUS_OFF;
-				can_bus_off(netdev);
-			} else {
-				if (raw_status & IXXAT_USB_CAN_STATUS_ERRLIM) {
-					dev->can.can_stats.error_warning++;
-					new_state = CAN_STATE_ERROR_WARNING;
-				}
+	if (dev->adapter == &usb2can_cl1)
+		raw_status = le32_to_cpup((__le32 *)rx->cl1.data);
+	else
+		raw_status = le32_to_cpup((__le32 *)rx->cl2.data);
 
-				if (raw_status & IXXAT_USB_CAN_STATUS_ERR_PAS) {
-					dev->can.can_stats.error_passive++;
-					new_state = CAN_STATE_ERROR_PASSIVE;
-				}
-
-				if (raw_status & IXXAT_USB_CAN_STATUS_OVERRUN)
-					new_state = CAN_STATE_MAX;
-			}
-		}
-
-		if (new_state == CAN_STATE_ERROR_ACTIVE) {
-			dev->bec.txerr = 0;
-			dev->bec.rxerr = 0;
-		}
-
-		if (new_state != CAN_STATE_MAX)
-			dev->can.state = new_state;
-
-		skb = alloc_can_err_skb(netdev, &can_frame);
-		if (!skb) {
-			err = -ENOMEM;
+	if (raw_status != IXXAT_USB_CAN_STATUS_OK) {
+		if (raw_status & IXXAT_USB_CAN_STATUS_BUSOFF) {
+			dev->can.can_stats.bus_off++;
+			new_state = CAN_STATE_BUS_OFF;
+			can_bus_off(netdev);
 		} else {
-
-			switch (new_state) {
-			case CAN_STATE_ERROR_ACTIVE:
-				can_frame->can_id |= CAN_ERR_CRTL;
-				can_frame->data[1] |= CAN_ERR_CRTL_ACTIVE;
-				break;
-			case CAN_STATE_ERROR_WARNING:
-				can_frame->can_id |= CAN_ERR_CRTL;
-				can_frame->data[1] |= CAN_ERR_CRTL_TX_WARNING;
-				can_frame->data[1] |= CAN_ERR_CRTL_RX_WARNING;
-				break;
-			case CAN_STATE_ERROR_PASSIVE:
-				can_frame->can_id |= CAN_ERR_CRTL;
-				can_frame->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
-				can_frame->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
-				break;
-			case CAN_STATE_BUS_OFF:
-				can_frame->can_id |= CAN_ERR_BUSOFF;
-				break;
-			case CAN_STATE_MAX:
-				can_frame->can_id |= CAN_ERR_CRTL;
-				can_frame->data[1] |= CAN_ERR_CRTL_RX_OVERFLOW;
-				break;
-			default:
-				netdev_err(netdev, "Error: CAN Unhandled status %d\n",
-					   new_state);
-				break;
+			if (raw_status & IXXAT_USB_CAN_STATUS_ERRLIM) {
+				dev->can.can_stats.error_warning++;
+				new_state = CAN_STATE_ERROR_WARNING;
 			}
 
-			netdev->stats.rx_packets++;
-			netdev->stats.rx_bytes += can_frame->can_dlc;
+			if (raw_status & IXXAT_USB_CAN_STATUS_ERR_PAS) {
+				dev->can.can_stats.error_passive++;
+				new_state = CAN_STATE_ERROR_PASSIVE;
+			}
 
-			ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
+			if (raw_status & IXXAT_USB_CAN_STATUS_OVERRUN)
+				new_state = CAN_STATE_MAX;
 		}
 	}
 
-	return err;
+	if (new_state == CAN_STATE_ERROR_ACTIVE) {
+		dev->bec.txerr = 0;
+		dev->bec.rxerr = 0;
+	}
+
+	if (new_state != CAN_STATE_MAX)
+		dev->can.state = new_state;
+
+	skb = alloc_can_err_skb(netdev, &can_frame);
+	if (!skb)
+		return -ENOMEM;
+
+	switch (new_state) {
+	case CAN_STATE_ERROR_ACTIVE:
+		can_frame->can_id |= CAN_ERR_CRTL;
+		can_frame->data[1] |= CAN_ERR_CRTL_ACTIVE;
+		break;
+	case CAN_STATE_ERROR_WARNING:
+		can_frame->can_id |= CAN_ERR_CRTL;
+		can_frame->data[1] |= CAN_ERR_CRTL_TX_WARNING;
+		can_frame->data[1] |= CAN_ERR_CRTL_RX_WARNING;
+		break;
+	case CAN_STATE_ERROR_PASSIVE:
+		can_frame->can_id |= CAN_ERR_CRTL;
+		can_frame->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
+		can_frame->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
+		break;
+	case CAN_STATE_BUS_OFF:
+		can_frame->can_id |= CAN_ERR_BUSOFF;
+		break;
+	case CAN_STATE_MAX:
+		can_frame->can_id |= CAN_ERR_CRTL;
+		can_frame->data[1] |= CAN_ERR_CRTL_RX_OVERFLOW;
+		break;
+	default:
+		netdev_err(netdev, "Error: CAN Unhandled status %d\n",
+			   new_state);
+		break;
+	}
+
+	netdev->stats.rx_packets++;
+	netdev->stats.rx_bytes += can_frame->can_dlc;
+
+	ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
+
+	return 0;
 }
 
 /* ixxat_usb_handle_error - handle a received error message
