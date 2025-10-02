@@ -1551,24 +1551,23 @@ static int ixxat_evaluate_usb_status(struct net_device *netdev,
 	/* 0: success, -1: error -> return, -2: error -> retry */
 	int err = 0;
 
-	if (!netif_device_present(netdev)) {
+	if (!netif_device_present(netdev))
+		return -1;
+
+	switch (urb->status) {
+	case 0:
+		/* success */
+		break;
+	case -EPROTO:
+	case -EILSEQ:
+	case -ENOENT:
+	case -ECONNRESET:
+	case -ESHUTDOWN:
 		err = -1;
-	} else {
-		switch (urb->status) {
-		case 0: /* success */
-			err = 0;
-			break;
-		case -EPROTO:
-		case -EILSEQ:
-		case -ENOENT:
-		case -ECONNRESET:
-		case -ESHUTDOWN:
-			err = -1;
-			break;
-		default:
-			err = -2;
-			break;
-		}
+		break;
+	default:
+		err = -2;
+		break;
 	}
 
 #ifdef DEBUG
