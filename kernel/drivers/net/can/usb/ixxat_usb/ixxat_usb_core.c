@@ -1075,13 +1075,13 @@ static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
 	struct skb_shared_hwtstamps *hwts = skb_hwtstamps(skb);
 
 	/* calculate tick offset */
-	u64 ticks  = timeref->ts_overrun_ticks;
+	u64 ticks = timeref->ts_overrun_ticks;
 
-	ticks     |= le32_to_cpu(ts_tick);
+	ticks |= le32_to_cpu(ts_tick);
 
 #if (IX_SYNCTOHOST_NONE == IX_SYNCTOHOSTCLOCK)
 #else
-	ticks     -= timeref->ts_dev_start;
+	ticks -= timeref->ts_dev_start;
 #endif
 
 	/* convert tick to [1ns] resolution */
