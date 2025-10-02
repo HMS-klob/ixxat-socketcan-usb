@@ -1124,8 +1124,6 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 	struct canfd_frame *cf;
 	struct net_device *netdev = dev->netdev;
 	struct sk_buff *skb;
-	u32 MsgIdx = 0;
-	int len;
 
 	if (dev->adapter == &usb2can_cl1)
 		min_size += sizeof(rx->cl1) - sizeof(rx->cl1.data);
@@ -1149,16 +1147,18 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 			 * in the write callback !
 			 */
 		} else {
+			u32 msg_idx = le32_to_cpu(rx->cl2.client_id);
+
 			netdev->stats.tx_bytes += datalen;
 			netdev->stats.tx_packets++;
 
-			MsgIdx = le32_to_cpu(rx->cl2.client_id);
+			if (msg_idx >= IXXAT_USB_MSG_IDX_OFFSET) {
+				int len;
 
-			if (MsgIdx >= IXXAT_USB_MSG_IDX_OFFSET) {
-				MsgIdx -= IXXAT_USB_MSG_IDX_OFFSET;
+				msg_idx -= IXXAT_USB_MSG_IDX_OFFSET;
 
-				len = can_get_echo_skb(netdev, MsgIdx, NULL);
-				ixxat_usb_msg_free_idx(dev, MsgIdx);
+				len = can_get_echo_skb(netdev, msg_idx, NULL);
+				ixxat_usb_msg_free_idx(dev, msg_idx);
 			}
 		}
 		netif_wake_queue(netdev);
