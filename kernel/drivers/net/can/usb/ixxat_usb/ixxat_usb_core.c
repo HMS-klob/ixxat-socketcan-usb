@@ -1158,6 +1158,7 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 				ixxat_usb_msg_free_idx(dev, msg_idx);
 			}
 		}
+
 		netif_wake_queue(netdev);
 	} else {
 		struct sk_buff *skb;
