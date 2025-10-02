@@ -1379,16 +1379,29 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 	int ret = 0;
 	struct ixxat_usb_candevice *dev = urb->context;
 	struct net_device *netdev = dev->netdev;
-	struct ixxat_can_msg *can_msg;
 	int err = 0;
 	u8 *data = urb->transfer_buffer;
 	u32 len = urb->actual_length, pos, size;
 
 	for (pos = 0; pos < len; pos += size) {
+		struct ixxat_can_msg can_msg;
 		u32 type;
 
-		can_msg = (struct ixxat_can_msg *)&data[pos];
-		if (!can_msg || !can_msg->base.size) {
+		/* Since struct ixxat_can_msg is packed and starts with a byte,
+		 * we have no choice but to copy the whole into a local
+		 * variable to avoid bus violation.
+		 */
+		size = data[pos] + 1;
+		if ((size > sizeof(can_msg)) ||
+		    (size < sizeof(struct ixxat_can_msg_base))) {
+			err = -EBADMSG;
+			netdev_err(netdev, "USB invalid msg size %u\n", size);
+			ret = -1;
+			break;
+		}
+
+		memcpy(&can_msg, data + pos, size);
+		if (!can_msg.base.size) {
 			err = -ENOTSUPP;
 			netdev_err(netdev, "Error %d: USB Unsupported msg\n",
 				   err);
@@ -1396,8 +1409,8 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			break;
 		}
 
-		size = can_msg->base.size + 1;
-		if (size < sizeof(can_msg->base) || (pos + size) > len) {
+		size = can_msg.base.size + 1;
+		if (size < sizeof(can_msg.base) || (pos + size) > len) {
 			err = -EBADMSG;
 			netdev_err(netdev,
 				   "Error %d: USB Invalid message size\n",
@@ -1406,24 +1419,24 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			break;
 		}
 
-		type = le32_to_cpu(can_msg->base.flags);
+		type = le32_to_cpu(can_msg.base.flags);
 		type &= IXXAT_USB_MSG_FLAGS_TYPE;
 
 		switch (type) {
 		case IXXAT_USB_CAN_DATA:
-			err = ixxat_usb_handle_canmsg(dev, can_msg);
+			err = ixxat_usb_handle_canmsg(dev, &can_msg);
 			if (err)
 				goto fail;
 			break;
 
 		case IXXAT_USB_CAN_STATUS:
-			err = ixxat_usb_handle_status(dev, can_msg);
+			err = ixxat_usb_handle_status(dev, &can_msg);
 			if (err)
 				goto fail;
 			break;
 
 		case IXXAT_USB_CAN_ERROR:
-			err = ixxat_usb_handle_error(dev, can_msg);
+			err = ixxat_usb_handle_error(dev, &can_msg);
 			if (err)
 				goto fail;
 			break;
@@ -1431,7 +1444,7 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 		case IXXAT_USB_CAN_TIMEOVR:
 			{
 #if IX_CONFIG_USE_HW_TIMESTAMPS
-				u64 time = le32_to_cpu(can_msg->base.msg_id);
+				u64 time = le32_to_cpu(can_msg.base.msg_id);
 				dev->time_ref.ts_overrun_ticks += (time << 32);
 #endif
 			}
