@@ -1546,8 +1546,7 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
  * and returns an error code based on the status.
  */
 static int ixxat_evaluate_usb_status(struct net_device *netdev,
-				     struct urb *urb,
-				     u8 ep_msg)
+				     struct urb *urb, u8 ep_msg)
 {
 	/* 0: success, -1: error -> return, -2: error -> retry */
 	int err = 0;
