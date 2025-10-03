@@ -1937,13 +1937,13 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
  */
 static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 {
-	int UrbIdx;
+	int urb_idx;
 	int ret = 0;
 	const struct ixxat_usb_adapter *adapter = dev->adapter;
 	struct net_device *netdev = dev->netdev;
 	struct usb_device *udev = dev->udev;
 
-	for (UrbIdx = 0; UrbIdx < IXXAT_USB_MAX_TX_URBS; UrbIdx++) {
+	for (urb_idx = 0; urb_idx < IXXAT_USB_MAX_TX_URBS; urb_idx++) {
 		struct ixxat_tx_urb_context *context;
 		struct urb *urb;
 		u8 *buf;
@@ -1954,7 +1954,7 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 			buf = kmalloc(adapter->buffer_size_tx, GFP_KERNEL);
 
 			if (buf) {
-				context = dev->tx_contexts + UrbIdx;
+				context = dev->tx_contexts + urb_idx;
 
 				context->dev = dev;
 				context->urb = urb;
@@ -1982,7 +1982,7 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 		}
 	}
 
-	if (UrbIdx == 0) {
+	if (urb_idx == 0) {
 		netdev_err(netdev, "Error: Couldn't setup any tx-URBs\n");
 		usb_kill_anchored_urbs(&dev->rx_anchor);
 	}
