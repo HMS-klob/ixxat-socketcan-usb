@@ -2502,25 +2502,31 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 	err = ixxat_usb_get_fw_info(udev, devdata);
 	if (err) {
-		dev_err(&udev->dev, "Error %d: Failed to get firmware information. Maybe firmware update needed.\n", err);
+		dev_err(&udev->dev, "Failed to get FW info (err %d)\n", err);
 	} else {
 		u32 fw_type = le32_to_cpu(devdata->fw_info.firmware_type);
 		if (fw_type != IXXAT_USB_DEV_FWTYPE_BAL) {
-			dev_err(&udev->dev, "Error %d: Unknown firmware type. Expected %u, got %u. Maybe firmware or driver update needed.\n", err, IXXAT_USB_DEV_FWTYPE_BAL, fw_type);
+			dev_err(&udev->dev,
+				"Firmware type %u unknown; %u expected\n",
+				fw_type, IXXAT_USB_DEV_FWTYPE_BAL);
 			err = -EFAULT;
 
 		/* Otherwise, check if FW supports get_fw_info2 command */
 		} else if (ixxat_usb_has_cl2_firmware(id, &devdata->fw_info)) {
 			err = ixxat_usb_get_fw_info2(udev, devdata);
 			if (err)
-				dev_err(&udev->dev, "Error %d: Failed to get firmware info2. Maybe firmare update needed.\n", err);
+				dev_err(&udev->dev,
+					"Failed to get FW info2 (err %d)\n",
+					err);
 		}
 	}
 
-	if (err)
+	if (err) {
+		dev_err(&udev->dev, "A firmware update may be required\n");
 		adapter = ixxat_usb_get_adapter(id, NULL);
-	else
+	} else {
 		adapter = ixxat_usb_get_adapter(id, &devdata->fw_info);
+	}
 
 	if (adapter) {
 		dev_info(&udev->dev, "%s\n", ixxat_usb_dev_name(id));
