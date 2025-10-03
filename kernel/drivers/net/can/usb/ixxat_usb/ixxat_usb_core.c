@@ -1650,7 +1650,6 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 	struct ixxat_usb_candevice *dev;
 	struct net_device *netdev;
 	u32 msg_idx;
-	int iSkbRet;
 	int err;
 
 	if (!context)
@@ -1661,40 +1660,40 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 
 	err = ixxat_evaluate_usb_status(netdev, urb, dev->ep_msg_out);
 	switch (err) {
-	default:
-	case 0:
-		break;
 	case -1:
 		return;
-	case -2:
-		goto prepare_urb;
-	}
 
-	/* find correct msg_idx with the CAN Id and Len */
-	msg_idx = context->msg_index;
+	default:
+	case 0:
+		/* find correct msg_idx with the CAN Id and Len */
+		msg_idx = context->msg_index;
 
-	if (msg_idx < IXXAT_USB_MAX_MSGS) {
-		iSkbRet = can_get_echo_skb(netdev, msg_idx, NULL);
+		if (msg_idx < IXXAT_USB_MAX_MSGS) {
+			int echo_bytes;
 
-		if (iSkbRet) {
-			netdev->stats.tx_bytes += iSkbRet;
-			netdev->stats.tx_packets += 1;
-		} else {
-			/* if no loopback is active */
-			netdev->stats.tx_bytes += context->msg_packet_len;
-			netdev->stats.tx_packets += context->msg_packet_no;
+			echo_bytes = can_get_echo_skb(netdev, msg_idx, NULL);
+			if (echo_bytes) {
+				netdev->stats.tx_bytes += echo_bytes;
+				netdev->stats.tx_packets++;
+			} else {
+				/* if no loopback is active */
+				netdev->stats.tx_bytes +=
+					context->msg_packet_len;
+				netdev->stats.tx_packets +=
+					context->msg_packet_no;
+			}
+
+			ixxat_usb_msg_free_idx(dev, msg_idx);
 		}
 
-		ixxat_usb_msg_free_idx(dev, msg_idx);
+		fallthrough;
+	case -2:
+		context->msg_index = IXXAT_USB_MAX_MSGS;
+
+		ixxat_usb_rel_tx_context(dev, context);
+		atomic_dec(&dev->active_tx_urbs);
+		netif_wake_queue(netdev);
 	}
-
-prepare_urb:
-
-	context->msg_index = IXXAT_USB_MAX_MSGS;
-
-	ixxat_usb_rel_tx_context(dev, context);
-	atomic_dec(&dev->active_tx_urbs);
-	netif_wake_queue(netdev);
 }
 
 #define IX_LOOP_DIS		0x00	/* disable self reception */
