@@ -1570,7 +1570,7 @@ static int ixxat_evaluate_usb_status(struct net_device *netdev,
 		break;
 	}
 
-#ifdef DEBUG
+#ifdef IXXAT_DEBUG
 	if (urb->status != 0) {
 		switch (urb->status) {
 		case 0: /* success */
@@ -1831,7 +1831,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 		else
 			dev_kfree_skb(skb);
 
-#ifdef DEBUG
+#ifdef IXXAT_DEBUG
 		showdump(obuf, size);
 #endif
 		urb->transfer_buffer_length = size;
@@ -2598,7 +2598,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 		if (err == NETDEV_TX_OK) {
 			err = -ENODEV;
-#ifdef DEBUG
+#ifdef IXXAT_DEBUG
 			showdevcaps(dev_caps);
 #endif
 
