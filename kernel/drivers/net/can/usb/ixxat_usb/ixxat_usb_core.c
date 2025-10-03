@@ -1571,30 +1571,27 @@ static int ixxat_evaluate_usb_status(struct net_device *netdev,
 	}
 
 #ifdef IXXAT_DEBUG
-	if (urb->status != 0) {
-		switch (urb->status) {
-		case 0: /* success */
-			err = 0;
-			break;
-		case -EPROTO:
-			netdev_err(netdev, "EP: %x, Protocol error /(%d)\n", ep_msg, urb->status);
-			break;
-		case -EILSEQ:
-			netdev_err(netdev, "EP: %x, Illegal byte sequence /(%d)\n", ep_msg, urb->status);
-			break;
-		case -ENOENT:
-			netdev_err(netdev, "EP: %x, No such file or directory /(%d)\n", ep_msg, urb->status);
-			break;
-		case -ECONNRESET:
-			netdev_err(netdev, "EP: %x, Connection reset by peer /(%d)\n", ep_msg, urb->status);
-			break;
-		case -ESHUTDOWN:
-			netdev_err(netdev, "EP: %x, Cannot send after transport endpoint shutdown /(%d)\n", ep_msg, urb->status);
-			break;
-		default:
-			netdev_err(netdev, "EP: %x, Urb Status /(%d)\n", ep_msg, urb->status);
-			break;
-		}
+	switch (urb->status) {
+	case 0: /* success */
+		break;
+	case -EPROTO:
+		netdev_err(netdev, "EP: %x, Protocol error /(%d)\n", ep_msg, urb->status);
+		break;
+	case -EILSEQ:
+		netdev_err(netdev, "EP: %x, Illegal byte sequence /(%d)\n", ep_msg, urb->status);
+		break;
+	case -ENOENT:
+		netdev_err(netdev, "EP: %x, No such file or directory /(%d)\n", ep_msg, urb->status);
+		break;
+	case -ECONNRESET:
+		netdev_err(netdev, "EP: %x, Connection reset by peer /(%d)\n", ep_msg, urb->status);
+		break;
+	case -ESHUTDOWN:
+		netdev_err(netdev, "EP: %x, Cannot send after transport endpoint shutdown /(%d)\n", ep_msg, urb->status);
+		break;
+	default:
+		netdev_err(netdev, "EP: %x, Urb Status /(%d)\n", ep_msg, urb->status);
+		break;
 	}
 #endif
 
