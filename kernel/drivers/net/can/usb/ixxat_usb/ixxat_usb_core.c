@@ -2080,7 +2080,6 @@ static const struct attribute_group ixxat_pdev_group = {
 static void ixxat_usb_disconnect(struct usb_interface *intf)
 {
 	struct ixxat_usb_candevice *dev;
-	struct ixxat_usb_candevice *prev_dev = NULL;
 	struct ixxat_usb_device_data *devdata;
 
 	dev = usb_get_intfdata(intf);
@@ -2090,7 +2089,8 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 	devdata = dev->shareddata;
 
 	/* unregister the given device and all previous devices */
-	for (; dev; dev = prev_dev) {
+	do {
+		struct ixxat_usb_candevice *prev_dev;
 		struct net_device *netdev = dev->netdev;
 		char name[IFNAMSIZ];
 
@@ -2106,7 +2106,9 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 
 		free_candev(netdev);
 		dev_info(&intf->dev, "%s removed\n", name);
-	}
+
+		dev = prev_dev;
+	} while (dev);
 
 	/* free the shared data */
 	kfree(devdata);
