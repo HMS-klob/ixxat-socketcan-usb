@@ -1796,6 +1796,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 					dev->adapter == &usb2can_cl1);
 
 	is_loopback = ((loop_mode & IX_LOOPBACK) == IX_LOOPBACK);
+
 	self_recv = ((loop_mode & IX_LOOP_SELF_RX) == IX_LOOP_SELF_RX);
 	if (!self_recv) {
 
@@ -1825,6 +1826,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	usb_anchor_urb(urb, &dev->tx_anchor);
 
 	atomic_inc(&dev->active_tx_urbs);
+
 	err = usb_submit_urb(urb, GFP_ATOMIC);
 	if (err) {
 		/* submit failed. Should only free if it's exist */
