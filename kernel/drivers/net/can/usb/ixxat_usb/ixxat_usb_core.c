@@ -1604,7 +1604,6 @@ static int ixxat_evaluate_usb_status(struct net_device *netdev,
  */
 static void ixxat_usb_read_bulk_callback(struct urb *urb)
 {
-	int ret = 0;
 	struct ixxat_usb_candevice *dev = urb->context;
 	const struct ixxat_usb_adapter *adapter = dev->adapter;
 	struct net_device *netdev = dev->netdev;
@@ -1614,30 +1613,30 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 	if (err)
 		return;
 
-	if (urb->actual_length > 0)
-		if (dev->state & IXXAT_USB_STATE_STARTED)
-			ret = ixxat_usb_decode_buf(urb);
+	if ((urb->actual_length > 0) &&
+	    (dev->state & IXXAT_USB_STATE_STARTED)) {
+		err = ixxat_usb_decode_buf(urb);
+		if (err)
+			return;
+	}
 
 	/* resubmit_urb: */
-	if (ret == 0) {
-		/* ix_trace_printk("callback: fill_bulk_urb %x\n", dev->ep_msg_in); */
-		usb_fill_bulk_urb(urb, udev,
-			usb_rcvbulkpipe(udev, dev->ep_msg_in),
-			urb->transfer_buffer, adapter->buffer_size_rx,
-			ixxat_usb_read_bulk_callback, dev);
+	/* ix_trace_printk("callback: fill_bulk_urb %x\n", dev->ep_msg_in); */
+	usb_fill_bulk_urb(urb, udev,
+			  usb_rcvbulkpipe(udev, dev->ep_msg_in),
+			  urb->transfer_buffer, adapter->buffer_size_rx,
+			  ixxat_usb_read_bulk_callback, dev);
 
-		usb_anchor_urb(urb, &dev->rx_anchor);
-		err = usb_submit_urb(urb, GFP_ATOMIC);
+	usb_anchor_urb(urb, &dev->rx_anchor);
+	err = usb_submit_urb(urb, GFP_ATOMIC);
+	if (err) {
+		usb_unanchor_urb(urb);
 
-		if (err) {
-			usb_unanchor_urb(urb);
-
-			if (err == -ENODEV)
-				netif_device_detach(netdev);
-			else
-				netdev_err(netdev,
-					"Error %d: Failed to resubmit read bulk urb\n", err);
-		}
+		if (err == -ENODEV)
+			netif_device_detach(netdev);
+		else
+			netdev_err(netdev,
+				"Error %d: Failed to resubmit read bulk urb\n", err);
 	}
 }
 
