@@ -1649,7 +1649,7 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 	struct ixxat_tx_urb_context *context = urb->context;
 	struct ixxat_usb_candevice *dev;
 	struct net_device *netdev;
-	u32 MsgIdx;
+	u32 msg_idx;
 	int iSkbRet;
 	int	err;
 
@@ -1670,11 +1670,11 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 		goto prepare_urb;
 	}
 
-	/* find correct MsgIdx with the CAN Id and Len */
-	MsgIdx = context->msg_index;
+	/* find correct msg_idx with the CAN Id and Len */
+	msg_idx = context->msg_index;
 
-	if (MsgIdx < IXXAT_USB_MAX_MSGS) {
-		iSkbRet = can_get_echo_skb(netdev, MsgIdx, NULL);
+	if (msg_idx < IXXAT_USB_MAX_MSGS) {
+		iSkbRet = can_get_echo_skb(netdev, msg_idx, NULL);
 
 		if (iSkbRet) {
 			netdev->stats.tx_bytes += iSkbRet;
@@ -1685,7 +1685,7 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 			netdev->stats.tx_packets += context->msg_packet_no;
 		}
 
-		ixxat_usb_msg_free_idx(dev, MsgIdx);
+		ixxat_usb_msg_free_idx(dev, msg_idx);
 	}
 
 prepare_urb:
@@ -1762,7 +1762,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	struct net_device_stats *stats = &netdev->stats;
 	struct urb *urb;
 	u8 *obuf;
-	u32 MsgIdx;
+	u32 msg_idx;
 	u8	loopMode;
 	bool isloopback    = false;
 	bool selfReception = false;
@@ -1778,9 +1778,9 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 		err = NETDEV_TX_BUSY;
 	} else {
 		/* get free msg number (ClientId) */
-		MsgIdx = ixxat_usb_msg_get_next_idx(dev);
+		msg_idx = ixxat_usb_msg_get_next_idx(dev);
 
-		if (MsgIdx == IXXAT_USB_E_FAILED) {
+		if (msg_idx == IXXAT_USB_E_FAILED) {
 			ixxat_usb_rel_tx_context(dev, context);
 			netif_stop_queue(netdev);
 			err = NETDEV_TX_BUSY;
@@ -1813,14 +1813,14 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 				context->msg_packet_no = 1;
 			}
 
-			/* store the MsgIdx in the Urb */
-			context->msg_index = MsgIdx;
+			/* store the msg_idx in the Urb */
+			context->msg_index = msg_idx;
 		}
 
-		size = ixxat_usb_encode_msg(dev, skb, obuf, selfReception, MsgIdx + IXXAT_USB_MSG_IDX_OFFSET);
+		size = ixxat_usb_encode_msg(dev, skb, obuf, selfReception, msg_idx + IXXAT_USB_MSG_IDX_OFFSET);
 
 		if (isloopback)
-			can_put_echo_skb(skb, netdev, MsgIdx, 0);
+			can_put_echo_skb(skb, netdev, msg_idx, 0);
 		else
 			dev_kfree_skb(skb);
 
@@ -1836,8 +1836,8 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 		if (err) {
 			/* submit failed */
 			/* should only free if it's exist */
-			can_free_echo_skb(netdev, MsgIdx, NULL);
-			ixxat_usb_msg_free_idx(dev, MsgIdx);
+			can_free_echo_skb(netdev, msg_idx, NULL);
+			ixxat_usb_msg_free_idx(dev, msg_idx);
 			ixxat_usb_rel_tx_context(dev, context);
 
 			usb_unanchor_urb(urb);
