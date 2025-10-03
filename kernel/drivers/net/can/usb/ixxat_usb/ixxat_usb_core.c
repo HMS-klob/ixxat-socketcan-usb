@@ -1914,7 +1914,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 		usb_free_urb(urb);
 	}
 
-	if (i == 0)
+	if (!i)
 		netdev_err(netdev, "Error: Couldn't setup any rx-URBs\n");
 
 	return err;
