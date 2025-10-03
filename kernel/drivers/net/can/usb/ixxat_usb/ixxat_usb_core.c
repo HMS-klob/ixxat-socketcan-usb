@@ -2307,118 +2307,114 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 
 	/* number of echo_skb */
 	netdev = alloc_candev(sizeof(*dev), IXXAT_USB_MAX_MSGS);
+	if (!netdev) {
+		dev_err(&intf->dev, "Cannot allocate candev\n");
+		return -ENOMEM;
+	}
 
-	if (netdev) {
-		dev = netdev_priv(netdev);
+	dev = netdev_priv(netdev);
 
-		/* Must be identical to the can.echo_skb_max set.
-		 * This is necessary to correctly handle the loopback option.
-		 */
-		dev->msg_max = IXXAT_USB_MAX_MSGS;
+	/* Must be identical to the can.echo_skb_max set.
+	 * This is necessary to correctly handle the loopback option.
+	 */
+	dev->msg_max = IXXAT_USB_MAX_MSGS;
 
-		dev->shareddata = devdata;
+	dev->shareddata = devdata;
 
-		dev->udev = udev;
-		dev->netdev = netdev;
-		dev->adapter = adapter;
-		dev->loopback = false;
-		dev->ctrl_index = ctrl_index;
-		dev->state = IXXAT_USB_STATE_CONNECTED;
+	dev->udev = udev;
+	dev->netdev = netdev;
+	dev->adapter = adapter;
+	dev->loopback = false;
+	dev->ctrl_index = ctrl_index;
+	dev->state = IXXAT_USB_STATE_CONNECTED;
 
-		spin_lock_init(&dev->dev_lock);
+	spin_lock_init(&dev->dev_lock);
 
-		i = ctrl_index + adapter->ep_offs;
-		dev->ep_msg_in = adapter->ep_msg_in[i];
-		dev->ep_msg_out = adapter->ep_msg_out[i];
+	i = ctrl_index + adapter->ep_offs;
+	dev->ep_msg_in = adapter->ep_msg_in[i];
+	dev->ep_msg_out = adapter->ep_msg_out[i];
 
-		dev->can.clock.freq = adapter->clock;
-		dev->can.bittiming_const = adapter->bt;
-		dev->can.data_bittiming_const = adapter->btd;
-		dev->can.ctrlmode_supported = adapter->modes;
+	dev->can.clock.freq = adapter->clock;
+	dev->can.bittiming_const = adapter->bt;
+	dev->can.data_bittiming_const = adapter->btd;
+	dev->can.ctrlmode_supported = adapter->modes;
 
-		/* map function */
-		dev->can.do_set_mode = ixxat_usb_set_mode;
-		dev->can.do_get_berr_counter = ixxat_usb_get_berr_counter;
+	/* map function */
+	dev->can.do_set_mode = ixxat_usb_set_mode;
+	dev->can.do_get_berr_counter = ixxat_usb_get_berr_counter;
 
-		/* configure communication */
-		init_usb_anchor(&dev->rx_anchor);
-		init_usb_anchor(&dev->tx_anchor);
+	/* configure communication */
+	init_usb_anchor(&dev->rx_anchor);
+	init_usb_anchor(&dev->tx_anchor);
 
-		atomic_set(&dev->active_tx_urbs, 0);
+	atomic_set(&dev->active_tx_urbs, 0);
 
-		for (i = 0; i < IXXAT_USB_MAX_TX_URBS; i++)
-			dev->tx_contexts[i].urb_index = IXXAT_USB_FREE_ENTRY;
+	for (i = 0; i < IXXAT_USB_MAX_TX_URBS; i++)
+		dev->tx_contexts[i].urb_index = IXXAT_USB_FREE_ENTRY;
 
-		ixxat_usb_msg_free_idx(dev, 0xFFFFFFFF);
+	ixxat_usb_msg_free_idx(dev, 0xFFFFFFFF);
 
-		/* configure netdev */
-		netdev->netdev_ops = &ixxat_usb_netdev_ops;
+	/* configure netdev */
+	netdev->netdev_ops = &ixxat_usb_netdev_ops;
 #if IX_CONFIG_USE_HW_TIMESTAMPS
-		netdev->ethtool_ops = &ixxat_ethtool_ops;
+	netdev->ethtool_ops = &ixxat_ethtool_ops;
 #endif
-		netdev->flags |= IFF_ECHO;
+	netdev->flags |= IFF_ECHO;
 
 #if IX_CONFIG_USE_HW_TIMESTAMPS
-		dev->adapter->get_ctrl_caps(dev, &caps);
+	dev->adapter->get_ctrl_caps(dev, &caps);
 
-		ts_clock_divisor = le32_to_cpu(caps.ts_clock_divisor);
-		ts_clock_freq  = le32_to_cpu(caps.ts_clock_freq);
+	ts_clock_divisor = le32_to_cpu(caps.ts_clock_divisor);
+	ts_clock_freq  = le32_to_cpu(caps.ts_clock_freq);
 
-		ixxat_usb_ts_set_cancaps(&dev->time_ref, ts_clock_divisor, ts_clock_freq);
+	ixxat_usb_ts_set_cancaps(&dev->time_ref, ts_clock_divisor, ts_clock_freq);
 #endif
 
-		/* link this device into the existing list */
-		dev->prev_dev = usb_get_intfdata(intf);
-		usb_set_intfdata(intf, dev);
+	/* link this device into the existing list */
+	dev->prev_dev = usb_get_intfdata(intf);
+	usb_set_intfdata(intf, dev);
 
-		SET_NETDEV_DEV(netdev, &intf->dev);
-		err = register_candev(netdev);
-		if (err) {
-			dev_err(&intf->dev, "Error %d: Failed to register can device\n",
-				err);
-			goto free_candev;
-		}
+	SET_NETDEV_DEV(netdev, &intf->dev);
+	err = register_candev(netdev);
+	if (err) {
+		dev_err(&intf->dev, "Error %d: Failed to register can device\n",
+			err);
+		goto free_candev;
+	}
 
-		if (dev->prev_dev)
-			(dev->prev_dev)->next_dev = dev;
+	if (dev->prev_dev)
+		(dev->prev_dev)->next_dev = dev;
 
 #if IX_CONFIG_USE_HW_TIMESTAMPS
-		netdev_info(netdev, "timestamp clock resolution  : %u / %u\n", ts_clock_freq, ts_clock_divisor);
-		netdev_info(netdev, "timestamp multiplier/divisor: %llu / %llu\n", dev->time_ref.tick_multiplier, dev->time_ref.tick_divider);
+	netdev_info(netdev, "timestamp clock resolution  : %u / %u\n", ts_clock_freq, ts_clock_divisor);
+	netdev_info(netdev, "timestamp multiplier/divisor: %llu / %llu\n", dev->time_ref.tick_multiplier, dev->time_ref.tick_divider);
 #endif
 
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0)
-		// do not set device address because
-		// that triggers a bug in ModemManager (at least in ModemManager 1.10.0 
-		// on debian kernel 4.19.0-22-amd64 #1 SMP Debian 4.19.260-1 (2022-09-29))
-		//
-		// netdev->addr_len = sizeof(devdata->dev_info.device_id);
-		// netdev->dev_addr = devdata->dev_info.device_id;
+	// do not set device address because
+	// that triggers a bug in ModemManager (at least in ModemManager 1.10.0 
+	// on debian kernel 4.19.0-22-amd64 #1 SMP Debian 4.19.260-1 (2022-09-29))
+	//
+	// netdev->addr_len = sizeof(devdata->dev_info.device_id);
+	// netdev->dev_addr = devdata->dev_info.device_id;
 #else
-		netdev->addr_len = sizeof(devdata->dev_info.device_id);
-		dev_addr_mod(netdev, 0, devdata->dev_info.device_id, sizeof(devdata->dev_info.device_id));
+	netdev->addr_len = sizeof(devdata->dev_info.device_id);
+	dev_addr_mod(netdev, 0, devdata->dev_info.device_id, sizeof(devdata->dev_info.device_id));
 #endif
 
-		netdev->dev_id = ctrl_index;
-		netdev->dev_port = ctrl_index;
+	netdev->dev_id = ctrl_index;
+	netdev->dev_port = ctrl_index;
 
-		err = sysfs_create_group(&netdev->dev.kobj, &ixxat_pdev_group);
-		if (err < 0) {
-			netdev_err(netdev, "Error: %d: create sysfs failed\n", err);
-			goto free_candev;
-		}
-
-		netdev_info(netdev, "%.*s: Connected channel %u (device %.*s)\n",
-				(int)sizeof(devdata->dev_info.device_name), devdata->dev_info.device_name, ctrl_index,
-				(int)sizeof(devdata->dev_info.device_id), devdata->dev_info.device_id);
-
-
-		err = 0;
-	} else {
-		dev_err(&intf->dev, "Cannot allocate candev\n");
-		err =  -ENOMEM;
+	err = sysfs_create_group(&netdev->dev.kobj, &ixxat_pdev_group);
+	if (err < 0) {
+		netdev_err(netdev, "Error: %d: create sysfs failed\n", err);
+		goto free_candev;
 	}
+
+	netdev_info(netdev, "%.*s: Connected channel %u (device %.*s)\n",
+		    (int)sizeof(devdata->dev_info.device_name), devdata->dev_info.device_name, ctrl_index,
+		    (int)sizeof(devdata->dev_info.device_id), devdata->dev_info.device_id);
 
 	return err;
 
