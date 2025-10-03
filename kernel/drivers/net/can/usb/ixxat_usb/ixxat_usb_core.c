@@ -2483,7 +2483,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	const struct ixxat_usb_adapter *adapter;
 	struct ixxat_usb_device_data *devdata;
 	struct ixxat_dev_caps dev_caps = {0};
-	u16 ctrlidx;
+	u16 ctrlidx, ctrl_count;
 	int err;
 
 	devdata = kzalloc(sizeof(*devdata), GFP_KERNEL);
@@ -2580,16 +2580,19 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	}
 
 	err = -ENODEV;
+
 #ifdef IXXAT_DEBUG
 	showdevcaps(dev_caps);
 #endif
 
-	for (ctrlidx = 0; ctrlidx < le16_to_cpu(dev_caps.bus_ctrl_count); ctrlidx++) {
+	ctrl_count = le16_to_cpu(dev_caps.bus_ctrl_count);
+	for (ctrlidx = 0; ctrlidx < ctrl_count; ctrlidx++) {
 		u16 dev_bustype = le16_to_cpu(dev_caps.bus_ctrl_types[ctrlidx]);
 		u8 bustype = IXXAT_USB_BUS_TYPE(dev_bustype);
 
 		if (bustype == IXXAT_USB_BUS_CAN)
-			err = ixxat_usb_create_ctrl(intf, adapter, ctrlidx, devdata);
+			err = ixxat_usb_create_ctrl(intf, adapter, ctrlidx,
+						    devdata);
 
 		if (err) {
 			/* deregister already created devices, free devdata
