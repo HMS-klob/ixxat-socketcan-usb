@@ -1827,8 +1827,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	atomic_inc(&dev->active_tx_urbs);
 	err = usb_submit_urb(urb, GFP_ATOMIC);
 	if (err) {
-		/* submit failed */
-		/* should only free if it's exist */
+		/* submit failed. Should only free if it's exist */
 		can_free_echo_skb(netdev, msg_idx, NULL);
 		ixxat_usb_msg_free_idx(dev, msg_idx);
 		ixxat_usb_rel_tx_context(dev, context);
