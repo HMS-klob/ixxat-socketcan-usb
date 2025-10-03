@@ -2505,8 +2505,9 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	if (err) {
 		dev_err(&udev->dev, "Error %d: Failed to get firmware information. Maybe firmware update needed.\n", err);
 	} else {
-		if (le32_to_cpu(devdata->fw_info.firmware_type) != IXXAT_USB_DEV_FWTYPE_BAL) {
-			dev_err(&udev->dev, "Error %d: Unknown firmware type. Expected %u, got %u. Maybe firmware or driver update needed.\n", err, IXXAT_USB_DEV_FWTYPE_BAL, le32_to_cpu(devdata->fw_info.firmware_type));
+		u32 fw_type = le32_to_cpu(devdata->fw_info.firmware_type);
+		if (fw_type != IXXAT_USB_DEV_FWTYPE_BAL) {
+			dev_err(&udev->dev, "Error %d: Unknown firmware type. Expected %u, got %u. Maybe firmware or driver update needed.\n", err, IXXAT_USB_DEV_FWTYPE_BAL, fw_type);
 			err = -EFAULT;
 		}
 
