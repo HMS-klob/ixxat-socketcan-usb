@@ -2494,11 +2494,6 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	}
 
 	/* init device struct */
-	memset(&devdata->dev_info, 0, sizeof(devdata->dev_info));
-	memset(&devdata->fw_info, 0, sizeof(devdata->fw_info));
-	devdata->timeref_valid = 0;
-	devdata->kt_host_start = 0;
-	devdata->ts_dev_start = 0;
 	spin_lock_init(&devdata->access_lock);
 
 	pr_info(IX_DRIVER_TAG "KERNELVERSION: 0x%x (%i)", LINUX_VERSION_CODE, LINUX_VERSION_CODE);
