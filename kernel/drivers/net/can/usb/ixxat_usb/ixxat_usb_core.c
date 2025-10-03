@@ -1877,16 +1877,15 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 
 		ix_trace_printk("setup: kmalloc %x\n", adapter->buffer_size_rx);
 		buf = kmalloc(adapter->buffer_size_rx, GFP_KERNEL);
-
-		if (buf) {
-			dev->rx_buf[i] = buf;
-		} else {
+		if (!buf) {
 			usb_free_urb(urb);
 			err = -ENOMEM;
 			netdev_err(netdev,
 				   "Error %d: No memory for USB-buffer\n", err);
 			break;
 		}
+
+		dev->rx_buf[i] = buf;
 
 		ix_trace_printk("setup: fill_bulk_urb %i\n", dev->ep_msg_in);
 		usb_fill_bulk_urb(urb, udev,
