@@ -2394,12 +2394,14 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0)
-	// do not set device address because
-	// that triggers a bug in ModemManager (at least in ModemManager 1.10.0 
-	// on debian kernel 4.19.0-22-amd64 #1 SMP Debian 4.19.260-1 (2022-09-29))
-	//
-	// netdev->addr_len = sizeof(devdata->dev_info.device_id);
-	// netdev->dev_addr = devdata->dev_info.device_id;
+	/* do not set device address because
+	 * that triggers a bug in ModemManager (at least in ModemManager 1.10.0
+	 * on debian kernel 4.19.0-22-amd64 #1 SMP Debian 4.19.260-1
+	 * (2022-09-29))
+	 *
+	 * netdev->addr_len = sizeof(devdata->dev_info.device_id);
+	 * netdev->dev_addr = devdata->dev_info.device_id;
+	 */
 #else
 	netdev->addr_len = sizeof(devdata->dev_info.device_id);
 	dev_addr_mod(netdev, 0, devdata->dev_info.device_id,
