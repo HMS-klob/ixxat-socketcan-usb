@@ -1811,7 +1811,8 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 		context->msg_index = msg_idx;
 	}
 
-	size = ixxat_usb_encode_msg(dev, skb, obuf, self_recv, msg_idx + IXXAT_USB_MSG_IDX_OFFSET);
+	size = ixxat_usb_encode_msg(dev, skb, obuf, self_recv,
+				    msg_idx + IXXAT_USB_MSG_IDX_OFFSET);
 	if (is_loopback)
 		can_put_echo_skb(skb, netdev, msg_idx, 0);
 	else
