@@ -2558,6 +2558,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		goto lbl_free;
 	}
 
+#ifdef IXXAT_OOT_VERSION
 	pr_info(IX_DRIVER_TAG "Device type     : %.*s\n", (int)(sizeof(devdata->dev_info.device_name)), devdata->dev_info.device_name);
 	pr_info(IX_DRIVER_TAG "Device id       : %.*s\n", (int)(sizeof(devdata->dev_info.device_id)), devdata->dev_info.device_id);
 	pr_info(IX_DRIVER_TAG "Device version  : 0x%08X\n", devdata->dev_info.device_version);
@@ -2570,7 +2571,9 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 				, le32_to_cpu(devdata->fw_info.firmware_type));
 
 	if (ixxat_usb_needs_firmware_update(id, &devdata->fw_info))
-		pr_warn(IX_DRIVER_TAG "                  Firmware update recommended.\n");
+		pr_warn(IX_DRIVER_TAG
+			"                  Firmware update recommended.\n");
+#endif
 
 	err = ixxat_usb_get_dev_caps(udev, devdata, &dev_caps);
 	if (err) {
