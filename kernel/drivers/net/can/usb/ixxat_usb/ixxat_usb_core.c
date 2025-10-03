@@ -1936,41 +1936,36 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 
 	for (urb_idx = 0; urb_idx < IXXAT_USB_MAX_TX_URBS; urb_idx++) {
 		struct ixxat_tx_urb_context *context;
-		struct urb *urb;
 		u8 *buf;
 
-		urb = usb_alloc_urb(0, GFP_KERNEL);
-
-		if (urb) {
-			buf = kmalloc(adapter->buffer_size_tx, GFP_KERNEL);
-
-			if (buf) {
-				context = dev->tx_contexts + urb_idx;
-
-				context->dev = dev;
-				context->urb = urb;
-				context->urb_index    = IXXAT_USB_FREE_ENTRY;
-				usb_fill_bulk_urb(urb, udev,
-						  usb_sndbulkpipe(udev, dev->ep_msg_out), buf,
-						  adapter->buffer_size_tx,
-						  ixxat_usb_write_bulk_callback, context);
-
-				urb->transfer_flags |= URB_FREE_BUFFER;
-
-			} else {
-				usb_free_urb(urb);
-				ret = -ENOMEM;
-				netdev_err(netdev,
-					   "Error %d: No memory for USB-buffer\n", ret);
-				break;
-			}
-
-		} else {
+		struct urb *urb = usb_alloc_urb(0, GFP_KERNEL);
+		if (!urb) {
 			ret = -ENOMEM;
 			netdev_err(netdev, "Error %d: No memory for URBs\n",
 				   ret);
 			break;
 		}
+
+		buf = kmalloc(adapter->buffer_size_tx, GFP_KERNEL);
+		if (!buf) {
+			usb_free_urb(urb);
+			ret = -ENOMEM;
+			netdev_err(netdev,
+				   "Error %d: No memory for USB-buffer\n", ret);
+			break;
+		}
+
+		context = dev->tx_contexts + urb_idx;
+
+		context->dev = dev;
+		context->urb = urb;
+		context->urb_index    = IXXAT_USB_FREE_ENTRY;
+		usb_fill_bulk_urb(urb, udev,
+				  usb_sndbulkpipe(udev, dev->ep_msg_out), buf,
+				  adapter->buffer_size_tx,
+				  ixxat_usb_write_bulk_callback, context);
+
+		urb->transfer_flags |= URB_FREE_BUFFER;
 	}
 
 	if (urb_idx == 0) {
