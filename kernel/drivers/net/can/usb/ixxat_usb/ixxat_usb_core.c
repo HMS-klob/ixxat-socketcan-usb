@@ -1865,10 +1865,9 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 	struct usb_device *udev = dev->udev;
 
 	for (i = 0; i < IXXAT_USB_MAX_RX_URBS; i++) {
-		struct urb *urb;
 		u8 *buf;
 
-		urb = usb_alloc_urb(0, GFP_KERNEL);
+		struct urb *urb = usb_alloc_urb(0, GFP_KERNEL);
 		if (!urb) {
 			err = -ENOMEM;
 			netdev_err(netdev, "Error %d: No memory for URBs\n",
