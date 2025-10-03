@@ -2508,15 +2508,12 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		if (fw_type != IXXAT_USB_DEV_FWTYPE_BAL) {
 			dev_err(&udev->dev, "Error %d: Unknown firmware type. Expected %u, got %u. Maybe firmware or driver update needed.\n", err, IXXAT_USB_DEV_FWTYPE_BAL, fw_type);
 			err = -EFAULT;
-		}
 
-		if (!err) {
-			/* check if FW supports get_fw_info2 command */
-			if (ixxat_usb_has_cl2_firmware(id, &devdata->fw_info)) {
-				err = ixxat_usb_get_fw_info2(udev, devdata);
-				if (err)
-					dev_err(&udev->dev, "Error %d: Failed to get firmware info2. Maybe firmare update needed.\n", err);
-			}
+		/* Otherwise, check if FW supports get_fw_info2 command */
+		} else if (ixxat_usb_has_cl2_firmware(id, &devdata->fw_info)) {
+			err = ixxat_usb_get_fw_info2(udev, devdata);
+			if (err)
+				dev_err(&udev->dev, "Error %d: Failed to get firmware info2. Maybe firmare update needed.\n", err);
 		}
 	}
 
