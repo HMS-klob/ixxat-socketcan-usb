@@ -76,10 +76,10 @@
 #define IXXAT_USB_POWER_WAKEUP_TIME		500
 
 #define IXXAT_USB_FWTYPE_RES			0	/* reserved */
-#define IXXAT_USB_FWTYPE_FLD			1	/* flash loader firmware */
-#define IXXAT_USB_DEV__CCL			2	/* CCL conform firmware */
-#define IXXAT_USB_DEV_FWTYPE_BAL		3	/* BAL conform firmware */
-#define IXXAT_USB_DEV_FWTYPE_BMG		4	/* BMG conform firmware */
+#define IXXAT_USB_FWTYPE_FLD			1	/* flash loader FW */
+#define IXXAT_USB_DEV__CCL			2	/* CCL conform FW */
+#define IXXAT_USB_DEV_FWTYPE_BAL		3	/* BAL conform FW */
+#define IXXAT_USB_DEV_FWTYPE_BMG		4	/* BMG conform FW */
 
 #define IXXAT_USB_OPMODE_STANDARD		BIT(0)
 #define IXXAT_USB_OPMODE_EXTENDED		BIT(1)
