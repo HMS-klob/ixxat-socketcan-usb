@@ -2542,7 +2542,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		goto lbl_free;
 
 	err = ixxat_usb_power_ctrl(udev, devdata, IXXAT_USB_POWER_WAKEUP);
-	if (err != NETDEV_TX_OK)
+	if (err != NETDEV_TX_OK) {
 		dev_err(&udev->dev,
 			"IXXAT_USB_BRD_CMD_POWER failed (err %d)\n",
 			err);
