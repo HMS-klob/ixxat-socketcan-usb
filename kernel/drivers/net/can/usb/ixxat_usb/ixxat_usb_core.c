@@ -1753,17 +1753,17 @@ static u8 ixxat_fix_loop_mode(bool loopback, bool global_loopback, bool old_dev)
 static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 					struct net_device *netdev)
 {
-	int err = NETDEV_TX_OK;
+	int err;
 	int size;
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
-	struct ixxat_tx_urb_context *context = NULL;
+	struct ixxat_tx_urb_context *context;
 	struct net_device_stats *stats = &netdev->stats;
 	struct urb *urb;
 	u8 *obuf;
 	u32 msg_idx;
 	u8 loop_mode;
-	bool is_loopback = false;
-	bool self_recv = false;
+	bool is_loopback;
+	bool self_recv;
 
 	if (can_dev_dropped_skb(netdev, skb))
 		return NETDEV_TX_OK;
