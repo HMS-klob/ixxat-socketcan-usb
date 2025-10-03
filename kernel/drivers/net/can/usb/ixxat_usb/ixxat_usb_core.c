@@ -1651,7 +1651,7 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 	struct net_device *netdev;
 	u32 msg_idx;
 	int iSkbRet;
-	int	err;
+	int err;
 
 	if (!context)
 		return;
@@ -1763,7 +1763,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	struct urb *urb;
 	u8 *obuf;
 	u32 msg_idx;
-	u8	loopMode;
+	u8 loopMode;
 	bool isloopback    = false;
 	bool selfReception = false;
 
