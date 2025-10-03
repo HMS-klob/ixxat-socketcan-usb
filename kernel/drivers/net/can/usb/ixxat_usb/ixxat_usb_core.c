@@ -2593,7 +2593,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 			if (err) {
 				/* deregister already created devices */
 				ixxat_usb_disconnect(intf);
-				break;
+				return err;
 			}
 		}
 	}
