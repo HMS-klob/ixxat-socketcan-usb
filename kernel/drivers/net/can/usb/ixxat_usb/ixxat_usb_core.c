@@ -1770,83 +1770,76 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 
 	/* find free URB */
 	context = ixxat_usb_get_tx_context(dev);
-
 	if (!context) {
 		netif_stop_queue(netdev);
-		err = NETDEV_TX_BUSY;
-	} else {
-		/* get free msg number (ClientId) */
-		msg_idx = ixxat_usb_msg_get_next_idx(dev);
-
-		if (msg_idx == IXXAT_USB_E_FAILED) {
-			ixxat_usb_rel_tx_context(dev, context);
-			netif_stop_queue(netdev);
-			err = NETDEV_TX_BUSY;
-		}
+		return NETDEV_TX_BUSY;
 	}
 
-	if (err == NETDEV_TX_OK) {
-		/* reset to be sure that no old value is stored ! */
-		context->msg_index = IXXAT_USB_MAX_MSGS;
+	/* get free msg number (ClientId) */
+	msg_idx = ixxat_usb_msg_get_next_idx(dev);
+	if (msg_idx == IXXAT_USB_E_FAILED) {
+		ixxat_usb_rel_tx_context(dev, context);
+		netif_stop_queue(netdev);
+		return NETDEV_TX_BUSY;
+	}
 
-		/* prepare the Urb */
-		urb  = context->urb;
-		obuf = urb->transfer_buffer;
+	/* reset to be sure that no old value is stored ! */
+	context->msg_index = IXXAT_USB_MAX_MSGS;
 
-		/* check loopback */
-		loopMode = ixxat_fix_loop_mode((skb->pkt_type == PACKET_LOOPBACK),
-										dev->loopback,
-										dev->adapter == &usb2can_cl1);
+	/* prepare the Urb */
+	urb  = context->urb;
+	obuf = urb->transfer_buffer;
 
-		isloopback = ((loopMode & IX_LOOPBACK) == IX_LOOPBACK);
-		selfReception = ((loopMode & IX_LOOP_SELF_RX) == IX_LOOP_SELF_RX);
+	/* check loopback */
+	loopMode = ixxat_fix_loop_mode((skb->pkt_type == PACKET_LOOPBACK),
+				       dev->loopback,
+				       dev->adapter == &usb2can_cl1);
 
-		if (!selfReception) {
+	isloopback = ((loopMode & IX_LOOPBACK) == IX_LOOPBACK);
+	selfReception = ((loopMode & IX_LOOP_SELF_RX) == IX_LOOP_SELF_RX);
+	if (!selfReception) {
 
-			/* handle the reception in the USB callback */
-			if (!isloopback) {
-				struct can_frame *cf = (struct can_frame *)skb->data;
+		/* handle the reception in the USB callback */
+		if (!isloopback) {
+			struct can_frame *cf = (struct can_frame *)skb->data;
 
-				context->msg_packet_len = cf->can_dlc;
-				context->msg_packet_no = 1;
-			}
-
-			/* store the msg_idx in the Urb */
-			context->msg_index = msg_idx;
+			context->msg_packet_len = cf->can_dlc;
+			context->msg_packet_no = 1;
 		}
 
-		size = ixxat_usb_encode_msg(dev, skb, obuf, selfReception, msg_idx + IXXAT_USB_MSG_IDX_OFFSET);
+		/* store the msg_idx in the Urb */
+		context->msg_index = msg_idx;
+	}
 
-		if (isloopback)
-			can_put_echo_skb(skb, netdev, msg_idx, 0);
-		else
-			dev_kfree_skb(skb);
+	size = ixxat_usb_encode_msg(dev, skb, obuf, selfReception, msg_idx + IXXAT_USB_MSG_IDX_OFFSET);
+	if (isloopback)
+		can_put_echo_skb(skb, netdev, msg_idx, 0);
+	else
+		dev_kfree_skb(skb);
 
 #ifdef IXXAT_DEBUG
-		showdump(obuf, size);
+	showdump(obuf, size);
 #endif
-		urb->transfer_buffer_length = size;
-		usb_anchor_urb(urb, &dev->tx_anchor);
+	urb->transfer_buffer_length = size;
+	usb_anchor_urb(urb, &dev->tx_anchor);
 
-		atomic_inc(&dev->active_tx_urbs);
-		err = usb_submit_urb(urb, GFP_ATOMIC);
+	atomic_inc(&dev->active_tx_urbs);
+	err = usb_submit_urb(urb, GFP_ATOMIC);
+	if (err) {
+		/* submit failed */
+		/* should only free if it's exist */
+		can_free_echo_skb(netdev, msg_idx, NULL);
+		ixxat_usb_msg_free_idx(dev, msg_idx);
+		ixxat_usb_rel_tx_context(dev, context);
 
-		if (err) {
-			/* submit failed */
-			/* should only free if it's exist */
-			can_free_echo_skb(netdev, msg_idx, NULL);
-			ixxat_usb_msg_free_idx(dev, msg_idx);
-			ixxat_usb_rel_tx_context(dev, context);
+		usb_unanchor_urb(urb);
+		atomic_dec(&dev->active_tx_urbs);
 
-			usb_unanchor_urb(urb);
-			atomic_dec(&dev->active_tx_urbs);
-
-			if (err == -ENODEV) {
-				netif_device_detach(netdev);
-			} else {
-				stats->tx_dropped++;
-				netdev_err(netdev, "Error %d: Submitting tx-urb failed\n", err);
-			}
+		if (err == -ENODEV) {
+			netif_device_detach(netdev);
+		} else {
+			stats->tx_dropped++;
+			netdev_err(netdev, "Error %d: Submitting tx-urb failed\n", err);
 		}
 	}
 
