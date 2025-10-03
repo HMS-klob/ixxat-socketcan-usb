@@ -2483,7 +2483,6 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	const struct ixxat_usb_adapter *adapter;
 	struct ixxat_usb_device_data *devdata;
 	struct ixxat_dev_caps dev_caps = {0};
-
 	u16 ctrlidx;
 	int err;
 
