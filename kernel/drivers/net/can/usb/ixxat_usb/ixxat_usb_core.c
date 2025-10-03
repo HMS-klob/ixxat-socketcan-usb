@@ -2585,7 +2585,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	err = -ENODEV;
 
 #ifdef IXXAT_DEBUG
-	showdevcaps(dev_caps);
+	showdevcaps(&dev_caps);
 #endif
 
 	ctrl_count = le16_to_cpu(dev_caps.bus_ctrl_count);
