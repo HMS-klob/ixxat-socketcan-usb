@@ -2367,7 +2367,8 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 	ts_clock_divisor = le32_to_cpu(caps.ts_clock_divisor);
 	ts_clock_freq  = le32_to_cpu(caps.ts_clock_freq);
 
-	ixxat_usb_ts_set_cancaps(&dev->time_ref, ts_clock_divisor, ts_clock_freq);
+	ixxat_usb_ts_set_cancaps(&dev->time_ref, ts_clock_divisor,
+				 ts_clock_freq);
 #endif
 
 	/* link this device into the existing list */
@@ -2386,10 +2387,11 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 		(dev->prev_dev)->next_dev = dev;
 
 #if IX_CONFIG_USE_HW_TIMESTAMPS
-	netdev_info(netdev, "timestamp clock resolution  : %u / %u\n", ts_clock_freq, ts_clock_divisor);
-	netdev_info(netdev, "timestamp multiplier/divisor: %llu / %llu\n", dev->time_ref.tick_multiplier, dev->time_ref.tick_divider);
+	netdev_info(netdev, "timestamp clock resolution  : %u / %u\n",
+		    ts_clock_freq, ts_clock_divisor);
+	netdev_info(netdev, "timestamp multiplier/divisor: %llu / %llu\n",
+		    dev->time_ref.tick_multiplier, dev->time_ref.tick_divider);
 #endif
-
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0)
 	// do not set device address because
@@ -2400,7 +2402,8 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 	// netdev->dev_addr = devdata->dev_info.device_id;
 #else
 	netdev->addr_len = sizeof(devdata->dev_info.device_id);
-	dev_addr_mod(netdev, 0, devdata->dev_info.device_id, sizeof(devdata->dev_info.device_id));
+	dev_addr_mod(netdev, 0, devdata->dev_info.device_id,
+		     sizeof(devdata->dev_info.device_id));
 #endif
 
 	netdev->dev_id = ctrl_index;
@@ -2413,8 +2416,10 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 	}
 
 	netdev_info(netdev, "%.*s: Connected channel %u (device %.*s)\n",
-		    (int)sizeof(devdata->dev_info.device_name), devdata->dev_info.device_name, ctrl_index,
-		    (int)sizeof(devdata->dev_info.device_id), devdata->dev_info.device_id);
+		    (int)sizeof(devdata->dev_info.device_name),
+		    devdata->dev_info.device_name, ctrl_index,
+		    (int)sizeof(devdata->dev_info.device_id),
+		    devdata->dev_info.device_id);
 
 	return err;
 
