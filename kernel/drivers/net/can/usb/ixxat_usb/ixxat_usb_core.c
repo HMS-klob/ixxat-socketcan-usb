@@ -2081,36 +2081,37 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 {
 	struct ixxat_usb_candevice *dev;
 	struct ixxat_usb_candevice *prev_dev = NULL;
+	struct ixxat_usb_device_data *devdata;
 
 	dev = usb_get_intfdata(intf);
+	if (!dev)
+		return;
 
-	if (dev) {
-		struct ixxat_usb_device_data *devdata = dev->shareddata;
+	devdata = dev->shareddata;
 
-		/* unregister the given device and all previous devices */
-		for (; dev; dev = prev_dev) {
-			struct net_device *netdev = dev->netdev;
-			char name[IFNAMSIZ];
+	/* unregister the given device and all previous devices */
+	for (; dev; dev = prev_dev) {
+		struct net_device *netdev = dev->netdev;
+		char name[IFNAMSIZ];
 
-			prev_dev = dev->prev_dev;
+		prev_dev = dev->prev_dev;
 
-			strscpy(name, netdev->name, IFNAMSIZ);
+		strscpy(name, netdev->name, IFNAMSIZ);
 
-			/* sysfs_remove_group(&dev->netdev->dev.kobj, &ixxat_pdev_group); */
+		/* sysfs_remove_group(&dev->netdev->dev.kobj, &ixxat_pdev_group); */
 
-			unregister_candev(netdev);
+		unregister_candev(netdev);
 
-			dev->next_dev = NULL;
+		dev->next_dev = NULL;
 
-			free_candev(netdev);
-			dev_info(&intf->dev, "%s removed\n", name);
-		}
-
-		/* free the shared data */
-		kfree(devdata);
-
-		usb_set_intfdata(intf, NULL);
+		free_candev(netdev);
+		dev_info(&intf->dev, "%s removed\n", name);
 	}
+
+	/* free the shared data */
+	kfree(devdata);
+
+	usb_set_intfdata(intf, NULL);
 }
 
 /* ixxat_usb_start - start the IXXAT USB CAN device
