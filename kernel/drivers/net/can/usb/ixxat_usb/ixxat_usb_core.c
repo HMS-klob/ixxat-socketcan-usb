@@ -1959,7 +1959,7 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 
 		context->dev = dev;
 		context->urb = urb;
-		context->urb_index    = IXXAT_USB_FREE_ENTRY;
+		context->urb_index = IXXAT_USB_FREE_ENTRY;
 		usb_fill_bulk_urb(urb, udev,
 				  usb_sndbulkpipe(udev, dev->ep_msg_out), buf,
 				  adapter->buffer_size_tx,
@@ -1968,7 +1968,7 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 		urb->transfer_flags |= URB_FREE_BUFFER;
 	}
 
-	if (urb_idx == 0) {
+	if (!urb_idx) {
 		netdev_err(netdev, "Error: Couldn't setup any tx-URBs\n");
 		usb_kill_anchored_urbs(&dev->rx_anchor);
 	}
