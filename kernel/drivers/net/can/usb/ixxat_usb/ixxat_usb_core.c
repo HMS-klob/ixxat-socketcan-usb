@@ -1761,9 +1761,9 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	struct urb *urb;
 	u8 *obuf;
 	u32 msg_idx;
-	u8 loopMode;
-	bool isloopback    = false;
-	bool selfReception = false;
+	u8 loop_mode;
+	bool is_loopback = false;
+	bool self_recv = false;
 
 	if (can_dev_dropped_skb(netdev, skb))
 		return NETDEV_TX_OK;
@@ -1787,20 +1787,20 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	context->msg_index = IXXAT_USB_MAX_MSGS;
 
 	/* prepare the Urb */
-	urb  = context->urb;
+	urb = context->urb;
 	obuf = urb->transfer_buffer;
 
 	/* check loopback */
-	loopMode = ixxat_fix_loop_mode((skb->pkt_type == PACKET_LOOPBACK),
-				       dev->loopback,
-				       dev->adapter == &usb2can_cl1);
+	loop_mode = ixxat_fix_loop_mode((skb->pkt_type == PACKET_LOOPBACK),
+					dev->loopback,
+					dev->adapter == &usb2can_cl1);
 
-	isloopback = ((loopMode & IX_LOOPBACK) == IX_LOOPBACK);
-	selfReception = ((loopMode & IX_LOOP_SELF_RX) == IX_LOOP_SELF_RX);
-	if (!selfReception) {
+	is_loopback = ((loop_mode & IX_LOOPBACK) == IX_LOOPBACK);
+	self_recv = ((loop_mode & IX_LOOP_SELF_RX) == IX_LOOP_SELF_RX);
+	if (!self_recv) {
 
 		/* handle the reception in the USB callback */
-		if (!isloopback) {
+		if (!is_loopback) {
 			struct can_frame *cf = (struct can_frame *)skb->data;
 
 			context->msg_packet_len = cf->can_dlc;
@@ -1811,8 +1811,8 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 		context->msg_index = msg_idx;
 	}
 
-	size = ixxat_usb_encode_msg(dev, skb, obuf, selfReception, msg_idx + IXXAT_USB_MSG_IDX_OFFSET);
-	if (isloopback)
+	size = ixxat_usb_encode_msg(dev, skb, obuf, self_recv, msg_idx + IXXAT_USB_MSG_IDX_OFFSET);
+	if (is_loopback)
 		can_put_echo_skb(skb, netdev, msg_idx, 0);
 	else
 		dev_kfree_skb(skb);
