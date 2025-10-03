@@ -2538,63 +2538,65 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	dev_info(&udev->dev, "%s\n", ixxat_usb_dev_name(id));
 
 	err = ixxat_usb_check_channel(adapter, intf->altsetting);
-	if (err == NETDEV_TX_OK) {
-		err = ixxat_usb_power_ctrl(udev, devdata, IXXAT_USB_POWER_WAKEUP);
-		if (err != NETDEV_TX_OK)
-			dev_err(&udev->dev, "Error %d: Failed to exec IXXAT_USB_BRD_CMD_POWER command.\n", err);
-		msleep(IXXAT_USB_POWER_WAKEUP_TIME);
+	if (err != NETDEV_TX_OK)
+		goto lbl_free;
+
+	err = ixxat_usb_power_ctrl(udev, devdata, IXXAT_USB_POWER_WAKEUP);
+	if (err != NETDEV_TX_OK)
+		dev_err(&udev->dev,
+			"IXXAT_USB_BRD_CMD_POWER failed (err %d)\n",
+			err);
+		goto lbl_free;
 	}
 
-	if (err == NETDEV_TX_OK) {
-		err = ixxat_usb_get_dev_info(udev, devdata);
-		if (err) {
-			dev_err(&udev->dev,
-				"Error %d: Failed to get device information\n", err);
-		}
+	msleep(IXXAT_USB_POWER_WAKEUP_TIME);
+
+	err = ixxat_usb_get_dev_info(udev, devdata);
+	if (err) {
+		dev_err(&udev->dev,
+			"Failed to get device information (err %d)\n", err);
+		goto lbl_free;
 	}
 
-	if (err == NETDEV_TX_OK) {
-		pr_info(IX_DRIVER_TAG "Device type     : %.*s\n", (int)(sizeof(devdata->dev_info.device_name)), devdata->dev_info.device_name);
-		pr_info(IX_DRIVER_TAG "Device id       : %.*s\n", (int)(sizeof(devdata->dev_info.device_id)), devdata->dev_info.device_id);
-		pr_info(IX_DRIVER_TAG "Device version  : 0x%08X\n", devdata->dev_info.device_version);
-		pr_info(IX_DRIVER_TAG "FPGA version    : 0x%08X\n", devdata->dev_info.device_fpga_version);
-		pr_info(IX_DRIVER_TAG "Firmware version: %d.%d.%d.%d (type: %d)"
+	pr_info(IX_DRIVER_TAG "Device type     : %.*s\n", (int)(sizeof(devdata->dev_info.device_name)), devdata->dev_info.device_name);
+	pr_info(IX_DRIVER_TAG "Device id       : %.*s\n", (int)(sizeof(devdata->dev_info.device_id)), devdata->dev_info.device_id);
+	pr_info(IX_DRIVER_TAG "Device version  : 0x%08X\n", devdata->dev_info.device_version);
+	pr_info(IX_DRIVER_TAG "FPGA version    : 0x%08X\n", devdata->dev_info.device_fpga_version);
+	pr_info(IX_DRIVER_TAG "Firmware version: %d.%d.%d.%d (type: %d)"
 				, le16_to_cpu(devdata->fw_info.major_version)
 				, le16_to_cpu(devdata->fw_info.minor_version)
 				, le16_to_cpu(devdata->fw_info.build_version)
 				, le16_to_cpu(devdata->fw_info.revision)
 				, le32_to_cpu(devdata->fw_info.firmware_type));
 
-		if (ixxat_usb_needs_firmware_update(id, &devdata->fw_info))
-			pr_warn(IX_DRIVER_TAG "                  Firmware update recommended.\n");
+	if (ixxat_usb_needs_firmware_update(id, &devdata->fw_info))
+		pr_warn(IX_DRIVER_TAG "                  Firmware update recommended.\n");
+
+	err = ixxat_usb_get_dev_caps(udev, devdata, &dev_caps);
+	if (err) {
+		dev_err(&intf->dev,
+			"Failed to get device capabilities (err %d)\n", err);
+		goto lbl_free;
 	}
 
-	if (err == NETDEV_TX_OK) {
-		err = ixxat_usb_get_dev_caps(udev, devdata, &dev_caps);
-		if (err) {
-			dev_err(&intf->dev,
-				"Error %d: Failed to get device capabilities\n", err);
-		}
-	}
-
-	if (err == NETDEV_TX_OK) {
-		err = -ENODEV;
+	err = -ENODEV;
 #ifdef IXXAT_DEBUG
-		showdevcaps(dev_caps);
+	showdevcaps(dev_caps);
 #endif
 
-		for (ctrlidx = 0; ctrlidx < le16_to_cpu(dev_caps.bus_ctrl_count); ctrlidx++) {
-			u16 dev_bustype = le16_to_cpu(dev_caps.bus_ctrl_types[ctrlidx]);
-			u8 bustype = IXXAT_USB_BUS_TYPE(dev_bustype);
+	for (ctrlidx = 0; ctrlidx < le16_to_cpu(dev_caps.bus_ctrl_count); ctrlidx++) {
+		u16 dev_bustype = le16_to_cpu(dev_caps.bus_ctrl_types[ctrlidx]);
+		u8 bustype = IXXAT_USB_BUS_TYPE(dev_bustype);
 
-			if (bustype == IXXAT_USB_BUS_CAN)
-				err = ixxat_usb_create_ctrl(intf, adapter, ctrlidx, devdata);
+		if (bustype == IXXAT_USB_BUS_CAN)
+			err = ixxat_usb_create_ctrl(intf, adapter, ctrlidx, devdata);
 
-			if (err) {
-				/* deregister already created devices */
-				ixxat_usb_disconnect(intf);
-				return err;
-			}
+		if (err) {
+			/* deregister already created devices, free devdata
+			 * and return immediately
+			 */
+			ixxat_usb_disconnect(intf);
+			return err;
 		}
 	}
 
