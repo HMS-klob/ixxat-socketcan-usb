@@ -1724,11 +1724,10 @@ static u8 ixxat_fix_loop_mode(bool loopback, bool global_loopback, bool old_dev)
 	const bool statistics_exact = IX_STATISTICS_EXACT;
 
 	/* is loopback set with ip link .. loopback on */
-	if (global_loopback == true) {
-		/* is loopback set with setsockopt
+	if (global_loopback) {
+		/* is loopback set with setsockopt?
 		 * can be changed between message transmission
 		 */
-
 		if (loopback)
 			loop_mode = IX_LOOP_SELF_RX | IX_LOOPBACK;
 	}
