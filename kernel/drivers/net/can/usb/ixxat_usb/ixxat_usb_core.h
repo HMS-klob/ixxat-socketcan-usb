@@ -444,7 +444,6 @@ struct ixxat_tx_urb_context {
  * @ep_msg_in: USB endpoint for incoming messages
  * @ep_msg_out: USB endpoint for outgoing messages
  * @prev_dev: Previous opened device
- * @next_dev: Next opened device in list
  * @time_ref: Time reference
  * @dev_info: Device information
  * @bec: CAN error counter
@@ -483,7 +482,6 @@ struct ixxat_usb_candevice {
 
 	/* used to link can devices together */
 	struct ixxat_usb_candevice *prev_dev;
-	struct ixxat_usb_candevice *next_dev;
 
 	struct ixxat_time_ref time_ref;
 

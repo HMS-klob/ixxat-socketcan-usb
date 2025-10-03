@@ -2099,8 +2099,6 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 
 		unregister_candev(netdev);
 
-		dev->next_dev = NULL;
-
 		free_candev(netdev);
 		dev_info(&intf->dev, "%s removed\n", name);
 
@@ -2382,9 +2380,6 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 			err);
 		goto free_candev;
 	}
-
-	if (dev->prev_dev)
-		(dev->prev_dev)->next_dev = dev;
 
 #if IX_CONFIG_USE_HW_TIMESTAMPS
 	netdev_info(netdev, "timestamp clock resolution  : %u / %u\n",
