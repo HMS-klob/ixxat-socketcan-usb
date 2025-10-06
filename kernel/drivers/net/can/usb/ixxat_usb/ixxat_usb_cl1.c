@@ -93,10 +93,7 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 
 	err = ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
 				 rcv_size);
-	if (err)
-		goto fail;
-
-	if (caps) {
+	if (!err && caps) {
 		memset(caps, 0, sizeof(*caps));
 
 		caps->ctrltype = cmd->caps.ctrltype;
@@ -123,7 +120,6 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 		caps->dtx_max_ticks = cmd->caps.dtx_max_ticks;
 	}
 
-fail:
 	return err;
 }
 
@@ -143,7 +139,6 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	 */
 	const struct can_bittiming *bt = &dev->can.bittiming;
 	const u16 port = dev->ctrl_index;
-	int err;
 	struct ixxat_usb_init_cl1_cmd *cmd = &dev->shareddata->cmd.cl1;
 	const u32 rcv_size = sizeof(cmd->res);
 	const u32 snd_size = sizeof(*cmd);
