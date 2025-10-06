@@ -587,7 +587,8 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 {
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
 	unsigned long flags;
-	dev_info(&dev->udev->dev,
+
+	netdev_info(dev->netdev,
 		 "%s A: %lld B: %lld devtick: %u\n",
 		 __func__, t_A, t_B, ts_dev_start);
 
@@ -615,7 +616,7 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 #endif
 		devdata->ts_dev_start = ts_dev_start;
 
-		dev_info(&dev->udev->dev,
+		netdev_info(dev->netdev,
 			 "set kt_host_start: %lld devtick: %u\n",
 			 devdata->kt_host_start, ts_dev_start);
 	}
@@ -814,6 +815,7 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 		start_offset = le32_to_cpu(cmd->time);
 
 	ixxat_usb_ts_set_start(dev, kt_host_A, kt_host_B, start_offset);
+
 #if IX_CONFIG_USE_HW_TIMESTAMPS
 	dev->time_ref.ts_overrun_ticks = 0;
 #endif
@@ -2504,11 +2506,11 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 	err = ixxat_usb_get_fw_info(udev, devdata);
 	if (err) {
-		dev_err(&udev->dev, "Failed to get FW info (err %d)\n", err);
+		dev_err(&intf->dev, "Failed to get FW info (err %d)\n", err);
 	} else {
 		u32 fw_type = le32_to_cpu(devdata->fw_info.firmware_type);
 		if (fw_type != IXXAT_USB_DEV_FWTYPE_BAL) {
-			dev_err(&udev->dev,
+			dev_err(&intf->dev,
 				"Firmware type %u unknown; %u expected\n",
 				fw_type, IXXAT_USB_DEV_FWTYPE_BAL);
 			err = -EFAULT;
@@ -2517,14 +2519,14 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		} else if (ixxat_usb_has_cl2_firmware(id, &devdata->fw_info)) {
 			err = ixxat_usb_get_fw_info2(udev, devdata);
 			if (err)
-				dev_err(&udev->dev,
+				dev_err(&intf->dev,
 					"Failed to get FW info2 (err %d)\n",
 					err);
 		}
 	}
 
 	if (err) {
-		dev_err(&udev->dev, "A firmware update may be required\n");
+		dev_err(&intf->dev, "A firmware update may be required\n");
 		adapter = ixxat_usb_get_adapter(id, NULL);
 	} else {
 		adapter = ixxat_usb_get_adapter(id, &devdata->fw_info);
@@ -2537,7 +2539,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		goto lbl_free;
 	}
 
-	dev_info(&udev->dev, "%s\n", ixxat_usb_dev_name(id));
+	dev_info(&intf->dev, "%s\n", ixxat_usb_dev_name(id));
 
 	err = ixxat_usb_check_channel(adapter, intf->altsetting);
 	if (err != NETDEV_TX_OK)
@@ -2545,7 +2547,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 	err = ixxat_usb_power_ctrl(udev, devdata, IXXAT_USB_POWER_WAKEUP);
 	if (err != NETDEV_TX_OK) {
-		dev_err(&udev->dev,
+		dev_err(&intf->dev,
 			"IXXAT_USB_BRD_CMD_POWER failed (err %d)\n",
 			err);
 		goto lbl_free;
@@ -2555,26 +2557,35 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 	err = ixxat_usb_get_dev_info(udev, devdata);
 	if (err) {
-		dev_err(&udev->dev,
+		dev_err(&intf->dev,
 			"Failed to get device information (err %d)\n", err);
 		goto lbl_free;
 	}
 
 #ifdef IXXAT_OOT_VERSION
-	pr_info(IX_DRIVER_TAG "Device type     : %.*s\n", (int)(sizeof(devdata->dev_info.device_name)), devdata->dev_info.device_name);
-	pr_info(IX_DRIVER_TAG "Device id       : %.*s\n", (int)(sizeof(devdata->dev_info.device_id)), devdata->dev_info.device_id);
-	pr_info(IX_DRIVER_TAG "Device version  : 0x%08X\n", devdata->dev_info.device_version);
-	pr_info(IX_DRIVER_TAG "FPGA version    : 0x%08X\n", devdata->dev_info.device_fpga_version);
-	pr_info(IX_DRIVER_TAG "Firmware version: %d.%d.%d.%d (type: %d)"
-				, le16_to_cpu(devdata->fw_info.major_version)
-				, le16_to_cpu(devdata->fw_info.minor_version)
-				, le16_to_cpu(devdata->fw_info.build_version)
-				, le16_to_cpu(devdata->fw_info.revision)
-				, le32_to_cpu(devdata->fw_info.firmware_type));
+	dev_info(&intf->dev, "Device type     : %.*s\n",
+		(int)(sizeof(devdata->dev_info.device_name)),
+		devdata->dev_info.device_name);
+	dev_info(&intf->dev, "Device type     : %.*s\n",
+		(int)(sizeof(devdata->dev_info.device_name)),
+		devdata->dev_info.device_name);
+	dev_info(&intf->dev, "Device id       : %.*s\n",
+		(int)(sizeof(devdata->dev_info.device_id)),
+		devdata->dev_info.device_id);
+	dev_info(&intf->dev, "Device version  : 0x%08X\n",
+		devdata->dev_info.device_version);
+	dev_info(&intf->dev, "FPGA version    : 0x%08X\n",
+		devdata->dev_info.device_fpga_version);
+	dev_info(&intf->dev, "Firmware version: %d.%d.%d.%d (type: %d)",
+		le16_to_cpu(devdata->fw_info.major_version),
+		le16_to_cpu(devdata->fw_info.minor_version),
+		le16_to_cpu(devdata->fw_info.build_version),
+		le16_to_cpu(devdata->fw_info.revision),
+		le32_to_cpu(devdata->fw_info.firmware_type));
 
 	if (ixxat_usb_needs_firmware_update(id, &devdata->fw_info))
-		pr_warn(IX_DRIVER_TAG
-			"                  Firmware update recommended.\n");
+		dev_warn(&intf->dev,
+			 "                  Firmware update recommended.\n");
 #endif
 
 	err = ixxat_usb_get_dev_caps(udev, devdata, &dev_caps);
