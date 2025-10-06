@@ -325,6 +325,7 @@ static const struct ixxat_usb_adapter *
 	return drv_info->adapter;
 }
 
+#ifdef IXXAT_OOT_VERSION
 /* ixxat_usb_needs_firmware_update - check if firmware update is needed
  * @id: USB device id
  * @fwinfo: Firmware info of the device
@@ -338,6 +339,7 @@ static int ixxat_usb_needs_firmware_update(const struct usb_device_id *id,
 	return (ixxat_usb_is_legacy_usb2can(id)) ?
 		!ixxat_usb_has_cl2_firmware(id, fwinfo) : 0;
 }
+#endif
 
 /* ixxat_usb_get_tx_context - get a free URB context for transmission
  * @dev: pointer to the IXXAT USB CAN device
