@@ -107,7 +107,6 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 		 *  caps->fdr_range_min
 		 *  caps->fdr_range_max
 		 */
-
 		caps->ts_clock_freq = cmd->caps.can_clock_freq;
 		caps->ts_clock_divisor = cmd->caps.ts_clock_divisor;
 

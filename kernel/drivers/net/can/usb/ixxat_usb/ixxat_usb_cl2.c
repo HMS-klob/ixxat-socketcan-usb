@@ -114,7 +114,6 @@
 #define IXXAT_USB2CANFD_EP4_OUT		(4 | USB_DIR_OUT)
 #define IXXAT_USB2CANFD_EP5_OUT		(5 | USB_DIR_OUT)
 
-
 /* USB endpoint mapping for CAN IDM */
 #define IXXAT_CANIDM_EP1_IN		(2 | USB_DIR_IN)
 #define IXXAT_CANIDM_EP2_IN		(4 | USB_DIR_IN)
