@@ -2493,7 +2493,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	devdata = kzalloc(sizeof(*devdata), GFP_KERNEL);
 	if (!devdata) {
 		err = -ENOMEM;
-		goto done;
+		goto lbl_err;
 	}
 
 	/* init device struct */
@@ -2619,9 +2619,11 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		}
 	}
 
+	return 0;
+
 lbl_free:
 	kfree(devdata);
-done:
+lbl_err:
 	return err;
 }
 
