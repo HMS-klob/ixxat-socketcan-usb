@@ -196,15 +196,11 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 {
 	const u16 port = dev->ctrl_index;
 	int err;
-	struct ixxat_usb_getcaps_cl2_cmd *cmd;
+	struct ixxat_usb_getcaps_cl2_cmd *cmd = &dev->shareddata->cmd.caps_cl2;
 	const u32 cmd_size = sizeof(*cmd);
 	const u32 req_size = sizeof(cmd->req);
 	const u32 rcv_size = cmd_size - req_size;
 	const u32 snd_size = req_size + sizeof(cmd->res);
-
-	cmd = kmalloc(cmd_size, GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
 
 	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
 	cmd->req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_GETCAPS2);
@@ -220,8 +216,6 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 		memcpy(caps, &cmd->caps, sizeof(*caps));
 
 fail:
-	kfree(cmd);
-
 	return err;
 }
 
@@ -236,16 +230,12 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	const struct can_bittiming *btd = &dev->can.data_bittiming;
 	const u16 port = dev->ctrl_index;
 	int err;
-	struct ixxat_usb_init_cl2_cmd *cmd;
+	struct ixxat_usb_init_cl2_cmd *cmd = &dev->shareddata->cmd.cl2;
 	const u32 rcv_size = sizeof(cmd->res);
 	const u32 snd_size = sizeof(*cmd);
 	u32 btmode = IXXAT_USB_BTMODE_NAT;
 	u8 exmode = 0;
 	u8 opmode = IXXAT_USB_OPMODE_EXTENDED | IXXAT_USB_OPMODE_STANDARD;
-
-	cmd = kmalloc(snd_size, GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
 
 	dev->loopback = ((dev->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) > 0);
 
