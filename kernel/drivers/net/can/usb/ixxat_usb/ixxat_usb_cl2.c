@@ -30,15 +30,14 @@
 #define IXXAT_USBIDM_BUFFER_SIZE_RX	512
 #define IXXAT_USBIDM_BUFFER_SIZE_TX	512
 
-
-#define IXXAT_USB_MODES_FD (CAN_CTRLMODE_LISTENONLY | \
-		CAN_CTRLMODE_LOOPBACK | \
-		CAN_CTRLMODE_BERR_REPORTING | \
-		CAN_CTRLMODE_FD | \
-		CAN_CTRLMODE_FD_NON_ISO)
-#define IXXAT_USB_MODES (CAN_CTRLMODE_LISTENONLY | \
-		CAN_CTRLMODE_LOOPBACK | \
-		CAN_CTRLMODE_BERR_REPORTING)
+#define IXXAT_USB_MODES_FD		(CAN_CTRLMODE_LISTENONLY | \
+					 CAN_CTRLMODE_LOOPBACK | \
+					 CAN_CTRLMODE_BERR_REPORTING | \
+					 CAN_CTRLMODE_FD | \
+					 CAN_CTRLMODE_FD_NON_ISO)
+#define IXXAT_USB_MODES			(CAN_CTRLMODE_LISTENONLY | \
+					 CAN_CTRLMODE_LOOPBACK | \
+					 CAN_CTRLMODE_BERR_REPORTING)
 
 /* bittiming parameters USB-to-CAN FD */
 #define IXXAT_USB2CANFD_TSEG1_MIN	1
@@ -260,19 +259,18 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	cmd->sdr.tdo = 0;
 
 	if (exmode) {
+		u16 tdo = btd->brp * (btd->phase_seg1 + 1 + btd->prop_seg);
+
 		cmd->fdr.mode = cpu_to_le32(btmode);
 		cmd->fdr.bps = cpu_to_le32(btd->brp);
 		cmd->fdr.ts1 = cpu_to_le16(btd->prop_seg + btd->phase_seg1);
 		cmd->fdr.ts2 = cpu_to_le16(btd->phase_seg2);
 		cmd->fdr.sjw = cpu_to_le16(btd->sjw);
-		cmd->fdr.tdo = cpu_to_le16(btd->brp * (btd->phase_seg1 + 1 + btd->prop_seg));
+		cmd->fdr.tdo = cpu_to_le16(tdo);
 	}
 
-	err = ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
-				 rcv_size);
-
-	kfree(cmd);
-	return err;
+	return ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
+				  rcv_size);
 }
 
 const struct ixxat_usb_adapter usb2can_fd = {

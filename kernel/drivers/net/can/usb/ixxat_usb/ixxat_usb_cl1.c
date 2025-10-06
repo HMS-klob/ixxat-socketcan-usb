@@ -23,9 +23,9 @@
 #define IXXAT_USB_BUFFER_SIZE_RX	512
 #define IXXAT_USB_BUFFER_SIZE_TX	256
 
-#define IXXAT_USB_MODES (CAN_CTRLMODE_BERR_REPORTING | \
-				CAN_CTRLMODE_LOOPBACK | \
-				CAN_CTRLMODE_LISTENONLY)
+#define IXXAT_USB_MODES			(CAN_CTRLMODE_BERR_REPORTING | \
+					 CAN_CTRLMODE_LOOPBACK | \
+					 CAN_CTRLMODE_LISTENONLY)
 
 #define IXXAT_USB_BTMODE_TSM_CL1	0x80
 
@@ -163,10 +163,8 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	cmd->btr0 = btr0;
 	cmd->btr1 = btr1;
 
-	err = ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
-				 rcv_size);
-	kfree(cmd);
-	return err;
+	return ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
+				  rcv_size);
 }
 
 const struct ixxat_usb_adapter usb2can_cl1 = {
