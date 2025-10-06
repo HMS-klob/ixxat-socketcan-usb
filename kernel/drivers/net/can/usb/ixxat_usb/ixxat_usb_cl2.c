@@ -12,9 +12,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  */
-
-#include <linux/kernel.h>
 #include <linux/can/dev.h>
+#include <linux/kernel.h>
 #include <linux/usb.h>
 
 #include "ixxat_usb_core.h"

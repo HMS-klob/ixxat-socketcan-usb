@@ -12,19 +12,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  */
-
-#include <linux/module.h>
+#include <linux/can/dev.h>
 #include <linux/kernel.h>
+#include <linux/kthread.h>
+#include <linux/module.h>
 #include <linux/netdevice.h>
 #include <linux/net_tstamp.h>
-#include <linux/can/dev.h>
-#include <linux/kthread.h>
 #include <linux/usb.h>
 #include <linux/version.h>
 
-#include "ixxat_usb_core.h"
-
 #include "ixxat_kernel_adapt.h"
+#include "ixxat_usb_core.h"
 
 #ifdef DEBUG
 #define IXXAT_DEBUG
