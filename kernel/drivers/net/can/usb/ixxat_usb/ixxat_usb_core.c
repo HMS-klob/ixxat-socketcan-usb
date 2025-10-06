@@ -19,9 +19,7 @@
 #include <linux/netdevice.h>
 #include <linux/net_tstamp.h>
 #include <linux/usb.h>
-#include <linux/version.h>
 
-#include "ixxat_kernel_adapt.h"
 #include "ixxat_usb_core.h"
 
 #ifdef DEBUG
