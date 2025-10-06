@@ -2332,7 +2332,11 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 
 	dev->can.clock.freq = adapter->clock;
 	dev->can.bittiming_const = adapter->bt;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
+	dev->can.fd.data_bittiming_const = adapter->btd;
+#else
 	dev->can.data_bittiming_const = adapter->btd;
+#endif
 	dev->can.ctrlmode_supported = adapter->modes;
 
 	/* map function */

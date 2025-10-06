@@ -221,7 +221,11 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	 *  #define CAN_CTRLMODE_CC_LEN8_DLC		0x100
 	 */
 	const struct can_bittiming *bt = &dev->can.bittiming;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
+	const struct can_bittiming *btd = &dev->can.fd.data_bittiming;
+#else
 	const struct can_bittiming *btd = &dev->can.data_bittiming;
+#endif
 	const u16 port = dev->ctrl_index;
 	struct ixxat_usb_init_cl2_cmd *cmd = &dev->shareddata->cmd.cl2;
 	const u32 rcv_size = sizeof(cmd->res);
