@@ -980,7 +980,8 @@ static int ixxat_usb_set_mode(struct net_device *netdev, enum can_mode mode)
  * @netdev: pointer to the network device
  * @bec: pointer to the bus error counter structure to fill
  * This function retrieves the bus error counter from the IXXAT USB CAN device.
- * It fills the provided can_berr_counter structure with the current bus error counters.
+ * It fills the provided can_berr_counter structure with the current bus error
+ * counters.
  *
  * Returns 0 on success, negative error code on failure.
  */
