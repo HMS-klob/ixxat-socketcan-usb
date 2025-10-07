@@ -16,8 +16,9 @@
 #ifndef IXXAT_USB_CORE_H
 #define IXXAT_USB_CORE_H
 
-/* OOT version only! */
+#ifdef IXXAT_OOT_VERSION
 #include "ixxat_kernel_adapt.h"
+#endif
 
 /* #define IXXAT_USB_DRIVER_NAME  KBUILD_MODNAME  -> "ix_usb_can"
  * #define IXXAT_USB_CTRL_NAME "ixxat_usb"
