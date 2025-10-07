@@ -17,6 +17,9 @@ Module.symvers
 modules.order
 *.mod.c
 
+# In-tree temporary directory
+ixxat_usb.intree
+
 # Swap files
 *.swp
 

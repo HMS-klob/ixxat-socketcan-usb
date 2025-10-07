@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Makefile.intree
+#
+# 	Makefile include file.
+#
+# Usage:
+#
+# 	$ make intree
+# 	$ make intree INTREE_KERNEL=~/linux/kernels/linux-torvalds
+#
+# Author: Stéphane Grosjean <stephane.grosjean@hms-networks.com>
+#
+INTREE_MOD_DIR := $(MOD_DIR).intree
+
+define make-intree
+	echo $(1):
+	unifdef -x 2 -B -k -f unifdef.intree $(1) > $(2)
+endef
+
+.PHONY: intree unifdef_not_installed
+
+UNIFDEF = unifdef
+UNIFDEF_FILE := /tmp/unifdef.intree
+
+$(UNIFDEF_FILE):
+	@echo "#undef IXXAT_OOT_VERSION" >> $(UNIFDEF_FILE)
+	@echo "#define LINUX_VERSION_CODE	0xffffffff" >> $(UNIFDEF_FILE)
+	@echo "#define KERNEL_VERSION(a,b,c)	((((a*256)+b)*512)+c)" >> $(UNIFDEF_FILE)
+
+unifdef_not_installed:
+	@$(UNIFDEF) -h > /dev/null 2>&1
+
+intree: unifdef_not_installed $(UNIFDEF_FILE)
+	rm -rf $(INTREE_MOD_DIR)
+	mkdir -p $(INTREE_MOD_DIR)
+	@for f in `ls $(MOD_DIR)/*.[ch] $(MOD_DIR)/Kconfig $(MOD_DIR)/Makefile`; do \
+		fn=`basename $$f`; echo $(INTREE_MOD_DIR)/$$fn; \
+		$(UNIFDEF) -x 2 -B -k -f $(UNIFDEF_FILE) $$f > $(INTREE_MOD_DIR)/$$fn; \
+	done
+	@-rm -f $(INTREE_MOD_DIR)/*.mod.c $(INTREE_MOD_DIR)/ixxat_kernel_adapt.h
+ifneq ($(INTREE_KERNEL),)
+	$(MAKE) MOD_DIR=$(INTREE_MOD_DIR) KERNEL_SRC=$(INTREE_KERNEL)
+else
+	@echo
+	@echo "To compile the in-tree driver, try:"
+	@echo
+	@echo "$$ make intree INTREE_KERNEL=/some/linux/kernel/tree"
+	@echo
+endif
+
+clean_intree:
+	$(MAKE) MOD_DIR=$(INTREE_MOD_DIR) clean
+
+help:
+	@echo "Usage: $$ make TARGET [VAR=VAL]"
+	@echo
+	@echo "With TARGET in:"
+	@echo
+	@echo "all		Build the out-of-tree driver from:"
+	@echo " 		$(MOD_DIR)"
+	@echo " 		against Linux kernel sources/headers tree in:"
+	@echo " 		$(KERNEL_SRC)"
+	@echo "clean		Remove temporary files"
+	@echo "help		Display this help"
+	@echo "install		Install the driver into:"
+	@echo " 		$(DEST_DIR)"
+	@echo "intree		Create an in-tree version of this driver into:"
+	@echo " 		$(INTREE_MOD_DIR)"
+	@echo " 		If INTREE_KERNEL is set on command line, then the in-tree driver"
+	@echo " 		is compiled against that Linux kernel version too."
+	@echo "clean_intree	Remove temporary files from the in-tree driver directory:"
+	@echo " 		$(INTREE_MOD_DIR)"
+	@echo

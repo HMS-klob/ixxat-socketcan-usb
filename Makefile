@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 mod-name += ix_usb_can
 KERNEL_SRC          ?= /lib/modules/$(shell uname -r)/build
-MOD_DIR             := kernel/drivers/net/can/usb/ixxat_usb
+MOD_DIR             ?= kernel/drivers/net/can/usb/ixxat_usb
 SRC_DIR             := $(shell pwd)/$(MOD_DIR)
 DEST_DIR            := /lib/modules/$(shell uname -r)/$(MOD_DIR)
 
@@ -37,3 +37,5 @@ uninstall:
 	modprobe -r $(mod-name)
 	depmod -a
 	rm -f "$(DEST_DIR)/$(mod-name).ko"
+
+-include Makefile.intree
