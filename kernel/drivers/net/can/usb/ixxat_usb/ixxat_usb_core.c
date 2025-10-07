@@ -2608,10 +2608,11 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		u16 dev_bustype = le16_to_cpu(dev_caps.bus_ctrl_types[ctrlidx]);
 		u8 bustype = IXXAT_USB_BUS_TYPE(dev_bustype);
 
-		if (bustype == IXXAT_USB_BUS_CAN)
-			err = ixxat_usb_create_ctrl(intf, adapter, ctrlidx,
-						    devdata);
+		if (bustype != IXXAT_USB_BUS_CAN)
+			continue;
 
+		err = ixxat_usb_create_ctrl(intf, adapter, ctrlidx,
+					    devdata);
 		if (err) {
 			/* deregister already created devices, free devdata
 			 * and return immediately
