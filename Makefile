@@ -5,6 +5,13 @@ MOD_DIR             := kernel/drivers/net/can/usb/ixxat_usb
 SRC_DIR             := $(shell pwd)/$(MOD_DIR)
 DEST_DIR            := /lib/modules/$(shell uname -r)/$(MOD_DIR)
 
+EXTRA_CFLAGS = -DIXXAT_OOT_VERSION
+
+# needed since 6.15
+ccflags-y := $(EXTRA_CFLAGS)
+
+MAKE_CMDLINE_OPTS += CONFIG_CAN_IXXAT_USB=m EXTRA_CFLAGS="$(EXTRA_CFLAGS)"
+
 #
 # the Kernel Makefile is used !
 #
@@ -12,13 +19,13 @@ DEST_DIR            := /lib/modules/$(shell uname -r)/$(MOD_DIR)
 .PHONY: all clean modules_install install uninstall
 
 all:
-	$(MAKE) -C $(KERNEL_SRC) M=$(SRC_DIR) CONFIG_CAN_IXXAT_USB=m modules
+	$(MAKE) -C $(KERNEL_SRC) M=$(SRC_DIR) $(MAKE_CMDLINE_OPTS) modules
 
 clean:
-	$(MAKE) -C $(KERNEL_SRC) M=$(SRC_DIR) CONFIG_CAN_IXXAT_USB=m clean
+	$(MAKE) -C $(KERNEL_SRC) M=$(SRC_DIR) $(MAKE_CMDLINE_OPTS) clean
 
 modules_install:
-	$(MAKE) -C "$(KERNEL_SRC)" M=$(SRC_DIR) CONFIG_CAN_IXXAT_USB=m modules_install
+	$(MAKE) -C "$(KERNEL_SRC)" M=$(SRC_DIR) $(MAKE_CMDLINE_OPTS) modules_install
 
 install: all
 	install -d "$(DEST_DIR)"
