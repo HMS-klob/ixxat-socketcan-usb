@@ -12,10 +12,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  */
-#include <linux/version.h>
-
 #ifndef IXXAT_LNX_KERNEL_ADAPT_H
 #define IXXAT_LNX_KERNEL_ADAPT_H
+
+#include <linux/version.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
 #define can_fd_dlc2len(dlc)			can_dlc2len(get_canfd_dlc(dlc))
