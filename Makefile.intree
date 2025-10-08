@@ -18,7 +18,7 @@ define make-intree
 	unifdef -x 2 -B -k -f unifdef.intree $(1) > $(2)
 endef
 
-.PHONY: intree unifdef_not_installed
+.PHONY: intree is_unifdef_installed clean_intree
 
 UNIFDEF = unifdef
 UNIFDEF_FILE := /tmp/unifdef.intree
@@ -28,10 +28,10 @@ $(UNIFDEF_FILE):
 	@echo "#define LINUX_VERSION_CODE	0xffffffff" >> $(UNIFDEF_FILE)
 	@echo "#define KERNEL_VERSION(a,b,c)	((((a*256)+b)*512)+c)" >> $(UNIFDEF_FILE)
 
-unifdef_not_installed:
+is_unifdef_installed:
 	@$(UNIFDEF) -h > /dev/null 2>&1
 
-intree: unifdef_not_installed $(UNIFDEF_FILE)
+intree: is_unifdef_installed $(UNIFDEF_FILE)
 	rm -rf $(INTREE_MOD_DIR)
 	mkdir -p $(INTREE_MOD_DIR)
 	@for f in `ls $(MOD_DIR)/*.[ch] $(MOD_DIR)/Kconfig $(MOD_DIR)/Makefile`; do \
