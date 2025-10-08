@@ -323,7 +323,7 @@ static const struct ixxat_usb_adapter *
 	return drv_info->adapter;
 }
 
-#ifndef IXXAT_INTREE_VARIANT
+#ifndef IX_INTREE_VARIANT
 /* ixxat_usb_needs_firmware_update - check if firmware update is needed
  * @id: USB device id
  * @fwinfo: Firmware info of the device
@@ -2502,7 +2502,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	/* init device struct */
 	spin_lock_init(&devdata->access_lock);
 
-#ifndef IXXAT_INTREE_VARIANT
+#ifndef IX_INTREE_VARIANT
 	pr_info(IX_DRIVER_TAG "KERNELVERSION: 0x%x (%i)",
 		LINUX_VERSION_CODE, LINUX_VERSION_CODE);
 #endif
@@ -2565,7 +2565,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		goto lbl_free;
 	}
 
-#ifndef IXXAT_INTREE_VARIANT
+#ifndef IX_INTREE_VARIANT
 	dev_info(&intf->dev, "Device type     : %.*s\n",
 		(int)(sizeof(devdata->dev_info.device_name)),
 		devdata->dev_info.device_name);
