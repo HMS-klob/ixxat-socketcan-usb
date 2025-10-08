@@ -24,7 +24,7 @@ UNIFDEF = unifdef
 UNIFDEF_FILE := /tmp/unifdef.intree
 
 $(UNIFDEF_FILE):
-	@echo "#undef IXXAT_OOT_VERSION" >> $(UNIFDEF_FILE)
+	@echo "#define IXXAT_INTREE_VARIANT" >> $(UNIFDEF_FILE)
 	@echo "#define LINUX_VERSION_CODE	0xffffffff" >> $(UNIFDEF_FILE)
 	@echo "#define KERNEL_VERSION(a,b,c)	((((a*256)+b)*512)+c)" >> $(UNIFDEF_FILE)
 

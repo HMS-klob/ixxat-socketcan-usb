@@ -16,7 +16,7 @@
 #ifndef IXXAT_USB_CORE_H
 #define IXXAT_USB_CORE_H
 
-#ifdef IXXAT_OOT_VERSION
+#ifndef IXXAT_INTREE_VARIANT
 #include "ixxat_kernel_adapt.h"
 #endif
 

@@ -5,9 +5,7 @@ MOD_DIR             ?= kernel/drivers/net/can/usb/ixxat_usb
 SRC_DIR             := $(shell pwd)/$(MOD_DIR)
 DEST_DIR            := /lib/modules/$(shell uname -r)/$(MOD_DIR)
 
-EXTRA_CFLAGS = -DIXXAT_OOT_VERSION
-
-MAKE_CMDLINE_OPTS += CONFIG_CAN_IXXAT_USB=m EXTRA_CFLAGS="$(EXTRA_CFLAGS)"
+MAKE_CMDLINE_OPTS += CONFIG_CAN_IXXAT_USB=m
 
 #
 # the Kernel Makefile is used !
