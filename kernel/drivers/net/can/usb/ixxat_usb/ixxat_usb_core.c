@@ -31,7 +31,7 @@ MODULE_DESCRIPTION("SocketCAN driver for HMS Ixxat USB-to-CAN V2, USB-to-CAN-FD 
 MODULE_LICENSE("GPL v2");
 
 /* Prefix for debug output - makes for easier grepping */
-#define IX_DRIVER_TAG "ix_usb_can: "
+#define IX_DRIVER_TAG			"ix_usb_can: "
 
 #define IX_STATISTICS_EXACT		0
 
