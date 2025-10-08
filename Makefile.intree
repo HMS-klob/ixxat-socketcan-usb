@@ -38,7 +38,7 @@ ifneq ($(INTREE_KERNEL),)
 	$(MAKE) MOD_DIR=$(INTREE_MOD_DIR) KERNEL_SRC=$(INTREE_KERNEL)
 else
 	@echo
-	@echo "To compile the in-tree driver, try:"
+	@echo "To compile the in-tree driver variant, try:"
 	@echo
 	@echo "$$ make intree INTREE_KERNEL=/some/linux/kernel/tree"
 	@echo
@@ -60,7 +60,7 @@ help:
 	@echo "help		Display this help"
 	@echo "install		Install the driver into:"
 	@echo " 		$(DEST_DIR)"
-	@echo "intree		Create an in-tree version of this driver into:"
+	@echo "intree		Create an in-tree variant of this driver into:"
 	@echo " 		$(INTREE_MOD_DIR)"
 	@echo " 		If INTREE_KERNEL is set on command line, then the in-tree driver"
 	@echo " 		is compiled against that Linux kernel version too."
