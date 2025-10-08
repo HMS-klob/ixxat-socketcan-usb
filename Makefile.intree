@@ -22,6 +22,7 @@ $(UNIFDEF_FILE):
 	@echo "#define LINUX_VERSION_CODE	0xffffffff" >> $(UNIFDEF_FILE)
 	@echo "#define KERNEL_VERSION(a,b,c)	((((a*256)+b)*512)+c)" >> $(UNIFDEF_FILE)
 	@echo "#define IX_INTREE_VARIANT" >> $(UNIFDEF_FILE)
+	@echo "#define IX_SYNCTOHOSTCLOCK_NONE" >> $(UNIFDEF_FILE)
 
 is_unifdef_installed:
 	@$(UNIFDEF) -h > /dev/null 2>&1

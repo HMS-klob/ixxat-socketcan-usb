@@ -17,6 +17,21 @@
 
 #include <linux/version.h>
 
+/* IX_SYNCTOHOSTCLOCK_xxx controls how timestamps are sync'ed between host and
+ * device:
+ *
+ * _NONE	do not sync to host clock, device start is timestamp zero
+ * _BEFORESTART	sync to host clock before start command is issued
+ * _AFTERSTART	sync to host clock after start command returned
+ * _ONSTART	sync to host clock on start command, middle between start cmd
+ * 		issued and cmd returned
+ *
+ * The list is given in order of priority, meaning that if (for example)
+ * _BEFORESTART and _AFTERSTART are defined, then _BEFORESTART will take
+ * precedence.
+ */
+#define IX_SYNCTOHOSTCLOCK_NONE		/* Linux kernel in-tree variant */
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
 #define can_fd_dlc2len(dlc)			can_dlc2len(get_canfd_dlc(dlc))
 #define can_fd_len2dlc(dlc)			can_len2dlc(dlc)

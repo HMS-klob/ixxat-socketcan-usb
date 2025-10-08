@@ -33,25 +33,6 @@ MODULE_LICENSE("GPL v2");
 /* Prefix for debug output - makes for easier grepping */
 #define IX_DRIVER_TAG "ix_usb_can: "
 
-/* IX_SYNCTOHOSTCLOCK controls how timestamps are sync'ed between host and
- * device:
- *
- * 0	do not sync to host clock, device start is timestamp zero
- * 1	sync to host clock before start command is issued
- * 2	sync to host clock after start command returned
- * 3	sync to host clock on start command, middle between start command
- * 	issued and command returned
- *
- * SGr Note: in the mainline version, one method should be selected once for all
- */
-#define IX_SYNCTOHOST_NONE		0
-#define IX_SYNCTOHOST_BEFORESTART	1
-#define IX_SYNCTOHOST_AFTERSTART	2
-#define IX_SYNCTOHOST_ONSTART		3
-
-/* default sync to host clock setting, see above */
-#define IX_SYNCTOHOSTCLOCK		IX_SYNCTOHOST_NONE
-
 #define IX_STATISTICS_EXACT		0
 
 /* minimum firmware version that supports V2 communication layer */
@@ -598,17 +579,16 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 
 		devdata->timeref_valid = true;
 
-		devdata->kt_host_start = 0;
-#if IX_SYNCTOHOSTCLOCK == IX_SYNCTOHOST_NONE
+#ifdef IX_SYNCTOHOSTCLOCK_NONE
 		devdata->kt_host_start = 0;
 
-#elif IX_SYNCTOHOSTCLOCK == IX_SYNCTOHOST_BEFORESTART
+#elif defined(IX_SYNCTOHOSTCLOCK_BEFORESTART)
 		devdata->kt_host_start = t_A;
 
-#elif IIX_SYNCTOHOSTCLOCK == X_SYNCTOHOST_AFTERSTART
+#elif defined(IIX_SYNCTOHOSTCLOCK_AFTERSTART)
 		devdata->kt_host_start = t_B;
 
-#elif IX_SYNCTOHOSTCLOCK == IX_SYNCTOHOST_ONSTART
+#elif defined(IX_SYNCTOHOSTCLOCK_ONSTART)
 		devdata->kt_host_start = t_A +
 					 ktime_divns(ktime_sub(t_B, t_A), 2);
 #else
@@ -1080,8 +1060,7 @@ static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
 
 	ticks |= le32_to_cpu(ts_tick);
 
-#if (IX_SYNCTOHOST_NONE == IX_SYNCTOHOSTCLOCK)
-#else
+#ifndef IX_SYNCTOHOSTCLOCK_NONE
 	ticks -= timeref->ts_dev_start;
 #endif
 
@@ -1089,7 +1068,7 @@ static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
 	ts_ns = mul_u64_u64_div_u64(ticks, timeref->tick_multiplier,
 				    timeref->tick_divider);
 
-#if (IX_SYNCTOHOST_NONE == IX_SYNCTOHOSTCLOCK)
+#ifdef IX_SYNCTOHOSTCLOCK_NONE
 	hwts->hwtstamp = ns_to_ktime(ts_ns);
 #else
 	hwts->hwtstamp = timeref->kt_host_start + ns_to_ktime(ts_ns);
