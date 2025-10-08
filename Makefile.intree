@@ -13,11 +13,6 @@
 #
 INTREE_MOD_DIR := $(MOD_DIR).intree
 
-define make-intree
-	echo $(1):
-	unifdef -x 2 -B -k -f unifdef.intree $(1) > $(2)
-endef
-
 .PHONY: intree is_unifdef_installed clean_intree
 
 UNIFDEF = unifdef
