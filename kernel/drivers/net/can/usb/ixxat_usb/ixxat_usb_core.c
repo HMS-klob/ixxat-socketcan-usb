@@ -1673,9 +1673,9 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 			}
 
 		ixxat_usb_msg_free_idx(dev, msg_idx);
+		context->msg_index = IXXAT_USB_MAX_MSGS;
 	}
 
-	context->msg_index = IXXAT_USB_MAX_MSGS;
 
 	ixxat_usb_rel_tx_context(dev, context);
 	atomic_dec(&dev->active_tx_urbs);
