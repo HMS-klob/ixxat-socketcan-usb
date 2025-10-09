@@ -24,7 +24,6 @@
 #define IXXAT_USB_BUFFER_SIZE_TX	256
 
 #define IXXAT_USB_MODES			(CAN_CTRLMODE_BERR_REPORTING | \
-					 CAN_CTRLMODE_LOOPBACK | \
 					 CAN_CTRLMODE_LISTENONLY)
 
 #define IXXAT_USB_BTMODE_TSM_CL1	0x80
@@ -146,8 +145,9 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	u8 btr1 = ((bt->prop_seg + bt->phase_seg1 - 1) & 0xf) |
 		  (((bt->phase_seg2 - 1) & 0x7) << 4);
 
+#ifndef IX_INTREE_VARIANT
 	dev->loopback = ((dev->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) > 0);
-
+#endif
 	if (dev->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
 		btr1 |= IXXAT_USB_BTMODE_TSM_CL1;
 	if (dev->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING)
@@ -170,8 +170,12 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 const struct ixxat_usb_adapter usb2can_cl1 = {
 	.clock = IXXAT_USB_CLOCK,
 	.bt = &usb2can_bt,
+#ifdef IX_INTREE_VARIANT
 	.btd = NULL,
 	.modes = IXXAT_USB_MODES,
+#else
+	.modes = IXXAT_USB_MODES | CAN_CTRLMODE_LOOPBACK,
+#endif
 	.buffer_size_rx = IXXAT_USB_BUFFER_SIZE_RX,
 	.buffer_size_tx = IXXAT_USB_BUFFER_SIZE_TX,
 	.ep_msg_in = {
