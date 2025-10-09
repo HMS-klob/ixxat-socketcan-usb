@@ -1635,8 +1635,7 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 	u32 msg_idx;
 	int err;
 
-	if (!context)
-		return;
+	BUG_ON(!context);
 
 	dev = context->dev;
 	netdev = dev->netdev;
