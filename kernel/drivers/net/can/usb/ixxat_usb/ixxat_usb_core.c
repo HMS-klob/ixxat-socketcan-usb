@@ -1611,7 +1611,9 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 	}
 
 	/* resubmit_urb: */
+#ifdef IXXAT_DEBUG
 	/* ix_trace_printk("callback: fill_bulk_urb %x\n", dev->ep_msg_in); */
+#endif
 	usb_fill_bulk_urb(urb, udev,
 			  usb_rcvbulkpipe(udev, dev->ep_msg_in),
 			  urb->transfer_buffer, adapter->buffer_size_rx,
