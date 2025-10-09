@@ -1656,29 +1656,29 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 		if (msg_idx < IXXAT_USB_MAX_MSGS) {
 			int echo_bytes;
 
+			/* can_get_echo_skb() must always be called! */
 			echo_bytes = can_get_echo_skb(netdev, msg_idx, NULL);
-			if (echo_bytes) {
-				netdev->stats.tx_bytes += echo_bytes;
-				netdev->stats.tx_packets++;
-			} else {
-				/* if no loopback is active */
-				netdev->stats.tx_bytes +=
-					context->msg_packet_len;
-				netdev->stats.tx_packets +=
-					context->msg_packet_no;
-			}
+			if (!err)
+				if (echo_bytes) {
+					netdev->stats.tx_bytes += echo_bytes;
+					netdev->stats.tx_packets++;
+				} else {
+					/* if no loopback is active */
+					netdev->stats.tx_bytes +=
+						context->msg_packet_len;
+					netdev->stats.tx_packets +=
+						context->msg_packet_no;
+				}
 
 			ixxat_usb_msg_free_idx(dev, msg_idx);
 		}
-
-		fallthrough;
-	case -2:
-		context->msg_index = IXXAT_USB_MAX_MSGS;
-
-		ixxat_usb_rel_tx_context(dev, context);
-		atomic_dec(&dev->active_tx_urbs);
-		netif_wake_queue(netdev);
 	}
+
+	context->msg_index = IXXAT_USB_MAX_MSGS;
+
+	ixxat_usb_rel_tx_context(dev, context);
+	atomic_dec(&dev->active_tx_urbs);
+	netif_wake_queue(netdev);
 }
 
 #define IX_LOOP_DIS		0x00	/* disable self reception */
