@@ -1596,14 +1596,18 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 	struct usb_device *udev = dev->udev;
 
 	int err = ixxat_evaluate_usb_status(netdev, urb, dev->ep_msg_in);
-	if (err)
-		return;
+	switch (err) {
+	case 0:
+		if ((urb->actual_length > 0) &&
+		    (dev->state & IXXAT_USB_STATE_STARTED)) {
+			err = ixxat_usb_decode_buf(urb);
+			if (err)
+				return;
+		}
+		break;
 
-	if ((urb->actual_length > 0) &&
-	    (dev->state & IXXAT_USB_STATE_STARTED)) {
-		err = ixxat_usb_decode_buf(urb);
-		if (err)
-			return;
+	case -1:
+		return;
 	}
 
 	/* resubmit_urb: */
