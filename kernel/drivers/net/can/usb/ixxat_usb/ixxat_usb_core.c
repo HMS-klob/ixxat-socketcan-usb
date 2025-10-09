@@ -568,9 +568,11 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
 	unsigned long flags;
 
+#ifdef IXXAT_DEBUG
 	netdev_info(dev->netdev,
 		 "%s A: %lld B: %lld devtick: %u\n",
 		 __func__, t_A, t_B, ts_dev_start);
+#endif
 
 	spin_lock_irqsave(&devdata->access_lock, flags);
 
@@ -595,9 +597,11 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 #endif
 		devdata->ts_dev_start = ts_dev_start;
 
+#ifdef IXXAT_DEBUG
 		netdev_info(dev->netdev,
 			 "set kt_host_start: %lld devtick: %u\n",
 			 devdata->kt_host_start, ts_dev_start);
+#endif
 	}
 
 	spin_unlock_irqrestore(&devdata->access_lock, flags);
