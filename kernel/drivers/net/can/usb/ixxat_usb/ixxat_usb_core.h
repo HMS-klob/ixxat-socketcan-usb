@@ -424,8 +424,10 @@ struct ixxat_tx_urb_context {
 	struct urb *urb;
 	u16  urb_index;
 	u16  msg_index;
+#ifndef IX_INTREE_VARIANT
 	u16  msg_packet_no;
 	u16  msg_packet_len;
+#endif
 };
 
 /* struct ixxat_usb_candevice IXXAT USB CAN device
