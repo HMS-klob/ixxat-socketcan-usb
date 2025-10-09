@@ -1628,7 +1628,7 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 			netif_device_detach(netdev);
 		else
 			netdev_err(netdev,
-				"Error %d: Failed to resubmit read bulk urb\n", err);
+				"Rx urb resubmit failure (err %d)\n", err);
 	}
 }
 
