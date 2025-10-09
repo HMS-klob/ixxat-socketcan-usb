@@ -131,11 +131,6 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
  */
 static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 {
-	/* not supported:
-	 *  #define CAN_CTRLMODE_ONE_SHOT		0x08
-	 *  #define CAN_CTRLMODE_PRESUME_ACK		0x40
-	 *  #define CAN_CTRLMODE_CC_LEN8_DLC		0x100
-	 */
 	const struct can_bittiming *bt = &dev->can.bittiming;
 	const u16 port = dev->ctrl_index;
 	struct ixxat_usb_init_cl1_cmd *cmd = &dev->shareddata->cmd.cl1;
