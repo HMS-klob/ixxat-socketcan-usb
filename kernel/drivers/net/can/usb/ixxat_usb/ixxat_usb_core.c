@@ -1660,7 +1660,14 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 #endif
 		/* can_get_echo_skb() must always be called! */
 		echo_bytes = can_get_echo_skb(netdev, msg_idx, NULL);
-		if (!err)
+		if (!err) {
+#ifdef IX_INTREE_VARIANT
+			netdev->stats.tx_bytes += echo_bytes;
+			netdev->stats.tx_packets++;
+#else
+			/* SGr: echo_bytes == 0 in case of RTR frame, so this
+			 * doesn't mean that "no loopback is active"
+			 */
 			if (echo_bytes) {
 				netdev->stats.tx_bytes += echo_bytes;
 				netdev->stats.tx_packets++;
@@ -1671,24 +1678,27 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 				netdev->stats.tx_packets +=
 					context->msg_packet_no;
 			}
+#endif
+		}
 
 		ixxat_usb_msg_free_idx(dev, msg_idx);
 		context->msg_index = IXXAT_USB_MAX_MSGS;
 	}
-
 
 	ixxat_usb_rel_tx_context(dev, context);
 	atomic_dec(&dev->active_tx_urbs);
 	netif_wake_queue(netdev);
 }
 
+#ifndef IX_INTREE_VARIANT
+
 #define IX_LOOP_DIS		0x00	/* disable self reception */
 #define IX_LOOP_SELF_RX		0x01	/* enable self reception */
 #define IX_LOOPBACK		0x02	/* pass on message to application */
 
 /* ixxat_fix_loop_mode - determine the loop mode for message transmission
- * @loopback: boolean indicating if loopback is set with setsockopt
- * @global_loopback: boolean indicating if global loopback is set
+ * @loopback: boolean indicating if loopback is set with setsockopt (IFF_ECHO)
+ * @global_loopback: boolean indicating if global loopback is set (CTRLMODE_LOOPBACK)
  * @old_dev: boolean indicating if the device is an old version (without client
  * ID)
  *
@@ -1718,6 +1728,13 @@ static u8 ixxat_fix_loop_mode(bool loopback, bool global_loopback, bool old_dev)
 		loop_mode = IX_LOOP_SELF_RX;
 #endif
 
+	/* SGr note:
+	 *
+	 * loop mode bit:	is set if:
+	 * IX_LOOPBACK		IFF_ECHO and controller loopback mode
+	 * IX_LOOP_SELF_RX	(exact stats or) IX_LOOPBACK
+	 */
+
 	/* the old firmware doesn't support a clientid
 	 * -> so there is no exact loopback or statistic possible
 	 */
@@ -1726,6 +1743,7 @@ static u8 ixxat_fix_loop_mode(bool loopback, bool global_loopback, bool old_dev)
 
 	return loop_mode;
 }
+#endif
 
 /* ixxat_usb_start_xmit - start transmission of a CAN message
  * @skb: pointer to the socket buffer containing the CAN message
@@ -1743,9 +1761,11 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	struct urb *urb;
 	u8 *obuf;
 	u32 msg_idx;
+#ifndef IX_INTREE_VARIANT
 	u8 loop_mode;
 	bool is_loopback;
 	bool self_recv;
+#endif
 
 	if (can_dev_dropped_skb(netdev, skb))
 		return NETDEV_TX_OK;
@@ -1765,13 +1785,37 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 		return NETDEV_TX_BUSY;
 	}
 
+#ifdef IX_INTREE_VARIANT
+	/* store the msg_idx in the Urb */
+	context->msg_index = msg_idx;
+#else
 	/* reset to be sure that no old value is stored ! */
 	context->msg_index = IXXAT_USB_MAX_MSGS;
+#endif
 
 	/* prepare the Urb */
 	urb = context->urb;
 	obuf = urb->transfer_buffer;
 
+#ifdef IX_INTREE_VARIANT
+	can_put_echo_skb(skb, netdev, msg_idx, 0);
+
+	size = ixxat_usb_encode_msg(dev, skb, obuf, 0,
+				    msg_idx + IXXAT_USB_MSG_IDX_OFFSET);
+#else
+	/* SGr note:
+	 *
+	 * loop mode bit:	is set if:
+	 * IX_LOOPBACK		IFF_ECHO and controller loopback mode
+	 * IX_LOOP_SELF_RX	(exact stats or) IX_LOOPBACK
+	 *
+	 * 1/ can_put_echo_skb() / can_get_echo_skb() handle IFF_ECHO/pkt_type,
+	 * therefore, the driver doesn't need to do it
+	 *
+	 * 2/ self_recv is not desirable in the mainline kernel (because of usb
+	 * bus overhead). This means that exact statistics are available only in
+	 * the oot variant.
+	 */
 	/* check loopback */
 	loop_mode = ixxat_fix_loop_mode((skb->pkt_type == PACKET_LOOPBACK),
 					dev->loopback,
@@ -1800,6 +1844,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 		can_put_echo_skb(skb, netdev, msg_idx, 0);
 	else
 		dev_kfree_skb(skb);
+#endif
 
 #ifdef IXXAT_DEBUG
 	showdump(obuf, size);
@@ -1823,8 +1868,12 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 			netif_device_detach(netdev);
 		} else {
 			stats->tx_dropped++;
-			netdev_err(netdev, "Error %d: Submitting tx-urb failed\n", err);
+			netdev_err(netdev, "Submitting tx-urb failed err %d\n",
+				   err);
 		}
+	} else {
+		/* update trans_start */
+		netif_trans_update(netdev);
 	}
 
 	return err;
