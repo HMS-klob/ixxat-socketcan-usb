@@ -1101,6 +1101,8 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 				can_fd_dlc2len(dlc) : can_cc_dlc2len(dlc);
 	u8 min_size = sizeof(rx->base) + datalen;
 	struct net_device *netdev = dev->netdev;
+	struct sk_buff *skb;
+	struct canfd_frame *cf;
 
 	if (dev->adapter == &usb2can_cl1)
 		min_size += sizeof(rx->cl1) - sizeof(rx->cl1.data);
@@ -1118,6 +1120,7 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 		ix_trace_printk("CAN Message overflow\n");
 	}
 
+#ifndef IX_INTREE_VARIANT
 	if (ixx_flags & IXXAT_USB_MSG_FLAGS_SRR) {
 		if (dev->adapter == &usb2can_cl1) {
 			/* do nothing because the tx_packets are already handled
@@ -1140,25 +1143,25 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 		}
 
 		netif_wake_queue(netdev);
-	} else {
-		struct sk_buff *skb;
-		struct canfd_frame *cf;
 
-		if (ixx_flags & IXXAT_USB_FDMSG_FLAGS_EDL)
-			skb = alloc_canfd_skb(netdev, &cf);
-		else
-			skb = alloc_can_skb(netdev, (struct can_frame **)&cf);
-
-		if (!skb)
-			return -ENOMEM;
-
-		ixxat_convert(dev->adapter, cf, rx, datalen);
-
-		netdev->stats.rx_packets++;
-		netdev->stats.rx_bytes += cf->len;
-
-		ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
+		return 0;
 	}
+#endif
+
+	if (ixx_flags & IXXAT_USB_FDMSG_FLAGS_EDL)
+		skb = alloc_canfd_skb(netdev, &cf);
+	else
+		skb = alloc_can_skb(netdev, (struct can_frame **)&cf);
+
+	if (!skb)
+		return -ENOMEM;
+
+	ixxat_convert(dev->adapter, cf, rx, datalen);
+
+	netdev->stats.rx_packets++;
+	netdev->stats.rx_bytes += cf->len;
+
+	ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
 
 	return 0;
 }
