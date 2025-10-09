@@ -43,6 +43,8 @@ MODULE_LICENSE("GPL v2");
 					  IX_MIN_MINORFWVERSION_SUPP_V2, \
 					  IX_MIN_MINORFWVERSION_SUPP_V2)
 
+#define IXXAT_USB_E_FAILED		0xFFFFFFFF
+
 #if defined(CONFIG_TRACING) && defined(DEBUG)
 #define ix_trace_printk(...)		trace_printk(__VA_ARGS__)
 #elif defined(IXXAT_DEBUG)

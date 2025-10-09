@@ -154,8 +154,6 @@
 #define IXXAT_USB_BRD_CMD_GET_FWINFO2		0x403
 #define IXXAT_USB_BRD_CMD_POWER			0x421
 
-#define IXXAT_USB_E_FAILED			0xFFFFFFFF
-
 /* struct ixxat_can_msg_base - IXXAT CAN message base (CL1/CL2)
  * @size: Message size (this field excluded)
  * @time: Message timestamp
