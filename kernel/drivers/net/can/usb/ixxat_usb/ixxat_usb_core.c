@@ -1645,8 +1645,12 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 	case -1:
 		return;
 
-	default:
 	case 0:
+		/* prevent tx timeout */
+		netif_trans_update(netdev);
+
+		fallthrough;
+	default:
 		/* find correct msg_idx with the CAN Id and Len */
 		msg_idx = context->msg_index;
 
