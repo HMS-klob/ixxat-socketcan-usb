@@ -382,10 +382,9 @@ static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_candevice *dev)
 
 	spin_lock_irqsave(&dev->dev_lock, flags);
 
-	/* Note: dev::msg_max = 32 */
-	msg_idx = (dev->msg_lastindex + 1) % dev->msg_max;
+	msg_idx = (dev->msg_lastindex + 1) % IXXAT_USB_MAX_MSGS;
 
-	for (msg_cnt = 0; msg_cnt < dev->msg_max; msg_cnt++) {
+	for (msg_cnt = 0; msg_cnt < IXXAT_USB_MAX_MSGS; msg_cnt++) {
 		u64 msg_mask = 1ULL << msg_idx;
 
 		if (!(dev->msgs & msg_mask)) {
@@ -394,12 +393,12 @@ static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_candevice *dev)
 			break;
 		}
 
-		msg_idx = (msg_idx + 1) % dev->msg_max;
+		msg_idx = (msg_idx + 1) % IXXAT_USB_MAX_MSGS;
 	}
 
 	spin_unlock_irqrestore(&dev->dev_lock, flags);
 
-	return (msg_cnt < dev->msg_max) ? msg_idx : IXXAT_USB_E_FAILED;
+	return (msg_cnt < IXXAT_USB_MAX_MSGS) ? msg_idx : IXXAT_USB_E_FAILED;
 }
 
 /* ixxat_usb_msg_free_idx - free a message index
@@ -416,7 +415,7 @@ static void ixxat_usb_msg_free_idx(struct ixxat_usb_candevice *dev, u32 msg_idx)
 		dev->msgs = 0;
 		dev->msg_lastindex = 0;
 
-	} else if (msg_idx < dev->msg_max) {
+	} else if (msg_idx < IXXAT_USB_MAX_MSGS) {
 		dev->msgs &= ~(1ULL << msg_idx);
 	}
 
@@ -2295,11 +2294,6 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 	}
 
 	dev = netdev_priv(netdev);
-
-	/* Must be identical to the can.echo_skb_max set.
-	 * This is necessary to correctly handle the loopback option.
-	 */
-	dev->msg_max = IXXAT_USB_MAX_MSGS;
 
 	dev->shareddata = devdata;
 

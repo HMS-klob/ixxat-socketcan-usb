@@ -439,7 +439,6 @@ struct ixxat_tx_urb_context {
  * @rx_anchor: Submitted rx usb anchor
  * @msgs: store to set the used message indexes
  * @msg_lastindex: last index which was set
- * @msg_max: max possible number of messages to transmit
  * @loopback:  global loopback
  * @state: Device state
  * @ctrl_index: Controller index
@@ -467,7 +466,6 @@ struct ixxat_usb_candevice {
 
 	u32 msgs;
 	u32 msg_lastindex;
-	u32 msg_max;
 
 	bool loopback;
 	u32 state;
