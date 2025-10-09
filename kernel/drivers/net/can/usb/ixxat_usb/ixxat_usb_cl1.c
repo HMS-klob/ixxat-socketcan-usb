@@ -167,7 +167,6 @@ const struct ixxat_usb_adapter usb2can_cl1 = {
 	.clock = IXXAT_USB_CLOCK,
 	.bt = &usb2can_bt,
 #ifdef IX_INTREE_VARIANT
-	.btd = NULL,
 	.modes = IXXAT_USB_MODES,
 #else
 	.modes = IXXAT_USB_MODES | CAN_CTRLMODE_LOOPBACK,
@@ -188,7 +187,6 @@ const struct ixxat_usb_adapter usb2can_cl1 = {
 		IXXAT_USB2CAN_EP4_OUT,
 		IXXAT_USB2CAN_EP5_OUT
 	},
-	.ep_offs = 0,
 	.get_ctrl_caps = ixxat_usb_get_ctrl_caps,
 	.init_ctrl = ixxat_usb_init_ctrl
 };
