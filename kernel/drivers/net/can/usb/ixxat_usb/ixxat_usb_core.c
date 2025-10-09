@@ -26,7 +26,7 @@
 #define IXXAT_DEBUG
 #endif
 
-MODULE_AUTHOR("HMS Technology Center GmbH <socketcan@hms-networks.de>");
+MODULE_AUTHOR("HMS Technology Center GmbH <socketcan@hms-networks.com>");
 MODULE_DESCRIPTION("SocketCAN driver for HMS Ixxat USB-to-CAN V2, USB-to-CAN-FD family adapters");
 MODULE_LICENSE("GPL v2");
 
