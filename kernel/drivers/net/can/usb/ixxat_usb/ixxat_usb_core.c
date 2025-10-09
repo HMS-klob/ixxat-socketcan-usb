@@ -1631,6 +1631,7 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 	struct ixxat_tx_urb_context *context = urb->context;
 	struct ixxat_usb_candevice *dev;
 	struct net_device *netdev;
+	int echo_bytes;
 	u32 msg_idx;
 	int err;
 
@@ -1653,25 +1654,25 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 		/* find correct msg_idx with the CAN Id and Len */
 		msg_idx = context->msg_index;
 
-		if (msg_idx < IXXAT_USB_MAX_MSGS) {
-			int echo_bytes;
+#ifndef IX_INTREE_VARIANT
+		if (msg_idx >= IXXAT_USB_MAX_MSGS)
+			break;
+#endif
+		/* can_get_echo_skb() must always be called! */
+		echo_bytes = can_get_echo_skb(netdev, msg_idx, NULL);
+		if (!err)
+			if (echo_bytes) {
+				netdev->stats.tx_bytes += echo_bytes;
+				netdev->stats.tx_packets++;
+			} else {
+				/* if no loopback is active */
+				netdev->stats.tx_bytes +=
+					context->msg_packet_len;
+				netdev->stats.tx_packets +=
+					context->msg_packet_no;
+			}
 
-			/* can_get_echo_skb() must always be called! */
-			echo_bytes = can_get_echo_skb(netdev, msg_idx, NULL);
-			if (!err)
-				if (echo_bytes) {
-					netdev->stats.tx_bytes += echo_bytes;
-					netdev->stats.tx_packets++;
-				} else {
-					/* if no loopback is active */
-					netdev->stats.tx_bytes +=
-						context->msg_packet_len;
-					netdev->stats.tx_packets +=
-						context->msg_packet_no;
-				}
-
-			ixxat_usb_msg_free_idx(dev, msg_idx);
-		}
+		ixxat_usb_msg_free_idx(dev, msg_idx);
 	}
 
 	context->msg_index = IXXAT_USB_MAX_MSGS;
