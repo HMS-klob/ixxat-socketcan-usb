@@ -33,8 +33,6 @@ MODULE_LICENSE("GPL v2");
 /* Prefix for debug output - makes for easier grepping */
 #define IX_DRIVER_TAG			"ix_usb_can: "
 
-#define IX_STATISTICS_EXACT		0
-
 /* minimum firmware version that supports V2 communication layer */
 #define IX_MIN_MAJORFWVERSION_SUPP_V2	0x01
 #define IX_MIN_MINORFWVERSION_SUPP_V2	0x07
@@ -1695,14 +1693,6 @@ static u8 ixxat_fix_loop_mode(bool loopback, bool global_loopback, bool old_dev)
 	/* decision if this message should be loopbacked !! */
 	u8 loop_mode = IX_LOOP_DIS;
 
-	/* exact statistics means that all messages are sent with active
-	 * self reception (overhead) so that the statistic counter are
-	 * incremented after the message was really written on the can bus,
-	 * otherwise the counter is incremented after the WriteURB returns.
-	 */
-	/* SGr Note: this kind of choice makes nosense in vanilla context */
-	const bool statistics_exact = IX_STATISTICS_EXACT;
-
 	/* is loopback set with ip link .. loopback on */
 	if (global_loopback) {
 		/* is loopback set with setsockopt?
@@ -1712,9 +1702,13 @@ static u8 ixxat_fix_loop_mode(bool loopback, bool global_loopback, bool old_dev)
 			loop_mode = IX_LOOP_SELF_RX | IX_LOOPBACK;
 	}
 
+#ifdef IX_STATISTICS_EXACT
+	/* SGr: in case of exact stats, then self-recv function is setup
+	 * for new devices and the IX_LOOPBACK bit is removed
+	 */
 	if ((loop_mode & IX_LOOP_SELF_RX) != IX_LOOP_SELF_RX)
-		if (statistics_exact)
-			loop_mode = IX_LOOP_SELF_RX;
+		loop_mode = IX_LOOP_SELF_RX;
+#endif
 
 	/* the old firmware doesn't support a clientid
 	 * -> so there is no exact loopback or statistic possible

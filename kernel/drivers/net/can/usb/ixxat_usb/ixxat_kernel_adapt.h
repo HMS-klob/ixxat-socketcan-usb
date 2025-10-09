@@ -29,8 +29,19 @@
  * The list is given in order of priority, meaning that if (for example)
  * _BEFORESTART and _AFTERSTART are defined, then _BEFORESTART will take
  * precedence.
+ *
+ * IX_SYNCTOHOSTCLOCK_NONE is the Linux kernel in-tree driver variant default.
  */
-#define IX_SYNCTOHOSTCLOCK_NONE		/* Linux kernel in-tree variant */
+#define IX_SYNCTOHOSTCLOCK_NONE
+
+/* exact statistics means that all messages are sent with active self reception  * (overhead) so that the statistic counters are incremented after the message
+ * was really written on the CAN bus. Otherwise the counters are incremented
+ * upon acknowledgment of the USB packet containing the frame by the kernel's
+ * USB subsystem.
+ *
+ * IX_STATISTICS_EXACT is not defined in the Linux kernel in-tree driver variant
+ */
+#undef IX_STATISTICS_EXACT
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
 #define can_fd_dlc2len(dlc)			can_dlc2len(get_canfd_dlc(dlc))
