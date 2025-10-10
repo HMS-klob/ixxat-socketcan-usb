@@ -2544,24 +2544,24 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 #ifndef IX_INTREE_VARIANT
 	dev_info(&intf->dev, "Device type     : %.*s\n",
-		(int)(sizeof(devdata->dev_info.device_name)),
-		devdata->dev_info.device_name);
+		 (int)(sizeof(devdata->dev_info.device_name)),
+		 devdata->dev_info.device_name);
 	dev_info(&intf->dev, "Device type     : %.*s\n",
-		(int)(sizeof(devdata->dev_info.device_name)),
-		devdata->dev_info.device_name);
+		 (int)(sizeof(devdata->dev_info.device_name)),
+		 devdata->dev_info.device_name);
 	dev_info(&intf->dev, "Device id       : %.*s\n",
-		(int)(sizeof(devdata->dev_info.device_id)),
-		devdata->dev_info.device_id);
+		 (int)(sizeof(devdata->dev_info.device_id)),
+		 devdata->dev_info.device_id);
 	dev_info(&intf->dev, "Device version  : 0x%08X\n",
-		devdata->dev_info.device_version);
+		 devdata->dev_info.device_version);
 	dev_info(&intf->dev, "FPGA version    : 0x%08X\n",
-		devdata->dev_info.device_fpga_version);
+		 devdata->dev_info.device_fpga_version);
 	dev_info(&intf->dev, "Firmware version: %d.%d.%d.%d (type: %d)",
-		le16_to_cpu(devdata->fw_info.major_version),
-		le16_to_cpu(devdata->fw_info.minor_version),
-		le16_to_cpu(devdata->fw_info.build_version),
-		le16_to_cpu(devdata->fw_info.revision),
-		le32_to_cpu(devdata->fw_info.firmware_type));
+		 le16_to_cpu(devdata->fw_info.major_version),
+		 le16_to_cpu(devdata->fw_info.minor_version),
+		 le16_to_cpu(devdata->fw_info.build_version),
+		 le16_to_cpu(devdata->fw_info.revision),
+		 le32_to_cpu(devdata->fw_info.firmware_type));
 
 #ifdef IX_STATISTICS_EXACT
 	if (adapter == &usb2can_cl1)
