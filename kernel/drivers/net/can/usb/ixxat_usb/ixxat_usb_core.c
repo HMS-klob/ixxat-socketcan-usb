@@ -1123,31 +1123,29 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 		ix_trace_printk("CAN Message overflow\n");
 	}
 
-#ifndef IX_INTREE_VARIANT
+#ifdef IX_STATISTICS_EXACT
+	/* _SRR set in that context, when running a firmware different than CL1,
+	 * means that client_id is used to carry the echo msg id.
+	 */
 	if (ixx_flags & IXXAT_USB_MSG_FLAGS_SRR) {
-		if (dev->adapter == &usb2can_cl1) {
-			/* do nothing because the tx_packets are already handled
-			 * in the write callback !
-			 */
-		} else {
+		if (dev->adapter != &usb2can_cl1) {
 			u32 msg_idx = le32_to_cpu(rx->cl2.client_id);
 
-			netdev->stats.tx_bytes += datalen;
+			/* - handle (get) corresponding echo skb here
+			 * - update tx counters
+			 * - don't forward the frame to network layer, except if
+			 *   CTRLMODE_LOOPBACK.
+			 */
+			int len = can_get_echo_skb(netdev, msg_idx, NULL);
+
+			ixxat_usb_msg_free_idx(dev, msg_idx);
+
+			netdev->stats.tx_bytes += len;
 			netdev->stats.tx_packets++;
 
-			if (msg_idx >= IXXAT_USB_MSG_IDX_OFFSET) {
-				int len;
-
-				msg_idx -= IXXAT_USB_MSG_IDX_OFFSET;
-
-				len = can_get_echo_skb(netdev, msg_idx, NULL);
-				ixxat_usb_msg_free_idx(dev, msg_idx);
-			}
+			if (!dev->loopback)
+				return 0;
 		}
-
-		netif_wake_queue(netdev);
-
-		return 0;
 	}
 #endif
 
@@ -1456,15 +1454,16 @@ fail:
  * @dev: pointer to the IXXAT USB CAN device
  * @skb: pointer to the socket buffer containing the CAN message
  * @obuf: output buffer to fill with the encoded message
- * @self_rcv: flag indicating if the message is for self-reception
- * @umsg_idx: message index for self-reception
  *
  * This function encodes a CAN message from the socket buffer into
  * the IXXAT USB CAN message format.
  */
 static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
-				struct sk_buff *skb, u8 *obuf, u8 self_rcv,
-				u32 umsg_idx)
+#ifdef IX_STATISTICS_EXACT
+				struct sk_buff *skb, u8 *obuf, u32 umsg_idx)
+#else
+				struct sk_buff *skb, u8 *obuf)
+#endif
 {
 	int size;
 	struct canfd_frame *cf = (struct canfd_frame *)skb->data;
@@ -1499,22 +1498,19 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 		msg_base->size += sizeof(can_msg.cl1);
 		msg_base->size -= sizeof(can_msg.cl1.data);
 		memcpy(can_msg.cl1.data, cf->data, cf->len);
-
-		if (self_rcv)
-			flags |= IXXAT_USB_MSG_FLAGS_SRR;
-
 	} else {
 		msg_base->size += sizeof(can_msg.cl2);
 		msg_base->size -= sizeof(can_msg.cl2.data);
 		memcpy(can_msg.cl2.data, cf->data, cf->len);
 
-		if (self_rcv) {
-			flags |= IXXAT_USB_MSG_FLAGS_SRR;
-			can_msg.cl2.client_id = cpu_to_le32(umsg_idx);
-		} else {
-			can_msg.cl2.client_id = 0;
-		}
+#ifdef IX_STATISTICS_EXACT
+		flags |= IXXAT_USB_MSG_FLAGS_SRR;
+		can_msg.cl2.client_id = cpu_to_le32(umsg_idx);
+#endif
 	}
+
+	if (dev->loopback)
+		flags |= IXXAT_USB_MSG_FLAGS_SRR;
 
 	msg_base->flags = cpu_to_le32(flags);
 	msg_base->msg_id = cpu_to_le32(msg_id);
@@ -1664,31 +1660,20 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 		/* find correct msg_idx with the CAN Id and Len */
 		msg_idx = context->msg_index;
 
-#ifndef IX_INTREE_VARIANT
+#ifdef IX_STATISTICS_EXACT
+		/* in case of exact stats, tx counters are managed in rx path
+		 * through the client id. Unfortunately, CL1 fw can't handle
+		 * any client id, therefore statistics and echo management
+		 * must be done here, even in case of IX_STATISTICS_EXACT.
+		 */
 		if (msg_idx >= IXXAT_USB_MAX_MSGS)
 			break;
 #endif
 		/* can_get_echo_skb() must always be called! */
 		echo_bytes = can_get_echo_skb(netdev, msg_idx, NULL);
 		if (!err) {
-#ifdef IX_INTREE_VARIANT
 			netdev->stats.tx_bytes += echo_bytes;
 			netdev->stats.tx_packets++;
-#else
-			/* SGr: echo_bytes == 0 in case of RTR frame, so this
-			 * doesn't mean that "no loopback is active"
-			 */
-			if (echo_bytes) {
-				netdev->stats.tx_bytes += echo_bytes;
-				netdev->stats.tx_packets++;
-			} else {
-				/* if no loopback is active */
-				netdev->stats.tx_bytes +=
-					context->msg_packet_len;
-				netdev->stats.tx_packets +=
-					context->msg_packet_no;
-			}
-#endif
 		}
 
 		ixxat_usb_msg_free_idx(dev, msg_idx);
@@ -1771,11 +1756,6 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	struct urb *urb;
 	u8 *obuf;
 	u32 msg_idx;
-#ifndef IX_INTREE_VARIANT
-	u8 loop_mode;
-	bool is_loopback;
-	bool self_recv;
-#endif
 
 	if (can_dev_dropped_skb(netdev, skb))
 		return NETDEV_TX_OK;
@@ -1795,65 +1775,27 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 		return NETDEV_TX_BUSY;
 	}
 
-#ifdef IX_INTREE_VARIANT
-	/* store the msg_idx in the Urb */
-	context->msg_index = msg_idx;
-#else
-	/* reset to be sure that no old value is stored ! */
-	context->msg_index = IXXAT_USB_MAX_MSGS;
-#endif
-
 	/* prepare the Urb */
 	urb = context->urb;
 	obuf = urb->transfer_buffer;
 
-#ifdef IX_INTREE_VARIANT
 	can_put_echo_skb(skb, netdev, msg_idx, 0);
 
-	size = ixxat_usb_encode_msg(dev, skb, obuf, 0,
-				    msg_idx + IXXAT_USB_MSG_IDX_OFFSET);
-#else
-	/* SGr note:
-	 *
-	 * loop mode bit:	is set if:
-	 * IX_LOOPBACK		IFF_ECHO and controller loopback mode
-	 * IX_LOOP_SELF_RX	(exact stats or) IX_LOOPBACK
-	 *
-	 * 1/ can_put_echo_skb() / can_get_echo_skb() handle IFF_ECHO/pkt_type,
-	 * therefore, the driver doesn't need to do it
-	 *
-	 * 2/ self_recv is not desirable in the mainline kernel (because of usb
-	 * bus overhead). This means that exact statistics are available only in
-	 * the oot variant.
+#ifdef IX_STATISTICS_EXACT
+	/* if running firmware other van CL1, don't use Urb msg_idx to handle
+	 * echo skb but wait for the looped back frame and the client id.
 	 */
-	/* check loopback */
-	loop_mode = ixxat_fix_loop_mode((skb->pkt_type == PACKET_LOOPBACK),
-					dev->loopback,
-					dev->adapter == &usb2can_cl1);
+	context->msg_index = (dev->adapter != &usb2can_cl1) ?
+		IXXAT_USB_MAX_MSGS : msg_idx;
 
-	is_loopback = ((loop_mode & IX_LOOPBACK) == IX_LOOPBACK);
+	/* encode the outgoing message with client id = msg_idx */
+	size = ixxat_usb_encode_msg(dev, skb, obuf, msg_idx);
+#else
+	/* store the msg_idx in the Urb */
+	context->msg_index = msg_idx;
 
-	self_recv = ((loop_mode & IX_LOOP_SELF_RX) == IX_LOOP_SELF_RX);
-	if (!self_recv) {
-
-		/* handle the reception in the USB callback */
-		if (!is_loopback) {
-			struct can_frame *cf = (struct can_frame *)skb->data;
-
-			context->msg_packet_len = cf->can_dlc;
-			context->msg_packet_no = 1;
-		}
-
-		/* store the msg_idx in the Urb */
-		context->msg_index = msg_idx;
-	}
-
-	size = ixxat_usb_encode_msg(dev, skb, obuf, self_recv,
-				    msg_idx + IXXAT_USB_MSG_IDX_OFFSET);
-	if (is_loopback)
-		can_put_echo_skb(skb, netdev, msg_idx, 0);
-	else
-		dev_kfree_skb(skb);
+	/* encode the outgoing message */
+	size = ixxat_usb_encode_msg(dev, skb, obuf);
 #endif
 
 #ifdef IXXAT_DEBUG
@@ -2620,6 +2562,12 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		le16_to_cpu(devdata->fw_info.build_version),
 		le16_to_cpu(devdata->fw_info.revision),
 		le32_to_cpu(devdata->fw_info.firmware_type));
+
+#ifdef IX_STATISTICS_EXACT
+	if (adapter == &usb2can_cl1)
+		dev_warn(&intf->dev,
+			 "CL1 firmware    : Exact statistics mode disabled.\n");
+#endif
 
 	if (ixxat_usb_needs_firmware_update(id, &devdata->fw_info))
 		dev_warn(&intf->dev,
