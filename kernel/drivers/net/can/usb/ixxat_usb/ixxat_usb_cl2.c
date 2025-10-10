@@ -245,7 +245,7 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 		opmode |= IXXAT_USB_OPMODE_ERRFRAME;
 	if (dev->can.ctrlmode & CAN_CTRLMODE_LISTENONLY)
 		opmode |= IXXAT_USB_OPMODE_LISTONLY;
-	if (dev->can.ctrlmode & (CAN_CTRLMODE_FD | CAN_CTRLMODE_FD_NON_ISO)) {
+	if (dev->can.ctrlmode & CAN_CTRLMODE_FD) {
 		exmode |= IXXAT_USB_EXMODE_EXTDATA | IXXAT_USB_EXMODE_FASTDATA;
 
 		if (!(dev->can.ctrlmode & CAN_CTRLMODE_FD_NON_ISO))
