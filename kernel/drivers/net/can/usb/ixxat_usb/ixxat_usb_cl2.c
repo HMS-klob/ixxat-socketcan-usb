@@ -309,7 +309,6 @@ const struct ixxat_usb_adapter usb2can_fd = {
 const struct ixxat_usb_adapter usb2can_v2 = {
 	.clock = IXXAT_USBV2_CLOCK,
 	.bt = &usb2canV2_bt,
-	.btd = NULL,
 	.modes = IXXAT_USB_MODES,
 	.buffer_size_rx = IXXAT_USBV2_BUFFER_SIZE_RX,
 	.buffer_size_tx = IXXAT_USBV2_BUFFER_SIZE_TX,
@@ -327,7 +326,6 @@ const struct ixxat_usb_adapter usb2can_v2 = {
 		IXXAT_USB2CANV2_EP4_OUT,
 		IXXAT_USB2CANV2_EP5_OUT
 	},
-	.ep_offs = 0,
 	.get_ctrl_caps = ixxat_usb_get_ctrl_caps,
 	.init_ctrl = ixxat_usb_init_ctrl
 };
@@ -353,7 +351,6 @@ const struct ixxat_usb_adapter can_fd_idm = {
 		IXXAT_CANIDM_EP4_OUT,
 		IXXAT_CANIDM_EP5_OUT
 	},
-	.ep_offs = 0,
 	.get_ctrl_caps = ixxat_usb_get_ctrl_caps,
 	.init_ctrl = ixxat_usb_init_ctrl
 };
