@@ -13,7 +13,7 @@
 #
 INTREE_MOD_DIR := $(MOD_DIR).intree
 
-.PHONY: intree is_unifdef_installed clean_intree
+.PHONY: intree is_unifdef_installed intree-local clean_intree
 
 UNIFDEF = unifdef
 UNIFDEF_FILE := /tmp/unifdef.intree
@@ -47,6 +47,9 @@ else
 	@echo "$$ make intree INTREE_KERNEL=/some/linux/kernel/tree"
 	@echo
 endif
+
+intree-local:
+	$(MAKE) intree INTREE_KERNEL=$(KERNEL_SRC)
 
 clean_intree:
 	$(MAKE) MOD_DIR=$(INTREE_MOD_DIR) clean
