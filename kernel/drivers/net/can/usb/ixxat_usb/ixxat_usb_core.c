@@ -645,15 +645,13 @@ static int ixxat_usb_get_dev_caps(struct usb_device *dev,
 		dev_err(&dev->dev, KBUILD_MODNAME
 			": invalid ctrlr count %u in rsp (> %lu)\n",
 			num_ctrl, ARRAY_SIZE(dev_caps->bus_ctrl_types));
-		err = -EINVAL;
-		goto fail;
+		return -EINVAL;
 	}
 
 	for (i = 0; i < num_ctrl; i++)
 		dev_caps->bus_ctrl_types[i] = cmd->caps.bus_ctrl_types[i];
 
-fail:
-	return err;
+	return 0;
 }
 
 /* ixxat_usb_get_dev_info - get device information
