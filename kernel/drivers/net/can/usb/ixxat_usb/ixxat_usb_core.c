@@ -1600,11 +1600,14 @@ static int ixxat_evaluate_usb_status(struct net_device *netdev,
 static void ixxat_usb_read_bulk_callback(struct urb *urb)
 {
 	struct ixxat_usb_candevice *dev = urb->context;
-	const struct ixxat_usb_adapter *adapter = dev->adapter;
-	struct net_device *netdev = dev->netdev;
-	struct usb_device *udev = dev->udev;
+	struct net_device *netdev;
+	int err;
 
-	int err = ixxat_evaluate_usb_status(netdev, urb, dev->ep_msg_in);
+	BUG_ON(!dev);
+
+	netdev = dev->netdev;
+
+	err = ixxat_evaluate_usb_status(netdev, urb, dev->ep_msg_in);
 	switch (err) {
 	case 0:
 		if ((urb->actual_length > 0) &&
@@ -1623,9 +1626,9 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 #ifdef IXXAT_DEBUG
 	/* ix_trace_printk("callback: fill_bulk_urb %x\n", dev->ep_msg_in); */
 #endif
-	usb_fill_bulk_urb(urb, udev,
-			  usb_rcvbulkpipe(udev, dev->ep_msg_in),
-			  urb->transfer_buffer, adapter->buffer_size_rx,
+	usb_fill_bulk_urb(urb, dev->udev,
+			  usb_rcvbulkpipe(dev->udev, dev->ep_msg_in),
+			  urb->transfer_buffer, dev->adapter->buffer_size_rx,
 			  ixxat_usb_read_bulk_callback, dev);
 
 	usb_anchor_urb(urb, &dev->rx_anchor);
