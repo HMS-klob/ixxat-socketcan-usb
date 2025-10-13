@@ -1117,7 +1117,7 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 	if (ixx_flags & IXXAT_USB_MSG_FLAGS_OVR) {
 		netdev->stats.rx_over_errors++;
 		netdev->stats.rx_errors++;
-		ix_trace_printk("CAN Message overflow\n");
+		netdev_warn(netdev, "CAN messages overflow\n");
 	}
 
 #ifdef IX_STATISTICS_EXACT
@@ -2205,8 +2205,8 @@ static int ixxat_usb_stop(struct net_device *netdev)
 	if (dev->state & IXXAT_USB_STATE_STARTED) {
 		err = ixxat_usb_stop_ctrl(dev);
 		if (err) {
-			/* netdev_warn(netdev, "Error %d: Cannot stop device\n",err); */
-			ix_trace_printk("Error %d: Cannot stop device\n", err);
+			netdev_warn(netdev, "Error %d: Cannot stop device\n",
+				    err);
 		}
 	}
 
