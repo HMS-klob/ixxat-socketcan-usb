@@ -552,10 +552,6 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 
 /* ixxat_usb_ts_set_start - set controller start timestamp
  * @dev: pointer to the IXXAT USB CAN device
-#ifndef IX_SYNCTOHOSTCLOCK_NONE
- * @t_A: timestamp A (before start command)
- * @t_B: timestamp B (after start command)
-#endif
  * @ts_dev_start: device start timestamp
  *
  * This function sets the controller start timestamp based on the provided
