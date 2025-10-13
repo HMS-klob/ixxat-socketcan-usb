@@ -1327,6 +1327,7 @@ static int ixxat_usb_handle_error(struct ixxat_usb_candevice *dev,
 		dev->bec.txerr = rx->cl2.data[IXXAT_USB_CAN_ERROR_COUNTER_TX];
 	}
 
+	dev->can.can_stats.bus_error++;
 	if (raw_error == IXXAT_USB_CAN_ERROR_ACK)
 		netdev->stats.tx_errors++;
 	else
@@ -1341,23 +1342,23 @@ static int ixxat_usb_handle_error(struct ixxat_usb_candevice *dev,
 		can_frame->can_id |= CAN_ERR_ACK;
 		break;
 	case IXXAT_USB_CAN_ERROR_BIT:
-		can_frame->can_id |= CAN_ERR_PROT;
+		can_frame->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
 		can_frame->data[2] |= CAN_ERR_PROT_BIT;
 		break;
 	case IXXAT_USB_CAN_ERROR_CRC:
-		can_frame->can_id |= CAN_ERR_PROT;
+		can_frame->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
 		can_frame->data[3] |= CAN_ERR_PROT_LOC_CRC_SEQ;
 		break;
 	case IXXAT_USB_CAN_ERROR_FORM:
-		can_frame->can_id |= CAN_ERR_PROT;
+		can_frame->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
 		can_frame->data[2] |= CAN_ERR_PROT_FORM;
 		break;
 	case IXXAT_USB_CAN_ERROR_STUFF:
-		can_frame->can_id |= CAN_ERR_PROT;
+		can_frame->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
 		can_frame->data[2] |= CAN_ERR_PROT_STUFF;
 		break;
 	default:
-		can_frame->can_id |= CAN_ERR_PROT;
+		can_frame->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
 		can_frame->data[2] |= CAN_ERR_PROT_UNSPEC;
 		break;
 	}
