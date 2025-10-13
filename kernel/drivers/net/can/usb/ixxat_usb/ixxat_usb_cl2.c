@@ -218,11 +218,13 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 
 static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 {
+#ifndef IX_INTREE_VARIANT
 	/* not supported:
 	 *  #define CAN_CTRLMODE_ONE_SHOT		0x08
 	 *  #define CAN_CTRLMODE_PRESUME_ACK		0x40
 	 *  #define CAN_CTRLMODE_CC_LEN8_DLC		0x100
 	 */
+#endif
 	const struct can_bittiming *bt = &dev->can.bittiming;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
 	const struct can_bittiming *btd = &dev->can.fd.data_bittiming;
