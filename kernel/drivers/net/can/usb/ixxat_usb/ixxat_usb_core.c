@@ -1133,15 +1133,18 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 
 			/* - handle (get) corresponding echo skb here
 			 * - update tx counters
+			 * - restart transmit (if needed)
 			 * - don't forward the frame to network layer, except if
 			 *   CTRLMODE_LOOPBACK.
 			 */
 			int len = can_get_echo_skb(netdev, msg_idx, NULL);
 
-			ixxat_usb_msg_free_idx(dev, msg_idx);
-
 			netdev->stats.tx_bytes += len;
 			netdev->stats.tx_packets++;
+
+			ixxat_usb_msg_free_idx(dev, msg_idx);
+
+			netif_wake_queue(netdev);
 
 			if (!dev->loopback)
 				return 0;
