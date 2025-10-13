@@ -50,8 +50,6 @@ MODULE_LICENSE("GPL v2");
 					  IX_MIN_MINORFWVERSION_SUPP_V2, \
 					  IX_MIN_MINORFWVERSION_SUPP_V2)
 
-#define IXXAT_USB_E_FAILED		0xFFFFFFFF
-
 /* struct ixxat_driver_info IXXAT USB device static information
  * @name	commercial name
  * @adapter	IXXAT USB adapter family
@@ -372,7 +370,7 @@ static void ixxat_usb_rel_tx_context(struct ixxat_usb_candevice *dev,
 /* ixxat_usb_msg_get_next_idx - get next free message index
  * @dev: pointer to the IXXAT USB CAN device
  *
- * Returns the next free message index or IXXAT_USB_E_FAILED
+ * Returns the next free message index or IXXAT_USB_MAX_MSGS
  * if no free index is available.
  */
 static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_candevice *dev)
@@ -398,7 +396,7 @@ static u32 ixxat_usb_msg_get_next_idx(struct ixxat_usb_candevice *dev)
 
 	spin_unlock_irqrestore(&dev->dev_lock, flags);
 
-	return (msg_cnt < IXXAT_USB_MAX_MSGS) ? msg_idx : IXXAT_USB_E_FAILED;
+	return (msg_cnt < IXXAT_USB_MAX_MSGS) ? msg_idx : IXXAT_USB_MAX_MSGS;
 }
 
 /* ixxat_usb_msg_free_idx - free a message index
@@ -1774,7 +1772,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 
 	/* get free msg number (ClientId) */
 	msg_idx = ixxat_usb_msg_get_next_idx(dev);
-	if (msg_idx == IXXAT_USB_E_FAILED) {
+	if (msg_idx >= IXXAT_USB_MAX_MSGS) {
 		ixxat_usb_rel_tx_context(dev, context);
 		netif_stop_queue(netdev);
 		return NETDEV_TX_BUSY;
