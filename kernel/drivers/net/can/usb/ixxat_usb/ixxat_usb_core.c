@@ -1462,7 +1462,7 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 
 		default:
 			netdev_err(netdev,
-				   "CAN Unhandled rec type 0x%02x (%d): ignored\n",
+				   "CAN Unhandled rec 0x%02x/%d: ignored\n",
 				   type, type);
 			break;
 		}
