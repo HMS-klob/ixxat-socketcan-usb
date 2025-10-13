@@ -2109,7 +2109,7 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 
 		strscpy(name, netdev->name, IFNAMSIZ);
 
-		/* sysfs_remove_group(&dev->netdev->dev.kobj, &ixxat_pdev_group); */
+		sysfs_remove_group(&dev->netdev->dev.kobj, &ixxat_pdev_group);
 
 		unregister_candev(netdev);
 
