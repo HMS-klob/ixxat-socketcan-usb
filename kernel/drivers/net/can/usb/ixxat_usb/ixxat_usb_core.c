@@ -913,12 +913,14 @@ static void ixxat_usb_free_usb_communication(struct ixxat_usb_candevice *dev)
 	for (urb_idx = 0; urb_idx < IXXAT_USB_MAX_TX_URBS; urb_idx++)
 		dev->tx_contexts[urb_idx].urb_index = IXXAT_USB_FREE_ENTRY;
 
+#ifndef IX_INTREE_VARIANT
 	/* Annotation:
 	 * The Urbs are released within the system with (usb_free_urb)
 	 * dependant on the reference count
 	 * With the Urbs the assigned buffers are also deleted.
 	 * This is caused by urb->transfer_flags |= URB_FREE_BUFFER;
 	 */
+#endif
 }
 
 /* ixxat_usb_restart - restart (stop/start) the controller
