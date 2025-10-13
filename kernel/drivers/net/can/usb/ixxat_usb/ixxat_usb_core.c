@@ -456,7 +456,7 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 		       const u16 req_size, void *res, const u16 res_size)
 {
 	struct ixxat_usb_dal_res *dal_res = res;
-	int i, ret = 0, pos = 0;
+	int i, ret, pos = 0;
 
 	/* Send the command */
 	for (i = 0; i < IXXAT_USB_MAX_COM_REQ; i++) {
