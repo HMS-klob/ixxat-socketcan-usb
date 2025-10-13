@@ -22,8 +22,18 @@
 
 #include "ixxat_usb_core.h"
 
+#ifndef IX_INTREE_VARIANT
 #ifdef DEBUG
 #define IXXAT_DEBUG
+#endif
+
+#if defined(CONFIG_TRACING) && defined(DEBUG)
+#define ix_trace_printk(...)		trace_printk(__VA_ARGS__)
+#elif defined(IXXAT_DEBUG)
+#define ix_trace_printk(...)		pr_info(__VA_ARGS__)
+#else
+#define ix_trace_printk(...)
+#endif
 #endif
 
 MODULE_AUTHOR("HMS Technology Center GmbH <socketcan@hms-networks.com>");
@@ -42,13 +52,6 @@ MODULE_LICENSE("GPL v2");
 
 #define IXXAT_USB_E_FAILED		0xFFFFFFFF
 
-#if defined(CONFIG_TRACING) && defined(DEBUG)
-#define ix_trace_printk(...)		trace_printk(__VA_ARGS__)
-#elif defined(IXXAT_DEBUG)
-#define ix_trace_printk(...)		pr_info(__VA_ARGS__)
-#else
-#define ix_trace_printk(...)
-#endif
 /* struct ixxat_driver_info IXXAT USB device static information
  * @name	commercial name
  * @adapter	IXXAT USB adapter family
