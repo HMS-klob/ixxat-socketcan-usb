@@ -2515,8 +2515,8 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	}
 
 	if (!adapter) {
-		dev_err(&intf->dev, "%s: Unknown device id %d\n",
-			KBUILD_MODNAME, id->idProduct);
+		dev_err(&intf->dev, KBUILD_MODNAME ": Unknown device id %d\n",
+			id->idProduct);
 		err = -ENODEV;
 		goto lbl_free;
 	}
