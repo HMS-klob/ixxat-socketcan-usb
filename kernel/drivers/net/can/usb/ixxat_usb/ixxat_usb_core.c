@@ -1396,7 +1396,7 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 		u32 type;
 
 		/* Since struct ixxat_can_msg is packed and starts with a byte,
-		 * we have no choice but to copy the whole into a local
+		 * we have no choice but to copy the whole message into a local
 		 * variable to avoid bus violation.
 		 */
 		size = data[pos] + 1;
