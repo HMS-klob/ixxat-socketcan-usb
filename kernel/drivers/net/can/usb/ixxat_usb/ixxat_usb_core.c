@@ -1860,7 +1860,9 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 			break;
 		}
 
+#ifdef IXXAT_DEBUG
 		ix_trace_printk("setup: kmalloc %x\n", adapter->buffer_size_rx);
+#endif
 		buf = kmalloc(adapter->buffer_size_rx, GFP_KERNEL);
 		if (!buf) {
 			usb_free_urb(urb);
@@ -1872,7 +1874,9 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 
 		dev->rx_buf[i] = buf;
 
+#ifdef IXXAT_DEBUG
 		ix_trace_printk("setup: fill_bulk_urb %i\n", dev->ep_msg_in);
+#endif
 		usb_fill_bulk_urb(urb, udev,
 				  usb_rcvbulkpipe(udev, dev->ep_msg_in), buf,
 				  adapter->buffer_size_rx,
