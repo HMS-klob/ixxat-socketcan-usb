@@ -132,7 +132,7 @@
 #define IXXAT_USB_CAN_CMD_GETCAPS2	0x335
 #define IXXAT_USB_CAN_CMD_INIT2		0x337
 
-static const struct can_bittiming_const usb2canV2_bt = {
+static const struct can_bittiming_const usb2can_v2_bt = {
 	.name = KBUILD_MODNAME,
 	.tseg1_min = IXXAT_USB2CANV2_TSEG1_MIN,
 	.tseg1_max = IXXAT_USB2CANV2_TSEG1_MAX,
@@ -144,7 +144,7 @@ static const struct can_bittiming_const usb2canV2_bt = {
 	.brp_inc = IXXAT_USB2CANV2_BRP_INC,
 };
 
-static const struct can_bittiming_const usb2canFD_bt = {
+static const struct can_bittiming_const usb2can_fd_bt = {
 	.name = KBUILD_MODNAME,
 	.tseg1_min = IXXAT_USB2CANFD_TSEG1_MIN,
 	.tseg1_max = IXXAT_USB2CANFD_TSEG1_MAX,
@@ -156,7 +156,7 @@ static const struct can_bittiming_const usb2canFD_bt = {
 	.brp_inc = IXXAT_USB2CANFD_BRP_INC,
 };
 
-static const struct can_bittiming_const usb2canFD_btd = {
+static const struct can_bittiming_const usb2can_fd_btd = {
 	.name = KBUILD_MODNAME,
 	.tseg1_min = IXXAT_USB2CANFD_TSEG1_MIN_DATA,
 	.tseg1_max = IXXAT_USB2CANFD_TSEG1_MAX_DATA,
@@ -282,8 +282,8 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 
 const struct ixxat_usb_adapter usb2can_fd = {
 	.clock = IXXAT_USB_CLOCK,
-	.bt = &usb2canFD_bt,
-	.btd = &usb2canFD_btd,
+	.bt = &usb2can_fd_bt,
+	.btd = &usb2can_fd_btd,
 	.modes = IXXAT_USB_MODES_FD,
 	.buffer_size_rx = IXXAT_USBFD_BUFFER_SIZE_RX,
 	.buffer_size_tx = IXXAT_USBFD_BUFFER_SIZE_TX,
@@ -308,7 +308,7 @@ const struct ixxat_usb_adapter usb2can_fd = {
 
 const struct ixxat_usb_adapter usb2can_v2 = {
 	.clock = IXXAT_USBV2_CLOCK,
-	.bt = &usb2canV2_bt,
+	.bt = &usb2can_v2_bt,
 	.modes = IXXAT_USB_MODES,
 	.buffer_size_rx = IXXAT_USBV2_BUFFER_SIZE_RX,
 	.buffer_size_tx = IXXAT_USBV2_BUFFER_SIZE_TX,
