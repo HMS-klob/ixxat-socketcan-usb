@@ -1094,7 +1094,6 @@ static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
 static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
 			      struct sk_buff *skb, __le32 ts_tick)
 {
-	// skb->tstamp = ktime_get();
 	return netif_rx(skb);
 }
 #endif
