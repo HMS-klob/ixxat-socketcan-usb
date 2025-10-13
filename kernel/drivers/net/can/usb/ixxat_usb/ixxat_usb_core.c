@@ -30,9 +30,6 @@ MODULE_AUTHOR("HMS Technology Center GmbH <socketcan@hms-networks.com>");
 MODULE_DESCRIPTION("SocketCAN driver for HMS Ixxat USB-to-CAN V2, USB-to-CAN-FD family adapters");
 MODULE_LICENSE("GPL v2");
 
-/* Prefix for debug output - makes for easier grepping */
-#define IX_DRIVER_TAG			"ix_usb_can: "
-
 /* minimum firmware version that supports V2 communication layer */
 #define IX_MIN_MAJORFWVERSION_SUPP_V2	0x01
 #define IX_MIN_MINORFWVERSION_SUPP_V2	0x07
@@ -2485,7 +2482,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	spin_lock_init(&devdata->access_lock);
 
 #ifndef IX_INTREE_VARIANT
-	pr_info(IX_DRIVER_TAG "KERNELVERSION: 0x%x (%i)",
+	pr_info(KBUILD_MODNAME ": KERNELVERSION: 0x%x (%i)",
 		LINUX_VERSION_CODE, LINUX_VERSION_CODE);
 #endif
 
