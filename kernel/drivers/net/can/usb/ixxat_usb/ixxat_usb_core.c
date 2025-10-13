@@ -1674,6 +1674,8 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 #endif
 		/* can_get_echo_skb() must always be called! */
 		echo_bytes = can_get_echo_skb(netdev, msg_idx, NULL);
+
+		/* do handle stats only in case of success */
 		if (!err) {
 			netdev->stats.tx_bytes += echo_bytes;
 			netdev->stats.tx_packets++;
@@ -1681,11 +1683,13 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 
 		ixxat_usb_msg_free_idx(dev, msg_idx);
 		context->msg_index = IXXAT_USB_MAX_MSGS;
+
+		/* restart transmit (if needed) */
+		netif_wake_queue(netdev);
 	}
 
 	ixxat_usb_rel_tx_context(dev, context);
 	atomic_dec(&dev->active_tx_urbs);
-	netif_wake_queue(netdev);
 }
 
 #if 0
