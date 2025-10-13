@@ -576,18 +576,13 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 	spin_lock_irqsave(&devdata->access_lock, flags);
 
 	if (!devdata->timeref_valid) {
-
 		devdata->timeref_valid = true;
-
 #ifdef IX_SYNCTOHOSTCLOCK_NONE
 		devdata->kt_host_start = 0;
-
 #elif defined(IX_SYNCTOHOSTCLOCK_BEFORESTART)
 		devdata->kt_host_start = t_A;
-
 #elif defined(IIX_SYNCTOHOSTCLOCK_AFTERSTART)
 		devdata->kt_host_start = t_B;
-
 #elif defined(IX_SYNCTOHOSTCLOCK_ONSTART)
 		devdata->kt_host_start = t_A +
 					 ktime_divns(ktime_sub(t_B, t_A), 2);
@@ -595,7 +590,6 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 #error "Invalid IX_SYNCTOHOSTCLOCK setting"
 #endif
 		devdata->ts_dev_start = ts_dev_start;
-
 #ifdef IXXAT_DEBUG
 		netdev_info(dev->netdev,
 			 "set kt_host_start: %lld devtick: %u\n",
@@ -796,7 +790,6 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 #ifndef IX_SYNCTOHOSTCLOCK_NONE
 	kt_host_B = ktime_get_real_ns();
 #endif
-
 	if (!err)
 		start_offset = le32_to_cpu(cmd->time);
 
@@ -1026,7 +1019,6 @@ static void ixxat_convert(const struct ixxat_usb_adapter *adapter,
 }
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(5, 8, 0)
-
 /* define 64bit mul_div function which exists only on
  * kernel 5.9 and higher
  */
