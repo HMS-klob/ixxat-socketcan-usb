@@ -1276,8 +1276,11 @@ static int ixxat_usb_handle_status(struct ixxat_usb_candevice *dev,
 		break;
 	}
 
+#if 0
+	/* SGr: Don't update stats with error skb */
 	netdev->stats.rx_packets++;
 	netdev->stats.rx_bytes += can_frame->can_dlc;
+#endif
 
 	ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
 
@@ -1359,8 +1362,11 @@ static int ixxat_usb_handle_error(struct ixxat_usb_candevice *dev,
 		break;
 	}
 
+#if 0
+	/* SGr: Don't update stats with error skb */
 	netdev->stats.rx_packets++;
 	netdev->stats.rx_bytes += can_frame->can_dlc;
+#endif
 
 	ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
 
