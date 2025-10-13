@@ -1787,7 +1787,7 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	can_put_echo_skb(skb, netdev, msg_idx, 0);
 
 #ifdef IX_STATISTICS_EXACT
-	/* if running firmware other van CL1, don't use Urb msg_idx to handle
+	/* if running firmware other than CL1, don't use Urb msg_idx to handle
 	 * echo skb but wait for the looped back frame and the client id.
 	 */
 	context->msg_index = (dev->adapter != &usb2can_cl1) ?
