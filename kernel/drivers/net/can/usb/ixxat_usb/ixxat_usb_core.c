@@ -1066,8 +1066,8 @@ static inline u64 mul_u64_u64_div_u64(u64 a, u64 mul, u64 div)
 static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
 			      struct sk_buff *skb, __le32 ts_tick)
 {
-	u64 ts_ns;
 	struct skb_shared_hwtstamps *hwts = skb_hwtstamps(skb);
+	u64 ts_ns;
 
 	/* calculate tick offset */
 	u64 ticks = timeref->ts_overrun_ticks;
