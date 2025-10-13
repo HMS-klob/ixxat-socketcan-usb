@@ -1167,7 +1167,7 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 	else
 		skb = alloc_can_skb(netdev, (struct can_frame **)&cf);
 
-	if (!skb)
+	if (unlikely(!skb))
 		return -ENOMEM;
 
 	ixxat_convert(dev->adapter, cf, rx, datalen);
@@ -1239,7 +1239,7 @@ static int ixxat_usb_handle_status(struct ixxat_usb_candevice *dev,
 		dev->can.state = new_state;
 
 	skb = alloc_can_err_skb(netdev, &can_frame);
-	if (!skb)
+	if (unlikely(!skb))
 		return -ENOMEM;
 
 	switch (new_state) {
@@ -1324,7 +1324,7 @@ static int ixxat_usb_handle_error(struct ixxat_usb_candevice *dev,
 		netdev->stats.rx_errors++;
 
 	skb = alloc_can_err_skb(netdev, &can_frame);
-	if (!skb)
+	if (unlikely(!skb))
 		return -ENOMEM;
 
 	switch (raw_error) {
