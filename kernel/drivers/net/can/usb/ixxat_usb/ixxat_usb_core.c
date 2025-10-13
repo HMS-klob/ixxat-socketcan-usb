@@ -1248,14 +1248,20 @@ static int ixxat_usb_handle_status(struct ixxat_usb_candevice *dev,
 		can_frame->data[1] |= CAN_ERR_CRTL_ACTIVE;
 		break;
 	case CAN_STATE_ERROR_WARNING:
-		can_frame->can_id |= CAN_ERR_CRTL;
-		can_frame->data[1] |= CAN_ERR_CRTL_TX_WARNING;
-		can_frame->data[1] |= CAN_ERR_CRTL_RX_WARNING;
+		can_frame->can_id |= CAN_ERR_CRTL | CAN_ERR_CNT;
+		can_frame->data[1] = (dev->bec.txerr > dev->bec.rxerr) ?
+			CAN_ERR_CRTL_TX_WARNING :
+			CAN_ERR_CRTL_RX_WARNING;
+		can_frame->data[6] = dev->bec.txerr;
+		can_frame->data[7] = dev->bec.rxerr;
 		break;
 	case CAN_STATE_ERROR_PASSIVE:
-		can_frame->can_id |= CAN_ERR_CRTL;
-		can_frame->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
+		can_frame->can_id |= CAN_ERR_CRTL | CAN_ERR_CNT;
 		can_frame->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
+		if (dev->bec.txerr > 127)
+			can_frame->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
+		can_frame->data[6] = dev->bec.txerr;
+		can_frame->data[7] = dev->bec.rxerr;
 		break;
 	case CAN_STATE_BUS_OFF:
 		can_frame->can_id |= CAN_ERR_BUSOFF;
