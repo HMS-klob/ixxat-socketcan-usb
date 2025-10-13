@@ -552,8 +552,10 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 
 /* ixxat_usb_ts_set_start - set controller start timestamp
  * @dev: pointer to the IXXAT USB CAN device
+#ifndef IX_SYNCTOHOSTCLOCK_NONE
  * @t_A: timestamp A (before start command)
  * @t_B: timestamp B (after start command)
+#endif
  * @ts_dev_start: device start timestamp
  *
  * This function sets the controller start timestamp based on the provided
@@ -561,7 +563,10 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
  * structure in the shared data of the device.
  */
 static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
-				   ktime_t t_A, ktime_t t_B, u32 ts_dev_start)
+#ifndef IX_SYNCTOHOSTCLOCK_NONE
+				   ktime_t t_A, ktime_t t_B,
+#endif
+				   u32 ts_dev_start)
 {
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
 	unsigned long flags;
@@ -775,7 +780,9 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 	const u32 req_size = sizeof(cmd->req);
 	const u32 rcv_size = cmd_size - req_size;
 	const u32 snd_size = req_size + sizeof(cmd->res);
+#ifndef IX_SYNCTOHOSTCLOCK_NONE
 	ktime_t kt_host_A, kt_host_B;
+#endif
 	u32 start_offset = 0;
 	int err;
 
@@ -785,17 +792,25 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 	cmd->res.res_size = cpu_to_le32(rcv_size);
 	cmd->time = 0;
 
+#ifndef IX_SYNCTOHOSTCLOCK_NONE
 	kt_host_A = ktime_get_real_ns();
+#endif
 
 	err = ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
 				 rcv_size);
 
+#ifndef IX_SYNCTOHOSTCLOCK_NONE
 	kt_host_B = ktime_get_real_ns();
+#endif
 
 	if (!err)
 		start_offset = le32_to_cpu(cmd->time);
 
+#ifdef IX_SYNCTOHOSTCLOCK_NONE
+	ixxat_usb_ts_set_start(dev, start_offset);
+#else
 	ixxat_usb_ts_set_start(dev, kt_host_A, kt_host_B, start_offset);
+#endif
 
 #if IX_CONFIG_USE_HW_TIMESTAMPS
 	dev->time_ref.ts_overrun_ticks = 0;
