@@ -911,9 +911,7 @@ static void ixxat_usb_free_usb_communication(struct ixxat_usb_candevice *dev)
 		can_free_echo_skb(netdev, skb_idx, NULL);
 
 	for (urb_idx = 0; urb_idx < IXXAT_USB_MAX_TX_URBS; urb_idx++)
-		if (dev->tx_contexts[urb_idx].urb_index != IXXAT_USB_FREE_ENTRY)
-			dev->tx_contexts[urb_idx].urb_index =
-				IXXAT_USB_FREE_ENTRY;
+		dev->tx_contexts[urb_idx].urb_index = IXXAT_USB_FREE_ENTRY;
 
 	/* Annotation:
 	 * The Urbs are released within the system with (usb_free_urb)
