@@ -41,7 +41,7 @@
  *
  * CL1 firmwares can't do exact statistics.
  *
- * IX_STATISTICS_EXACT is not defined in the Linux kernel in-tree driver variant
+ * IX_STATISTICS_EXACT is not defined in the Linux kernel in-tree variant.
  */
 #undef IX_STATISTICS_EXACT
 
