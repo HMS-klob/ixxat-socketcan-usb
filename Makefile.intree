@@ -13,7 +13,7 @@
 #
 INTREE_MOD_DIR := $(MOD_DIR).intree
 
-.PHONY: intree is_unifdef_installed intree-local clean_intree
+.PHONY: intree is_unifdef_installed intree-local clean-intree
 
 UNIFDEF = unifdef
 UNIFDEF_FILE := /tmp/unifdef.intree
@@ -51,7 +51,7 @@ endif
 intree-local:
 	$(MAKE) intree INTREE_KERNEL=$(KERNEL_SRC)
 
-clean_intree:
+clean-intree:
 	$(MAKE) MOD_DIR=$(INTREE_MOD_DIR) clean
 
 help:
@@ -71,6 +71,6 @@ help:
 	@echo " 		$(INTREE_MOD_DIR)"
 	@echo " 		If INTREE_KERNEL is set on command line, then the in-tree driver"
 	@echo " 		is compiled against that Linux kernel version too."
-	@echo "clean_intree	Remove temporary files from the in-tree driver directory:"
-	@echo " 		$(INTREE_MOD_DIR)"
+	@echo "clean-intree  Remove temporary files from the in-tree driver working directory:"
+	@echo "              $(INTREE_MOD_DIR)"
 	@echo
