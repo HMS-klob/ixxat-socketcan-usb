@@ -799,7 +799,7 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 	ixxat_usb_ts_set_start(dev, kt_host_A, kt_host_B, start_offset);
 #endif
 
-#if IX_CONFIG_USE_HW_TIMESTAMPS
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 	dev->time_ref.ts_overrun_ticks = 0;
 #endif
 
