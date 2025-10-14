@@ -12,11 +12,12 @@
 # Author: Stéphane Grosjean <stephane.grosjean@hms-networks.com>
 #
 AWK ?= awk
+UNIFDEF ?= unifdef
+
 INTREE_MOD_DIR := $(MOD_DIR).intree
 
 .PHONY: intree is_unifdef_installed intree-local clean-intree
 
-UNIFDEF = unifdef
 UNIFDEF_FILE := /tmp/unifdef.intree
 
 $(UNIFDEF_FILE):
