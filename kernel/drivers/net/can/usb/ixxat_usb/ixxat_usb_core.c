@@ -50,6 +50,11 @@ MODULE_LICENSE("GPL v2");
 					  IX_MIN_MINORFWVERSION_SUPP_V2, \
 					  IX_MIN_MINORFWVERSION_SUPP_V2)
 
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
+/* multiply by 100.000.000 to get 1ns resolution */
+#define IX_TICK_FACTOR			1000000000ULL
+#endif
+
 /* struct ixxat_driver_info IXXAT USB device static information
  * @name	commercial name
  * @adapter	IXXAT USB adapter family
@@ -511,9 +516,6 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 }
 
 #ifdef IX_CONFIG_USE_HW_TIMESTAMPS
-/* multiply by 100.000.000 to get 1ns resolution */
-const u64 TICK_FACTOR = 1000000000ULL;
-
 /* ixxat_usb_ts_set_cancaps - set timestamp multiplier/divider
  * from controller timestamp clock settings
  * @timeref: pointer to the time reference structure to set
