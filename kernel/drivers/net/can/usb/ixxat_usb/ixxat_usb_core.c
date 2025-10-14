@@ -2242,8 +2242,9 @@ static const struct net_device_ops ixxat_usb_netdev_ops = {
 	.ndo_stop = ixxat_usb_stop,
 #ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
-	/* .ndo_eth_ioctl does not exist on kernel prior to 6.0 */
 	.ndo_eth_ioctl = can_eth_ioctl_hwts,
+#else
+	/* .ndo_eth_ioctl does not exist on kernel prior to 6.0 */
 #endif
 #endif
 	.ndo_start_xmit = ixxat_usb_start_xmit,
