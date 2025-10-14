@@ -528,11 +528,13 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 				     u32 ts_clock_divisor,
 				     u32 ts_clock_freq)
 {
+	u64 tick_multiplier;
+
 	/* calculate tick multiplier and divider
 	 * divide by clock frequency -> resolution [1s]
-	 * multiply by TICK_FACTOR -> resolution [1ns]
+	 * multiply by IX_TICK_FACTOR -> resolution [1ns]
 	 */
-	timeref->tick_multiplier = (u64)ts_clock_divisor * TICK_FACTOR;
+	timeref->tick_multiplier = (u64)ts_clock_divisor * IX_TICK_FACTOR;
 	timeref->tick_divider = ts_clock_freq;
 
 	/* remove not significant zero bits from multiplier and divider */
@@ -543,12 +545,24 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 		timeref->tick_divider >>= 1;
 	}
 
+#if 0
 	/* check if multiplier is divisible by divider without remainder */
-	/* TODO: check 32-bit compilation against / */
 	if (!(timeref->tick_multiplier % timeref->tick_divider)) {
 		timeref->tick_multiplier /= timeref->tick_divider;
 		timeref->tick_divider = 1;
 	}
+#else
+	/* Check if multiplier is divisible by divider without remainder:
+	 * if do_div() return value is not 0 then multiplier is not divisible by
+	 * divider: restore (modified) tick_multiplier to its backup value.
+	 */
+	tick_multiplier = timeref->tick_multiplier;
+	if (do_div(timeref->tick_multiplier, timeref->tick_divider)) {
+		timeref->tick_multiplier = tick_multiplier;
+	} else {
+		timeref->tick_divider = 1;
+	}
+#endif
 }
 #endif
 
