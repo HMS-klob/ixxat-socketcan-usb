@@ -2282,7 +2282,6 @@ int ixxat_ethtool_op_get_ts_info_hwts(struct net_device *dev,
 static const struct ethtool_ops ixxat_ethtool_ops = {
 	.get_ts_info = ixxat_ethtool_op_get_ts_info_hwts
 };
-
 #endif
 #endif
 
