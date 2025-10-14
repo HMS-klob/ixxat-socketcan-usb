@@ -45,6 +45,14 @@
  */
 #undef IX_STATISTICS_EXACT
 
+/* Include hardware timestamps support.
+ *
+ * You may undef this support building on older kernels or 32bit kernels
+ *
+ * IX_CONFIG_USE_HW_TIMESTAMPS is defined in the Linux kernel in-tree variant.
+ */
+#define IX_CONFIG_USE_HW_TIMESTAMPS
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
 #define can_fd_dlc2len(dlc)			can_dlc2len(get_canfd_dlc(dlc))
 #define can_fd_len2dlc(dlc)			can_len2dlc(dlc)

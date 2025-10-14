@@ -510,7 +510,7 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 	return le32_to_cpu(dal_res->code);
 }
 
-#if IX_CONFIG_USE_HW_TIMESTAMPS
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 /* multiply by 100.000.000 to get 1ns resolution */
 const u64 TICK_FACTOR = 1000000000ULL;
 
@@ -1039,7 +1039,7 @@ static inline u64 mul_u64_u64_div_u64(u64 a, u64 mul, u64 div)
 #define mul_u64_u64_div_u64 mul_u64_u64_div_u64
 #endif
 
-#if IX_CONFIG_USE_HW_TIMESTAMPS
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 /* ixxat_usb_netif_rx - receive a CAN message and pass it to the network stack
  * @timeref: pointer to the time reference structure
  * @skb: pointer to the socket buffer containing the CAN message
@@ -1435,7 +1435,7 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			break;
 
 		case IXXAT_USB_CAN_TIMEOVR:
-#if IX_CONFIG_USE_HW_TIMESTAMPS
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 			{
 				u64 time = le32_to_cpu(can_msg.base.msg_id);
 				dev->time_ref.ts_overrun_ticks += (time << 32);
@@ -2240,7 +2240,7 @@ static int ixxat_usb_stop(struct net_device *netdev)
 static const struct net_device_ops ixxat_usb_netdev_ops = {
 	.ndo_open = ixxat_usb_open,
 	.ndo_stop = ixxat_usb_stop,
-#if IX_CONFIG_USE_HW_TIMESTAMPS
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
 	/* .ndo_eth_ioctl does not exist on kernel prior to 6.0 */
 	.ndo_eth_ioctl = can_eth_ioctl_hwts,
@@ -2250,7 +2250,7 @@ static const struct net_device_ops ixxat_usb_netdev_ops = {
 	.ndo_change_mtu = can_change_mtu,
 };
 
-#if IX_CONFIG_USE_HW_TIMESTAMPS
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
 
 static const struct ethtool_ops ixxat_ethtool_ops = {
@@ -2304,7 +2304,7 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 	struct net_device *netdev;
 	int err;
 	int i;
-#if IX_CONFIG_USE_HW_TIMESTAMPS
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 	u32 ts_clock_divisor;
 	u32 ts_clock_freq;
 	struct ixxat_cancaps2 caps;
@@ -2360,12 +2360,12 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 
 	/* configure netdev */
 	netdev->netdev_ops = &ixxat_usb_netdev_ops;
-#if IX_CONFIG_USE_HW_TIMESTAMPS
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 	netdev->ethtool_ops = &ixxat_ethtool_ops;
 #endif
 	netdev->flags |= IFF_ECHO;
 
-#if IX_CONFIG_USE_HW_TIMESTAMPS
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 	dev->adapter->get_ctrl_caps(dev, &caps);
 
 	ts_clock_divisor = le32_to_cpu(caps.ts_clock_divisor);
@@ -2387,7 +2387,7 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 		goto free_candev;
 	}
 
-#if IX_CONFIG_USE_HW_TIMESTAMPS
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 	netdev_info(netdev, "timestamp clock resolution  : %u / %u\n",
 		    ts_clock_freq, ts_clock_divisor);
 	netdev_info(netdev, "timestamp multiplier/divisor: %llu / %llu\n",
