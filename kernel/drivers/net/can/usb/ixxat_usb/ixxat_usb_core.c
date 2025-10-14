@@ -2359,13 +2359,11 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 	ixxat_usb_msg_free_idx(dev, 0xFFFFFFFF);
 
 	/* configure netdev */
+	netdev->flags |= IFF_ECHO;
 	netdev->netdev_ops = &ixxat_usb_netdev_ops;
 #ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 	netdev->ethtool_ops = &ixxat_ethtool_ops;
-#endif
-	netdev->flags |= IFF_ECHO;
 
-#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 	dev->adapter->get_ctrl_caps(dev, &caps);
 
 	ts_clock_divisor = le32_to_cpu(caps.ts_clock_divisor);
