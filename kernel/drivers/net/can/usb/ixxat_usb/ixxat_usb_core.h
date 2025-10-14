@@ -20,10 +20,6 @@
 #include "ixxat_kernel_adapt.h"
 #endif
 
-/* #define IXXAT_USB_DRIVER_NAME  KBUILD_MODNAME  -> "ix_usb_can"
- * #define IXXAT_USB_CTRL_NAME "ixxat_usb"
- */
-
 /* vendor ids used by IXXAT devices */
 #define IXXAT_USB_VENDOR_ID_LEGACY		0x08d8
 #define IXXAT_USB_VENDOR_ID			0x08db
