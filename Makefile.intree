@@ -11,6 +11,7 @@
 #
 # Author: Stéphane Grosjean <stephane.grosjean@hms-networks.com>
 #
+AWK ?= awk
 INTREE_MOD_DIR := $(MOD_DIR).intree
 
 .PHONY: intree is_unifdef_installed intree-local clean-intree
@@ -35,7 +36,14 @@ intree: is_unifdef_installed $(UNIFDEF_FILE)
 	mkdir -p $(INTREE_MOD_DIR)
 	@for f in `ls $(MOD_DIR)/*.[ch] $(MOD_DIR)/Kconfig $(MOD_DIR)/Makefile`; do \
 		fn=`basename $$f`; echo $(INTREE_MOD_DIR)/$$fn; \
-		$(UNIFDEF) -x 2 -B -k -f $(UNIFDEF_FILE) $$f > $(INTREE_MOD_DIR)/$$fn; \
+		$(AWK) '\
+($$1 == "#if" && $$2 == "LINUX_VERSION_CODE" && $$4 ~ "^KERNEL_VERSION") { \
+	match($$0, /\(([0-9]+), ([0-9]+), ([0-9]+)\)/, arr); \
+	v = arr[1] * 65536 + arr[2] * 256 + arr[3]; \
+	$$0 = $$1 " " $$2 " " $$3 " " v; \
+} { print }' $$f > $$f.p1; \
+		$(UNIFDEF) -x 2 -B -k -f $(UNIFDEF_FILE) $$f.p1 > $(INTREE_MOD_DIR)/$$fn; \
+		rm -f $$f.p1; \
 	done
 	@-rm -f $(INTREE_MOD_DIR)/*.mod.c $(INTREE_MOD_DIR)/ixxat_kernel_adapt.h
 ifneq ($(INTREE_KERNEL),)
