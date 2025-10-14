@@ -635,7 +635,7 @@ static int ixxat_usb_get_dev_caps(struct usb_device *dev,
 	num_ctrl = le16_to_cpu(cmd->caps.bus_ctrl_count);
 	if (num_ctrl > ARRAY_SIZE(dev_caps->bus_ctrl_types)) {
 		dev_err(&dev->dev, KBUILD_MODNAME
-			": invalid ctrlr count %u in rsp (> %lu)\n",
+			": invalid ctrlr count %u in rsp (> %zu)\n",
 			num_ctrl, ARRAY_SIZE(dev_caps->bus_ctrl_types));
 		return -EINVAL;
 	}
