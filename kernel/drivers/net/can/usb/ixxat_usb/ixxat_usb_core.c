@@ -1238,20 +1238,32 @@ static int ixxat_usb_handle_status(struct ixxat_usb_candevice *dev,
 		can_frame->data[1] |= CAN_ERR_CRTL_ACTIVE;
 		break;
 	case CAN_STATE_ERROR_WARNING:
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
 		can_frame->can_id |= CAN_ERR_CRTL | CAN_ERR_CNT;
 		can_frame->data[1] = (dev->bec.txerr > dev->bec.rxerr) ?
 			CAN_ERR_CRTL_TX_WARNING :
 			CAN_ERR_CRTL_RX_WARNING;
 		can_frame->data[6] = dev->bec.txerr;
 		can_frame->data[7] = dev->bec.rxerr;
+#else
+		can_frame->can_id |= CAN_ERR_CRTL;
+		can_frame->data[1] |= CAN_ERR_CRTL_TX_WARNING;
+		can_frame->data[1] |= CAN_ERR_CRTL_RX_WARNING;
+#endif
 		break;
 	case CAN_STATE_ERROR_PASSIVE:
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
 		can_frame->can_id |= CAN_ERR_CRTL | CAN_ERR_CNT;
 		can_frame->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
 		if (dev->bec.txerr > 127)
 			can_frame->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
 		can_frame->data[6] = dev->bec.txerr;
 		can_frame->data[7] = dev->bec.rxerr;
+#else
+		can_frame->can_id |= CAN_ERR_CRTL;
+		can_frame->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
+		can_frame->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
+#endif
 		break;
 	case CAN_STATE_BUS_OFF:
 		can_frame->can_id |= CAN_ERR_BUSOFF;
