@@ -12,6 +12,7 @@
 # Author: Stéphane Grosjean <stephane.grosjean@hms-networks.com>
 #
 AWK ?= awk
+GREP ?= grep
 UNIFDEF ?= unifdef
 
 INTREE_MOD_DIR := $(MOD_DIR).intree
@@ -20,20 +21,39 @@ INTREE_MOD_DIR := $(MOD_DIR).intree
 
 UNIFDEF_FILE := /tmp/unifdef.intree
 
-$(UNIFDEF_FILE):
-	@echo "#undef DEBUG" >> $(UNIFDEF_FILE)
-	@echo "#define LINUX_VERSION_CODE	0xffffffff" >> $(UNIFDEF_FILE)
-	@echo "#define KERNEL_VERSION(a,b,c)	((((a*256)+b)*512)+c)" >> $(UNIFDEF_FILE)
-	@echo "#define IX_INTREE_VARIANT" >> $(UNIFDEF_FILE)
-	@echo "#define IX_SYNCTOHOSTCLOCK_NONE" >> $(UNIFDEF_FILE)
-	@echo "#undef IXXAT_DEBUG" >> $(UNIFDEF_FILE)
-	@echo "#undef IX_STATISTICS_EXACT" >> $(UNIFDEF_FILE)
+# $1 LINUX_VERSION_CODE
+define build-unifdef-file
+	v=$1; \
+	echo "#define LINUX_VERSION_CODE $$v" > $(UNIFDEF_FILE); \
+	echo "#undef DEBUG" >> $(UNIFDEF_FILE); \
+	echo "#undef IXXAT_DEBUG" >> $(UNIFDEF_FILE); \
+	echo "#define IX_INTREE_VARIANT" >> $(UNIFDEF_FILE); \
+	echo "#define IX_SYNCTOHOSTCLOCK_NONE" >> $(UNIFDEF_FILE); \
+	echo "#define IX_CONFIG_USE_HW_TIMESTAMPS" >> $(UNIFDEF_FILE); \
+	echo "#undef IX_STATISTICS_EXACT" >> $(UNIFDEF_FILE)
+endef
+
+# $1 : symbol to get
+# $2 : Linux kernel tree
+define get-linux-define-value
+if [ -n "$2" -a -d "$2" ]; then \
+	$(GREP) -rh --include="*.[ch]" $1 $2 | \
+		$(AWK) '($$1 == "#define" && $$2 == "$1") { print $$3 }'; \
+fi
+endef
 
 is_unifdef_installed:
 	@$(UNIFDEF) -h > /dev/null 2>&1
 
-intree: is_unifdef_installed $(UNIFDEF_FILE)
-	rm -rf $(INTREE_MOD_DIR)
+INTREE_VERSION_CODE := $(shell $(call get-linux-define-value,LINUX_VERSION_CODE,$(INTREE_KERNEL)))
+
+intree: is_unifdef_installed
+ifneq ($(INTREE_VERSION_CODE),)
+	@$(call build-unifdef-file,$(INTREE_VERSION_CODE))
+else
+	@$(call build-unifdef-file,4294967295)
+endif
+	-@rm -rf $(INTREE_MOD_DIR)
 	mkdir -p $(INTREE_MOD_DIR)
 	@for f in `ls $(MOD_DIR)/*.[ch] $(MOD_DIR)/Kconfig $(MOD_DIR)/Makefile`; do \
 		fn=`basename $$f`; echo $(INTREE_MOD_DIR)/$$fn; \
