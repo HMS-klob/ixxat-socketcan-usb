@@ -573,11 +573,10 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 	 * divider: restore (modified) tick_multiplier to its backup value.
 	 */
 	tick_multiplier = timeref->tick_multiplier;
-	if (do_div(timeref->tick_multiplier, timeref->tick_divider)) {
+	if (do_div(timeref->tick_multiplier, timeref->tick_divider))
 		timeref->tick_multiplier = tick_multiplier;
-	} else {
+	else
 		timeref->tick_divider = 1;
-	}
 #endif
 }
 #endif
