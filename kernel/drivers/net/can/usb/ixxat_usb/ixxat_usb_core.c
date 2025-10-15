@@ -2280,9 +2280,10 @@ static int ixxat_usb_stop(struct net_device *netdev)
 			netdev_warn(netdev, "Error %d: Cannot stop device\n",
 				    err);
 		}
+
+		dev->state &= ~IXXAT_USB_STATE_STARTED;
 	}
 
-	dev->state &= ~IXXAT_USB_STATE_STARTED;
 	close_candev(netdev);
 	dev->can.state = CAN_STATE_STOPPED;
 
