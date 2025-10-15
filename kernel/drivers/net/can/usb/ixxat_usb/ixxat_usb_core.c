@@ -1977,10 +1977,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
  * device. It sets up the URBs to send CAN messages to the USB endpoint.
  *
  * Returns 0 on success (that is, if at least one tx urb has been successfully
- * submitted), a negative error code otherwise. In that case, submitted rx urbs
- * are also killed.
- *
- * WARNING: MUST BE called next to ixxat_usb_setup_rx_urbs()
+ * submitted), a negative error code otherwise.
  */
 static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 {
@@ -2023,10 +2020,9 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 		urb->transfer_flags |= URB_FREE_BUFFER;
 	}
 
-	if (!urb_idx) {
+	if (!urb_idx)
 		netdev_err(netdev, "Couldn't setup any tx-URBs\n");
-		usb_kill_anchored_urbs(&dev->rx_anchor);
-	} else if (urb_idx < IXXAT_USB_MAX_TX_URBS) {
+	else if (urb_idx < IXXAT_USB_MAX_TX_URBS) {
 		netdev_warn(netdev, "Tx performance may be slow\n");
 		err = 0;
 	}
@@ -2189,7 +2185,7 @@ static int ixxat_usb_start(struct ixxat_usb_candevice *dev)
 
 	err = ixxat_usb_setup_tx_urbs(dev);
 	if (err)
-		return err;
+		goto err_tx;
 
 	/* Try to reset the controller, in case it is already initialized
 	 * from a previous unclean shutdown
@@ -2226,6 +2222,9 @@ fail:
 		usb_free_urb(dev->tx_contexts[i].urb);
 		dev->tx_contexts[i].urb = NULL;
 	}
+
+err_tx:
+	usb_kill_anchored_urbs(&dev->rx_anchor);
 
 	return err;
 }
