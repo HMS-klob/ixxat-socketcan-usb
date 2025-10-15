@@ -1558,7 +1558,6 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 		msg_base->size += sizeof(can_msg.cl2);
 		msg_base->size -= sizeof(can_msg.cl2.data);
 		memcpy(can_msg.cl2.data, cf->data, cf->len);
-
 #ifdef IX_STATISTICS_EXACT
 		flags |= IXXAT_USB_MSG_FLAGS_SRR;
 		can_msg.cl2.client_id = cpu_to_le32(umsg_idx);
