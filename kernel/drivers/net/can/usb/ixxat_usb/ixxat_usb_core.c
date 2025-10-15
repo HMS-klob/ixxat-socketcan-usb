@@ -1897,7 +1897,8 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
  * This function allocates and initializes the receive URBs for the IXXAT USB
  * device. It sets up the URBs to receive CAN messages from the USB endpoint.
  *
- * Returns 0 on success, negative error code on failure.
+ * Returns 0 on success (that is, if at least one rx urb has been successfully
+ * submitted), a negative error code otherwise.
  */
 static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 {
@@ -1962,6 +1963,10 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 
 	if (!urb_idx)
 		netdev_err(netdev, "Couldn't setup any rx-URBs\n");
+	else if (urb_idx < IXXAT_USB_MAX_RX_URBS) {
+		netdev_warn(netdev, "Rx performance may be slow\n");
+		err = 0;
+	}
 
 	return err;
 }
@@ -1971,6 +1976,12 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
  *
  * This function allocates and initializes the transmit URBs for the IXXAT USB
  * device. It sets up the URBs to send CAN messages to the USB endpoint.
+ *
+ * Returns 0 on success (that is, if at least one tx urb has been successfully
+ * submitted), a negative error code otherwise. In that case, submitted rx urbs
+ * are also killed.
+ *
+ * WARNING: MUST BE called next to ixxat_usb_setup_rx_urbs()
  */
 static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 {
@@ -2014,8 +2025,11 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 	}
 
 	if (!urb_idx) {
-		netdev_err(netdev, "Error: Couldn't setup any tx-URBs\n");
+		netdev_err(netdev, "Couldn't setup any tx-URBs\n");
 		usb_kill_anchored_urbs(&dev->rx_anchor);
+	} else if (urb_idx < IXXAT_USB_MAX_TX_URBS) {
+		netdev_warn(netdev, "Tx performance may be slow\n");
+		err = 0;
 	}
 
 	return err;
