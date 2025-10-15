@@ -932,7 +932,6 @@ static void ixxat_usb_free_usb_communication(struct ixxat_usb_candevice *dev)
 
 	for (urb_idx = 0; urb_idx < IXXAT_USB_MAX_TX_URBS; urb_idx++)
 		dev->tx_contexts[urb_idx].urb_index = IXXAT_USB_FREE_ENTRY;
-
 #ifndef IX_INTREE_VARIANT
 	/* Annotation:
 	 * The Urbs are released within the system with (usb_free_urb)
@@ -1572,6 +1571,7 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 
 	size = msg_base->size + 1;
 	memcpy(obuf, &can_msg, size);
+
 	return size;
 }
 
@@ -1808,8 +1808,7 @@ static u8 ixxat_fix_loop_mode(bool loopback, bool global_loopback, bool old_dev)
 static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 					struct net_device *netdev)
 {
-	int err;
-	int size;
+	int err, size;
 	struct ixxat_usb_candevice *dev = netdev_priv(netdev);
 	struct ixxat_tx_urb_context *context;
 	struct net_device_stats *stats = &netdev->stats;
