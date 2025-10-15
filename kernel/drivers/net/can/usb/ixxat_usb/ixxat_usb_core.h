@@ -61,16 +61,6 @@
 #define IXXAT_USB_MAX_RX_URBS			4
 #define IXXAT_USB_MAX_TX_URBS			10
 
-#define IXXAT_USB_MAX_COM_REQ			10
-
-#define IXXAT_USB_MAX_MSGS			32
-
-#define IXXAT_USB_MSG_TIMEOUT			50
-#define IXXAT_USB_MSG_CYCLE			20
-
-#define IXXAT_USB_POWER_WAKEUP			0
-#define IXXAT_USB_POWER_WAKEUP_TIME		500
-
 #define IXXAT_USB_FWTYPE_RES			0	/* reserved */
 #define IXXAT_USB_FWTYPE_FLD			1	/* flash loader FW */
 #define IXXAT_USB_DEV__CCL			2	/* CCL conform FW */

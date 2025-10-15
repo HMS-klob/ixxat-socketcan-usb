@@ -55,6 +55,22 @@ MODULE_LICENSE("GPL v2");
 #define IX_TICK_FACTOR			1000000000ULL
 #endif
 
+/* Number of echo skb */
+#define IXXAT_USB_MAX_MSGS		32
+
+/* Number of attempts to send a USB command before deciding on failure */
+#define IXXAT_USB_MAX_COM_REQ		10
+
+/* Maximum wait time (in ms) for successful USB command transmission */
+#define IXXAT_USB_MSG_TIMEOUT		50
+
+/* Delay waiting for the continuation of a fragmented USB response */
+#define IXXAT_USB_MSG_CYCLE		20
+
+/* Power-up mode and waiting period (in ms) for it to take effect */
+#define IXXAT_USB_POWER_WAKEUP		0
+#define IXXAT_USB_POWER_WAKEUP_TIME	500
+
 /* struct ixxat_driver_info IXXAT USB device static information
  * @name	commercial name
  * @adapter	IXXAT USB adapter family
