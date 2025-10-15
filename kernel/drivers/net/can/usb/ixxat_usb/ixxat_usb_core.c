@@ -1901,13 +1901,12 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
  */
 static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 {
-	int i;
-	int err = 0;
+	int urb_idx, err = 0;
 	const struct ixxat_usb_adapter *adapter = dev->adapter;
 	struct net_device *netdev = dev->netdev;
 	struct usb_device *udev = dev->udev;
 
-	for (i = 0; i < IXXAT_USB_MAX_RX_URBS; i++) {
+	for (urb_idx = 0; urb_idx < IXXAT_USB_MAX_RX_URBS; urb_idx++) {
 		u8 *buf;
 
 		struct urb *urb = usb_alloc_urb(0, GFP_KERNEL);
@@ -1930,7 +1929,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 			break;
 		}
 
-		dev->rx_buf[i] = buf;
+		dev->rx_buf[urb_idx] = buf;
 
 #ifdef IXXAT_DEBUG
 		ix_trace_printk("setup: fill_bulk_urb %i\n", dev->ep_msg_in);
@@ -1947,7 +1946,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 		if (err) {
 			usb_unanchor_urb(urb);
 
-			dev->rx_buf[i] = NULL;
+			dev->rx_buf[urb_idx] = NULL;
 			kfree(buf);
 
 			usb_free_urb(urb);
@@ -1961,8 +1960,8 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 		usb_free_urb(urb);
 	}
 
-	if (!i)
-		netdev_err(netdev, "Error: Couldn't setup any rx-URBs\n");
+	if (!urb_idx)
+		netdev_err(netdev, "Couldn't setup any rx-URBs\n");
 
 	return err;
 }
@@ -1975,8 +1974,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
  */
 static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 {
-	int urb_idx;
-	int ret = 0;
+	int urb_idx, err = 0;
 	const struct ixxat_usb_adapter *adapter = dev->adapter;
 	struct net_device *netdev = dev->netdev;
 	struct usb_device *udev = dev->udev;
@@ -1987,18 +1985,18 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 
 		struct urb *urb = usb_alloc_urb(0, GFP_KERNEL);
 		if (!urb) {
-			ret = -ENOMEM;
+			err = -ENOMEM;
 			netdev_err(netdev, "Error %d: No memory for URBs\n",
-				   ret);
+				   err);
 			break;
 		}
 
 		buf = kmalloc(adapter->buffer_size_tx, GFP_KERNEL);
 		if (!buf) {
 			usb_free_urb(urb);
-			ret = -ENOMEM;
+			err = -ENOMEM;
 			netdev_err(netdev,
-				   "Error %d: No memory for USB-buffer\n", ret);
+				   "Error %d: No memory for USB-buffer\n", err);
 			break;
 		}
 
@@ -2020,7 +2018,7 @@ static int ixxat_usb_setup_tx_urbs(struct ixxat_usb_candevice *dev)
 		usb_kill_anchored_urbs(&dev->rx_anchor);
 	}
 
-	return ret;
+	return err;
 }
 
 /* sysfs attributes
