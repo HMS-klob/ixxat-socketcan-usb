@@ -495,6 +495,12 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 		}
 	}
 
+	if (i >= IXXAT_USB_MAX_COM_REQ) {
+		dev_err(&dev->dev, KBUILD_MODNAME
+			": Failed to send TX command after %d tries\n", i);
+		return -ETIMEDOUT;
+	}
+
 	/* Wait for the response */
 	for (i = 0; i < IXXAT_USB_MAX_COM_REQ; i++) {
 		ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), 0xff,
@@ -516,6 +522,12 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 			break;
 
 		msleep(IXXAT_USB_MSG_CYCLE);
+	}
+
+	if (i >= IXXAT_USB_MAX_COM_REQ) {
+		dev_err(&dev->dev, KBUILD_MODNAME
+			": Failed to read TX response after %d tries\n", i);
+		return -ETIMEDOUT;
 	}
 
 	/* firmware responses may be smaller than requested response size
