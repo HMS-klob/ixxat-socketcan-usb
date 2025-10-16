@@ -2599,7 +2599,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	}
 
 	if (err) {
-		dev_err(&intf->dev, "A firmware update may be required\n");
+		dev_warn(&intf->dev, "A firmware update may be required\n");
 		adapter = ixxat_usb_get_adapter(id, NULL);
 	} else {
 		adapter = ixxat_usb_get_adapter(id, &devdata->fw_info);
