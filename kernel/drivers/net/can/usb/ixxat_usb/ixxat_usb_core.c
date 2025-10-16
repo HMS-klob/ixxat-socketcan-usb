@@ -513,7 +513,8 @@ int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
 
 		if (ret < 0) {
 			dev_err(&dev->dev, KBUILD_MODNAME
-				": Failed to get TX response (err %d)\n", ret);
+				": No TX rsp after %d attempts (err %d)\n",xi
+				i, ret);
 			return ret;
 		}
 
