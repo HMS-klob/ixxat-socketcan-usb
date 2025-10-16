@@ -2420,13 +2420,6 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 	ts_clock_divisor = le32_to_cpu(caps.ts_clock_divisor);
 	ts_clock_freq  = le32_to_cpu(caps.ts_clock_freq);
 
-#ifndef IX_INTREE_VARIANT
-	netdev_info(netdev, "timestamp clock resolution  : %u / %u\n",
-		    ts_clock_freq, ts_clock_divisor);
-	netdev_info(netdev, "timestamp multiplier/divisor: %llu / %llu\n",
-		    dev->time_ref.tick_multiplier, dev->time_ref.tick_divider);
-#endif
-
 	ixxat_usb_ts_set_cancaps(&dev->time_ref, ts_clock_divisor,
 				 ts_clock_freq);
 #endif
@@ -2442,6 +2435,15 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 			err);
 		goto free_candev;
 	}
+
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
+#ifndef IX_INTREE_VARIANT
+	netdev_info(netdev, "timestamp clock resolution  : %u / %u\n",
+		    ts_clock_freq, ts_clock_divisor);
+	netdev_info(netdev, "timestamp multiplier/divisor: %llu / %llu\n",
+		    dev->time_ref.tick_multiplier, dev->time_ref.tick_divider);
+#endif
+#endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0)
 	/* do not set device address because
