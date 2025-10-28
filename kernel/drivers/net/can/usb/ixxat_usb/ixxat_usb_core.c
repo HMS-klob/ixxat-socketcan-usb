@@ -1855,8 +1855,6 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	urb = context->urb;
 	obuf = urb->transfer_buffer;
 
-	can_put_echo_skb(skb, netdev, msg_idx, 0);
-
 #ifdef IX_STATISTICS_EXACT
 	/* if running firmware other than CL1, don't use Urb msg_idx to handle
 	 * echo skb but wait for the looped back frame and the client id.
@@ -1879,6 +1877,8 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 #endif
 	urb->transfer_buffer_length = size;
 	usb_anchor_urb(urb, &dev->tx_anchor);
+
+	can_put_echo_skb(skb, netdev, msg_idx, 0);
 
 	atomic_inc(&dev->active_tx_urbs);
 
