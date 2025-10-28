@@ -1841,16 +1841,13 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 
 	/* find free URB */
 	context = ixxat_usb_get_tx_context(dev);
-	if (!context) {
-		netif_stop_queue(netdev);
+	if (!context)
 		return NETDEV_TX_BUSY;
-	}
 
 	/* get free msg number (ClientId) */
 	msg_idx = ixxat_usb_msg_get_next_idx(dev);
 	if (msg_idx >= IXXAT_USB_MAX_MSGS) {
 		ixxat_usb_rel_tx_context(dev, context);
-		netif_stop_queue(netdev);
 		return NETDEV_TX_BUSY;
 	}
 
