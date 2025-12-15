@@ -2318,7 +2318,9 @@ static const struct net_device_ops ixxat_usb_netdev_ops = {
 #endif
 #endif
 	.ndo_start_xmit = ixxat_usb_start_xmit,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 19, 0)
 	.ndo_change_mtu = can_change_mtu,
+#endif
 };
 
 #ifdef IX_CONFIG_USE_HW_TIMESTAMPS
