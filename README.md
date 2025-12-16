@@ -141,7 +141,7 @@ Useful information bits are
 * fpga_version
 * hardware (holds the device class string, e.g. "USB-to-CAN_FD")
 * hardware_version
-* operstate (up or down)
+* operation state (up or down)
 * serial (device id as string, usually the serial number)
 * statistics (statistic counters)
 * tx_queue_len (length of tx queue)
@@ -224,7 +224,7 @@ For basic operations on SocketCAN devices you need to install the can-utils pack
 $ sudo apt install can-utils
 ```
 
-After that you can use the commands cansend, candum and cangen to work with CAN messages.
+After that you can use the commands cansend, candump and cangen to work with CAN messages.
 
 ```
 $ cansend can0 123#112233
