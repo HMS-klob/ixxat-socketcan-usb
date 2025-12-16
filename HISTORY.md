@@ -2,6 +2,177 @@
 
 ## History
 
+### 2.1.3	(2025-12-15)
+
+- fixes submitted by Stephane Grosjean (stephane.grosjean@hms-networks.com):
+   * Include support of Linux 6.19
+   * can_put_echo_skb() releases skb, therefore it should be used once skb is no more referenced
+   * No need to stop network tx path on error (network core does it by itself)
+   * Replace unnecessary spin_lock_irqsave() by a simpler spin_lock()
+   * Change error into warning message
+   * Rework message format string according to variant kind
+   * Add number of attempts in err msg before returning the error
+   * Add tests at the end of loops to handle cases where the maximum number of
+     attempts is exceeded
+   * Move (back) netdev_info() usage (once the netdev device is named/initialized)
+   * Remove IXXAT_USB_STATE_STARTED "state" bit only when it is actually set
+   * BUGFIX(2/2): all Rx urb must be anchored in case an error occurs in ixxat_usb_start()
+     Move usb_kill_anchored_urbs(&dev->rx_anchor) outside of
+     ixxat_usb_setup_tx_urbs() (which indeed was not a good place to be) and put
+     it at the end of ixxat_usb_start() (just like pcan_usb_core.c does) so that
+     all submitted rx urbs will really be freed in case of "fail"
+   * BUGFIX: Now allows the driver to operate in degraded mode
+     when it has not been able to allocate all the URBs it requested.
+     Updated comments accordingly.
+   * Uniformizes variable names and their declarations
+   * Remove unnecessary braces in condition
+   * Remove unused constant definitions from in-tree variants
+   * Move constants definitions from core header to core C file and add comments
+     These constants only deal with core C file but not with common definitions
+     we assume to find in the core header file.
+   * Fix 32-bit compilation error by using do_div()
+     HW timestamps usage is now possible for 32 bit kernels
+   * Fix compilation for kernel < 6.0 (regarding Tx/Rx error counters usage)
+   * Fix 32-bit compilation warning
+   * Remove global TICK_FACTOR and use a #defined symbol instead
+   * Move kernel message regarding timestamp clock resolution outside of the
+     vanilla variant (too much verbose) but inside the
+     IX_CONFIG_USE_HW_TIMESTAMPS block to make reading easier
+   * Rearrange code to make it simpler to read
+   * Move comment so that t won't be part in vanilla version
+   * Reorder lines to make reading easier
+   * Fix forgotten #if/#ifdef replacement
+   * Remove useless comment/defines
+   * Use #ifdef instead of #if IX_CONFIG_USE_HW_TIMESTAMPS
+   * Rewrite "make help" and add "make intree-local" inline help
+   * Rewrite the way unifdef file is build.
+     This allows user to create an in-tree version that matches a given kernel
+     tree. If no Linux kernel is given, then a vanilla variant is made
+   * Move definition of UNIFDEF
+   * Introduce BUG_ON() on NULL context in read bulk callback too and remove
+     some local variables that are not really needed
+   * Rename variables names using Linux coding style
+   * BUGFIX: remove comment around sysfs_remove_group()
+   * Rewrite error message format
+   * CAN protocol errors are CAN bus errors
+   * Don't update network stats in case of error/status skb
+   * ixxat_usb_handle_status(): provide now rx/tx error counters in CAN state
+     change notifications
+   * Use unlikely(!skb) instead of !skb
+   * Keep comment for oot variant only
+   * Remove unnecessary test
+   * Rewrite xxat_usb_start_ctrl() to facilitate in-tree export
+   * Remove unnecessary init
+   * Remove unnecessary IXXAT_USB_E_FAILED
+     Replace it and change the corresponding failure test
+   * Move all what deal with ix_trace_printk() to OOT variant only
+   * Surround calls to ix_trace_printk() with #ifdef IXXAT_DEBUG
+     Mainly useful for unifdef
+   * Replace some calls to ix_trace_printk() wit netdev_warn()
+   * Use direct C constant in printk
+   * Remove unnecessary IX_DRIVER_TAG
+   * Do call netif_wake_queue() only when echo skb has bee nreleased
+   * add missing netif_wake_queue() once echo skb has been released
+   * Archive: keep original ixxat_fix_loop_mode() until new way is ok
+   * Correct alignment
+   * WIP: Rewrite echo management and ctrl loopback according to IX_STATISTICS_EXACT
+     loopback mode works with non CL1 FW in non exact statistics mode (like the
+     in-tree variant).
+     Tx path seems blocked when in STATISTICS_EXACT and interface in loopback
+     mode.
+   * CL2: Remove unnecessary initialization to 0
+   * CL2 FW: CTRLMODE_FD_NON_ISO bit SHOULD be handled only if CTRLMODE_FD is
+   * CL2 (non CL1) FW: add CTRLMODE_3_SAMPLES in supported mode list
+   * Since CL1 firmware handles hw loopback (but not client id) then set
+     again CTRLMODE_LOOPBACK in exported ctrlmode_supported
+   * Add possibility of compiling the intree against with the running kernel
+     WARNING: compilation can fail!
+   * Move ix_trace_xxx() (comment) into DEBUG conditional block so that it is
+     not part of the in-tree variant
+   * BUGFIX Rx path: handle err == -2 cases
+     err = -2 means error + resubmit... But ixxat_usb_read_bulk_callback()
+     returned "if (err)"... Fix this and return only in case err == -1
+   * Reserve verbose messages about timestamping for the DEBUG mode only
+   * Remove unused field from the in-tree variant
+   * First version of the in-tree variant that runs with (wrongly named)
+     "loopback" mode fixed
+   * If msg_idx == IXXAT_USB_MAX_MSGS, then no need to set it again
+   * msg_idx can't be >= IXXAT_USB_MAX_MSGS except when exact stistics are
+     requested (which can't be in the in-tree variant).
+   * can_echo_get_skb() must be called, even in case of errors
+   * Replace unnecessary ixxat_usb_candevice::msg_max with IXXAT_USB_MAX_MSGS
+   * Update trans_start only in case of success
+   * Prefer BUG_ON() in case of NULL context
+   * Rx path: arrange block of code handling SRR to isolate it
+   * Move IXXAT_USB_E_FAILED from .h into the only single .c file it is using it
+   * Remove unnecessary initializations to 0
+   * Since controller _init() function tests CAN_CTRLMODE_3_SAMPLES bit, then
+     it SHOULD be exported in ctrlmode_supported too!
+   * Since CL1 firmware doesn't support hardware loopback, remove it from
+     socket-can ctrlmode_supported attribute.
+     However, keep it in the oot variant of the driver (for compatibility,
+     waiting for decision to keep it...)
+   * Add symbols to define/undefine when exporting in-tree variant
+   * Change MODULE_AUTHOR email address from hms-networks.de to hms-networks.com
+   * New way of handling IX_STATISTICS_EXACT
+   * Fix alignment
+   * Add clock sync default/in-tree selection mode to unifdef file
+   * Rename IXXAT_INTREE_VARIANT into IX_INTREE_VARIANT
+   * Add "variant" terminology instead of "version"
+   * Remove useless macro
+   * Rename unifdef test rule name; append clean_intree to .PHONY targets list
+   * Reverses the compilation logic conditioned on the compiled variant
+   * Move ccflags-y definition to the Makefile used to build the driver module
+   * Corrects non-compliance with 80 characters line width rule
+   * BUXFIX: Fix the way LIN/CAN ports are enumerated
+   * Makefile: define IXXAT_OOT_VERSION in EXTRA_CFLAGS and support of 6.15
+   * Since kfree(devdata) has been added to release devdata in case of error,
+     normal path (without error) MUST explicitly return 0 WITHOUT freeing
+     devdata.
+   * Standardization of messages produced in the kernel:
+     Use netdev_xxx(netdev) and dev_xxx(intf->dev) whenever possible:
+   * Include support up to kernel 6.17.0+
+   * Move ixxat_kernel_adapt.h include in ixxat_us_b_core.h and remove version.h
+     include (which makes no sense in a in-tree version)
+   * Complete previous patches
+   * Use pre-allocated cmd buffer instead of allocating/freeing a temporary one
+   * ixxat_usb_needs_firmware_update() is used only in OOT version
+   * Put #include files in lexicographic order
+   * Correct lines longer than 80 characters
+   * Fix missing & in front of pointer
+   * Keep verbose msg for OOT version only
+   * Fix missing brace in condition
+   * Since ixxat_usb_disconnect() does kfree(devdata), return immediately
+   * fix forgotten kfree(devdata)
+   * An in-tree driver does not need to display the kernel version
+   * Remove next_dev field from device object
+   * Fix multi-lines comment syntax
+   * Corrects line breaks exceeding 80 characters; remove an empty line
+   * Move variables initialization to where they are declared
+   * Change for(;;) loop into while() loop
+   * Break on error and save (2) levels of indentation
+   * Remove unnecessary whitespaces and rename Windows style var names
+   * Return on error so that err is NETDEV_TX_OK which saves levels of indent
+   * Arrange the code to replace goto with fallthrough
+   * Linux Coding Style: Fix forbidden usage of TAB in declaration
+   * Rename all UrbIdx into urb_idx
+   * Linux coding style: rename all MsgIdx variables into msg_idx
+   * Combine two conditions into one and return next to error
+   * Remove redundant condition over urb->status and save one level of indent
+   * Replace #ifdef DEBUG by #ifdef IXXAT_DEBUG
+   * Move entire braces block into #if/#endif block so avoid empty braces block
+     in case unifdef is used over IX_CONFIG_USE_HW_TIMESTAMPS
+   * Since the value returned by fixxat_usb_decode_buf() is only compared to 0,
+     let's return err and delete ret, which has become useless.
+   * Since struct ixxat_can_msg is packed and starts with a byte, can't cast
+     can_msg pointer on a unaligned memory address.
+   * Factorize statements and change the while() loop to a for(;;) loop
+   * Fix Windows style coding variable name and move their declaration to the
+     block they're used only.
+   * Fix blank lines and a violation of the 80-character rule
+     Add a message explaining the error returned
+     Add Linux module compilation and intermediate files to .gitignore
+
 ### 2.1.2	(2025-09-30)
 
 - add #define IX_CONFIG_USE_HW_TIMESTAMP to be able to switch on/off 
@@ -11,8 +182,7 @@
 
 - rename "USB-to-CAN/FD Standard Brick" to "USB-to-CAN/FD Standard Card"
 - add support for device id 08DB:0014 ("USB-to-CAN/FD Standard Module")
-- merge fixes submitted by Stephane Grosjean (stephane.grosjean@hms-networks.
-  com)
+- fixes submitted by Stephane Grosjean (stephane.grosjean@hms-networks.com):
    * Remove all local mem allocation and use pre-alloc area to build commands
      To avoid memory fragmentation, command buffer is allocated at probe time,
      then used by each command handler function. This needs to pass the
