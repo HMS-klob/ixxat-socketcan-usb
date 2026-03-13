@@ -2,6 +2,11 @@
 
 ## History
 
+### 2.1.4	(2026-03-13)
+
+- rewrite function to remove fallthrough (fix build on kernel 4.19/debian 10)
+- remove unused code
+
 ### 2.1.3	(2025-12-15)
 
 - fixes submitted by Stephane Grosjean (stephane.grosjean@hms-networks.com):
