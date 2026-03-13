@@ -574,13 +574,6 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 		timeref->tick_divider >>= 1;
 	}
 
-#if 0
-	/* check if multiplier is divisible by divider without remainder */
-	if (!(timeref->tick_multiplier % timeref->tick_divider)) {
-		timeref->tick_multiplier /= timeref->tick_divider;
-		timeref->tick_divider = 1;
-	}
-#else
 	/* Check if multiplier is divisible by divider without remainder:
 	 * if do_div() return value is not 0 then multiplier is not divisible by
 	 * divider: restore (modified) tick_multiplier to its backup value.
@@ -590,7 +583,6 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 		timeref->tick_multiplier = tick_multiplier;
 	else
 		timeref->tick_divider = 1;
-#endif
 }
 #endif
 
@@ -1326,12 +1318,6 @@ static int ixxat_usb_handle_status(struct ixxat_usb_candevice *dev,
 		break;
 	}
 
-#if 0
-	/* SGr: Don't update stats with error skb */
-	netdev->stats.rx_packets++;
-	netdev->stats.rx_bytes += can_frame->can_dlc;
-#endif
-
 	ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
 
 	return 0;
@@ -1412,12 +1398,6 @@ static int ixxat_usb_handle_error(struct ixxat_usb_candevice *dev,
 		can_frame->data[2] |= CAN_ERR_PROT_UNSPEC;
 		break;
 	}
-
-#if 0
-	/* SGr: Don't update stats with error skb */
-	netdev->stats.rx_packets++;
-	netdev->stats.rx_bytes += can_frame->can_dlc;
-#endif
 
 	ixxat_usb_netif_rx(&dev->time_ref, skb, rx->base.time);
 
@@ -1766,59 +1746,6 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 	ixxat_usb_rel_tx_context(dev, context);
 	atomic_dec(&dev->active_tx_urbs);
 }
-
-#if 0
-
-#define IX_LOOP_DIS		0x00	/* disable self reception */
-#define IX_LOOP_SELF_RX		0x01	/* enable self reception */
-#define IX_LOOPBACK		0x02	/* pass on message to application */
-
-/* ixxat_fix_loop_mode - determine the loop mode for message transmission
- * @loopback: boolean indicating if loopback is set with setsockopt
- * @global_loopback: boolean indicating if global loopback is set
- * @old_dev: boolean indicating if the device is an old version (without client
- * ID)
- *
- * This function determines the loop mode for message transmission based on the
- * loopback settings and the device version. It returns the appropriate loop
- * mode.
- */
-static u8 ixxat_fix_loop_mode(bool loopback, bool global_loopback, bool old_dev)
-{
-	/* decision if this message should be loopbacked !! */
-	u8 loop_mode = IX_LOOP_DIS;
-
-	/* exact statistics means that all messages are sent with active
-	 * self reception (overhead) so that the statistic counter are
-	 * incremented after the message was really written on the can bus,
-	 * otherwise the counter is incremented after the WriteURB returns.
-	 */
-	/* SGr Note: this kind of choice makes nosense in vanilla context */
-	const bool statistics_exact = IX_STATISTICS_EXACT;
-
-	/* is loopback set with ip link .. loopback on */
-	if (global_loopback == true) {
-		/* is loopback set with setsockopt
-		 * can be changed between message transmission
-		 */
-
-		if (loopback)
-			loop_mode = IX_LOOP_SELF_RX | IX_LOOPBACK;
-	}
-
-	if ((loop_mode & IX_LOOP_SELF_RX) != IX_LOOP_SELF_RX)
-		if (statistics_exact)
-			loop_mode = IX_LOOP_SELF_RX;
-
-	/* the old firmware doesn't support a clientid
-	 * -> so there is no exact loopback or statistic possible
-	 */
-	if (old_dev)
-		loop_mode &= ~IX_LOOP_SELF_RX;
-
-	return loop_mode;
-}
-#endif
 
 /* ixxat_usb_start_xmit - start transmission of a CAN message
  * @skb: pointer to the socket buffer containing the CAN message
