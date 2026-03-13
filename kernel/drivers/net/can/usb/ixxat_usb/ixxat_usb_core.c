@@ -1705,28 +1705,25 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 	netdev = dev->netdev;
 
 	err = ixxat_evaluate_usb_status(netdev, urb, dev->ep_msg_out);
-	switch (err) {
-	case -1:
+	if (err == -1)
 		return;
 
-	case 0:
+	if (err == 0)
 		/* prevent tx timeout */
 		netif_trans_update(netdev);
 
-		fallthrough;
-	default:
-		/* find correct msg_idx with the CAN Id and Len */
-		msg_idx = context->msg_index;
+	/* find correct msg_idx with the CAN Id and Len */
+	msg_idx = context->msg_index;
 
 #ifdef IX_STATISTICS_EXACT
-		/* in case of exact stats, tx counters are managed in rx path
-		 * through the client id. Unfortunately, CL1 fw can't handle
-		 * any client id, therefore statistics and echo management
-		 * must be done here, even in case of IX_STATISTICS_EXACT.
-		 */
-		if (msg_idx >= IXXAT_USB_MAX_MSGS)
-			break;
+	/* in case of exact stats, tx counters are managed in rx path
+	* through the client id. Unfortunately, CL1 fw can't handle
+	* any client id, therefore statistics and echo management
+	* must be done here, even in case of IX_STATISTICS_EXACT.
+	*/
+	if (msg_idx < IXXAT_USB_MAX_MSGS)
 #endif
+	{
 		/* can_get_echo_skb() must always be called! */
 		echo_bytes = can_get_echo_skb(netdev, msg_idx, NULL);
 
