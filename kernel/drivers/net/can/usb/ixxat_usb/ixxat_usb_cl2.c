@@ -196,22 +196,22 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 				   struct ixxat_cancaps2 *caps)
 {
 	const u16 port = dev->ctrl_index;
-	struct ixxat_usb_getcaps_cl2_cmd *cmd = &dev->shareddata->cmd.caps_cl2;
-	const u32 cmd_size = sizeof(*cmd);
-	const u32 req_size = sizeof(cmd->req);
+	struct ixxat_usb_getcaps_cl2_cmd cmd = { 0 };
+	const u32 cmd_size = sizeof(cmd);
+	const u32 req_size = sizeof(cmd.req);
 	const u32 rcv_size = cmd_size - req_size;
-	const u32 snd_size = req_size + sizeof(cmd->res);
+	const u32 snd_size = req_size + sizeof(cmd.res);
 	int err;
 
-	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
-	cmd->req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_GETCAPS2);
-	cmd->req.port = cpu_to_le16(port);
-	cmd->res.res_size = cpu_to_le32(rcv_size);
+	ixxat_usb_setup_cmd(&cmd.req, &cmd.res);
+	cmd.req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_GETCAPS2);
+	cmd.req.port = cpu_to_le16(port);
+	cmd.res.res_size = cpu_to_le32(rcv_size);
 
-	err = ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
+	err = ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
 				 rcv_size);
 	if (!err && caps)
-		memcpy(caps, &cmd->caps, sizeof(*caps));
+		memcpy(caps, &cmd.caps, sizeof(*caps));
 
 	return err;
 }
@@ -232,9 +232,9 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	const struct can_bittiming *btd = &dev->can.data_bittiming;
 #endif
 	const u16 port = dev->ctrl_index;
-	struct ixxat_usb_init_cl2_cmd *cmd = &dev->shareddata->cmd.cl2;
-	const u32 rcv_size = sizeof(cmd->res);
-	const u32 snd_size = sizeof(*cmd);
+	struct ixxat_usb_init_cl2_cmd cmd = { 0 };
+	const u32 rcv_size = sizeof(cmd.res);
+	const u32 snd_size = sizeof(cmd);
 	u32 btmode = IXXAT_USB_BTMODE_NAT;
 	u8 opmode = IXXAT_USB_OPMODE_EXTENDED | IXXAT_USB_OPMODE_STANDARD;
 	u8 exmode = 0;
@@ -254,31 +254,31 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 			exmode |= IXXAT_USB_EXMODE_ISOFD;
 	}
 
-	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
-	cmd->req.size = cpu_to_le32(snd_size - rcv_size);
-	cmd->req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_INIT2);
-	cmd->req.port = cpu_to_le16(port);
-	cmd->opmode = opmode;
-	cmd->exmode = exmode;
-	cmd->sdr.mode = cpu_to_le32(btmode);
-	cmd->sdr.bps = cpu_to_le32(bt->brp);
-	cmd->sdr.ts1 = cpu_to_le16(bt->prop_seg + bt->phase_seg1);
-	cmd->sdr.ts2 = cpu_to_le16(bt->phase_seg2);
-	cmd->sdr.sjw = cpu_to_le16(bt->sjw);
-	cmd->sdr.tdo = 0;
+	ixxat_usb_setup_cmd(&cmd.req, &cmd.res);
+	cmd.req.size = cpu_to_le32(snd_size - rcv_size);
+	cmd.req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_INIT2);
+	cmd.req.port = cpu_to_le16(port);
+	cmd.opmode = opmode;
+	cmd.exmode = exmode;
+	cmd.sdr.mode = cpu_to_le32(btmode);
+	cmd.sdr.bps = cpu_to_le32(bt->brp);
+	cmd.sdr.ts1 = cpu_to_le16(bt->prop_seg + bt->phase_seg1);
+	cmd.sdr.ts2 = cpu_to_le16(bt->phase_seg2);
+	cmd.sdr.sjw = cpu_to_le16(bt->sjw);
+	cmd.sdr.tdo = 0;
 
 	if (exmode) {
 		u16 tdo = btd->brp * (btd->phase_seg1 + 1 + btd->prop_seg);
 
-		cmd->fdr.mode = cpu_to_le32(btmode);
-		cmd->fdr.bps = cpu_to_le32(btd->brp);
-		cmd->fdr.ts1 = cpu_to_le16(btd->prop_seg + btd->phase_seg1);
-		cmd->fdr.ts2 = cpu_to_le16(btd->phase_seg2);
-		cmd->fdr.sjw = cpu_to_le16(btd->sjw);
-		cmd->fdr.tdo = cpu_to_le16(tdo);
+		cmd.fdr.mode = cpu_to_le32(btmode);
+		cmd.fdr.bps = cpu_to_le32(btd->brp);
+		cmd.fdr.ts1 = cpu_to_le16(btd->prop_seg + btd->phase_seg1);
+		cmd.fdr.ts2 = cpu_to_le16(btd->phase_seg2);
+		cmd.fdr.sjw = cpu_to_le16(btd->sjw);
+		cmd.fdr.tdo = cpu_to_le16(tdo);
 	}
 
-	return ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
+	return ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
 				  rcv_size);
 }
 

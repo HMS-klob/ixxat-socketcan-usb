@@ -458,6 +458,141 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
 	res->code = cpu_to_le32(0xffffffff);
 }
 
+/* ixxat_usb_send_cmd_internal - send a command to the IXXAT USB device
+ * @dev: pointer to the USB device
+ * @devdata: pointer to the IXXAT USB device data
+ * @port: port number to send the command to
+ * @req: pointer to the request structure
+ * @req_size: size of the request structure
+ * @res: pointer to the response structure
+ * @res_size: size of the response structure
+ *
+ * This function sends a command to the IXXAT USB device and waits for the
+ * response. It retries the command up to IXXAT_USB_MAX_COM_REQ times if the
+ * command fails to be sent or the response is not received.
+ *
+ * This is an internal function that is called by ixxat_usb_send_cmd, which
+ * is the public interface for sending commands to the IXXAT USB device.
+ * The main reason for having this internal function is to allow sending commands
+ * from contexts that do not have access to the IXXAT USB CAN device structure,
+ * such as the USB probe function, where only the USB device and 
+ * device data are available.
+ *
+ * Returns >= 0 on success, negative error code on failure.
+ * If the response size is wrong it returns -EBADMSG.
+ */
+static int ixxat_usb_send_cmd_internal(struct usb_device *dev, 
+               struct ixxat_usb_device_data *devdata, const u16 port, void *req,
+		       const u16 req_size, void *res, const u16 res_size)
+{
+	struct ixxat_usb_dal_res *dal_res = res;
+	int i, ret, pos = 0;
+
+    	ret = mutex_lock_interruptible(&devdata->cmd_channel_lock);
+	if (ret < 0) {
+		dev_err(&dev->dev, KBUILD_MODNAME
+			": Error %x: Mutex lock interrupted\n", ret);
+	}
+	else {
+		u8* req_buf = (u8*)devdata->cmdbuf;
+		u8* res_buf = (u8*)devdata->cmdbuf + req_size;
+
+		ix_trace_printk("ixxat_usb_send_cmd_internal: port %u\n", port);
+		/* showdump(req, req_size); */ 
+
+		/* copy request to command buffer */
+		memcpy(req_buf, req, req_size);
+		/* clear response */
+		memset(res_buf, 0, res_size);
+
+		/* Send the command */
+		ret = -ETIMEDOUT;
+		for (i = 0; i < IXXAT_USB_MAX_COM_REQ; i++) {
+			ret = usb_control_msg(dev, usb_sndctrlpipe(dev, 0), 0xff,
+						USB_TYPE_VENDOR | USB_DIR_OUT,
+						port, 0, req_buf, req_size,
+						msecs_to_jiffies(IXXAT_USB_MSG_TIMEOUT));
+			if (ret >= 0)
+				break;
+
+			if (ret != -ETIMEDOUT)
+				break;
+
+			/* msleep(IXXAT_USB_MSG_CYCLE); */
+		}
+		if (ret < 0) {
+			dev_err(&dev->dev, KBUILD_MODNAME
+				": Failed to send TX command after %d tries\n", i);
+			ret = -ETIMEDOUT;
+			goto fail;
+		}
+
+#ifdef IXXAT_DEBUG
+		if (ret == 0) {
+			ix_trace_printk ("no request length");
+		}
+		ix_trace_printk("Wait for response");
+#endif				
+
+		/* Wait for the response */
+		ret = -ETIMEDOUT;
+		for (i = 0; i < IXXAT_USB_MAX_COM_REQ; i++) {
+			ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), 0xff,
+					USB_TYPE_VENDOR | USB_DIR_IN,
+					port, 0, res_buf + pos, res_size - pos,
+					msecs_to_jiffies(IXXAT_USB_MSG_TIMEOUT));
+			if (ret >= 0) {
+				pos += ret;
+				// ix_trace_printk("response: %d", ret);
+
+				if (pos >= res_size)
+					break;
+			}
+			else if (ret != -ETIMEDOUT)
+				break;
+
+			/* msleep(IXXAT_USB_MSG_CYCLE); */
+		}
+		ix_trace_printk ("ret: %d pos: %d", ret, pos);
+		ix_trace_printk ("res_size: %d", res_size);
+
+#ifdef IXXAT_DEBUG
+		if (ret == 0) {
+			ix_trace_printk ("no response length");
+		}
+#endif
+
+		if (ret < 0) {
+			dev_err(&dev->dev, KBUILD_MODNAME
+				": Failed to read TX response after %d tries\n", i);
+			ret = -ETIMEDOUT;
+			goto fail;
+		}
+
+		/* firmware responses may be smaller than requested response size
+		* but should be not smaller than the response header size
+		*/
+		if (pos < sizeof(struct ixxat_usb_dal_res)) {
+			dev_err(&dev->dev, KBUILD_MODNAME
+				": Invalid cmd rsp size %u (%u expected)\n",
+				pos, res_size);
+			ret = -EBADMSG;
+		}
+		else {
+			/* copy response to user buffer */
+			memcpy(res, res_buf, res_size);
+
+			ret = le32_to_cpu(dal_res->code);
+		}
+	}
+
+fail:
+	ix_trace_printk("Mutex unlock");
+	mutex_unlock(&devdata->cmd_channel_lock);
+
+	return ret;
+}
+
 /* ixxat_usb_send_cmd - send a command to the IXXAT USB device
  * @dev: pointer to the USB device
  * @port: port number to send the command to
@@ -473,75 +608,13 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
  * Returns >= 0 on success, negative error code on failure.
  * If the response size is wrong it returns -EBADMSG.
  */
-int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
+int ixxat_usb_send_cmd(struct ixxat_usb_candevice *pdev, const u16 port, void *req,
 		       const u16 req_size, void *res, const u16 res_size)
 {
-	struct ixxat_usb_dal_res *dal_res = res;
-	int i, ret, pos = 0;
+	struct usb_device *dev = pdev->udev;
+	struct ixxat_usb_device_data *devdata = pdev->shareddata;
 
-	/* Send the command */
-	for (i = 0; i < IXXAT_USB_MAX_COM_REQ; i++) {
-		ret = usb_control_msg(dev, usb_sndctrlpipe(dev, 0), 0xff,
-				      USB_TYPE_VENDOR | USB_DIR_OUT,
-				      port, 0, req, req_size,
-				      msecs_to_jiffies(IXXAT_USB_MSG_TIMEOUT));
-		if (ret >= 0)
-			break;
-
-		if (ret != -ETIMEDOUT) {
-			dev_err(&dev->dev, KBUILD_MODNAME
-				": Failed to send TX command (err %d)\n", ret);
-			return ret;
-		}
-	}
-
-	if (i >= IXXAT_USB_MAX_COM_REQ) {
-		dev_err(&dev->dev, KBUILD_MODNAME
-			": Failed to send TX command after %d tries\n", i);
-		return -ETIMEDOUT;
-	}
-
-	/* Wait for the response */
-	for (i = 0; i < IXXAT_USB_MAX_COM_REQ; i++) {
-		ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), 0xff,
-				USB_TYPE_VENDOR | USB_DIR_IN,
-				port, 0, res + pos, res_size - pos,
-				msecs_to_jiffies(IXXAT_USB_MSG_TIMEOUT));
-
-		if (ret == -ETIMEDOUT)
-			continue;
-
-		if (ret < 0) {
-			dev_err(&dev->dev, KBUILD_MODNAME
-				": No TX rsp after %d attempts (err %d)\n",
-				i, ret);
-			return ret;
-		}
-
-		pos += ret;
-		if (pos >= res_size)
-			break;
-
-		msleep(IXXAT_USB_MSG_CYCLE);
-	}
-
-	if (i >= IXXAT_USB_MAX_COM_REQ) {
-		dev_err(&dev->dev, KBUILD_MODNAME
-			": Failed to read TX response after %d tries\n", i);
-		return -ETIMEDOUT;
-	}
-
-	/* firmware responses may be smaller than requested response size
-	 * but should be not smaller than the response header size
-	 */
-	if (pos < sizeof(struct ixxat_usb_dal_res)) {
-		dev_err(&dev->dev, KBUILD_MODNAME
-			": Invalid cmd rsp size %u (%u expected)\n",
-			pos, res_size);
-		return -EBADMSG;
-	}
-
-	return le32_to_cpu(dal_res->code);
+	return ixxat_usb_send_cmd_internal(dev, devdata, port, req, req_size, res, res_size);
 }
 
 #ifdef IX_CONFIG_USE_HW_TIMESTAMPS
@@ -655,25 +728,25 @@ static int ixxat_usb_get_dev_caps(struct usb_device *dev,
 				  struct ixxat_usb_device_data *devdata,
 				  struct ixxat_dev_caps *dev_caps)
 {
-	struct ixxat_usb_caps_cmd *cmd = &devdata->cmd.caps;
-	const u32 cmd_size = sizeof(*cmd);
-	const u32 req_size = sizeof(cmd->req);
+	struct ixxat_usb_caps_cmd cmd = { 0 };
+	const u32 cmd_size = sizeof(cmd);
+	const u32 req_size = sizeof(cmd.req);
 	const u32 rcv_size = cmd_size - req_size;
-	const u32 snd_size = req_size + sizeof(cmd->res);
+	const u32 snd_size = req_size + sizeof(cmd.res);
 	u16 num_ctrl;
 	int i, err;
 
-	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
-	cmd->req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_DEVCAPS);
-	cmd->res.res_size = cpu_to_le32(rcv_size);
+	ixxat_usb_setup_cmd(&cmd.req, &cmd.res);
+	cmd.req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_DEVCAPS);
+	cmd.res.res_size = cpu_to_le32(rcv_size);
 
-	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size,
-				 &cmd->res, rcv_size);
+	err = ixxat_usb_send_cmd_internal(dev, devdata, le16_to_cpu(cmd.req.port), &cmd, snd_size,
+				 &cmd.res, rcv_size);
 	if (err)
 		return err;
 
-	dev_caps->bus_ctrl_count = cmd->caps.bus_ctrl_count;
-	num_ctrl = le16_to_cpu(cmd->caps.bus_ctrl_count);
+	dev_caps->bus_ctrl_count = cmd.caps.bus_ctrl_count;
+	num_ctrl = le16_to_cpu(cmd.caps.bus_ctrl_count);
 	if (num_ctrl > ARRAY_SIZE(dev_caps->bus_ctrl_types)) {
 		dev_err(&dev->dev, KBUILD_MODNAME
 			": invalid ctrlr count %u in rsp (> %zu)\n",
@@ -682,7 +755,7 @@ static int ixxat_usb_get_dev_caps(struct usb_device *dev,
 	}
 
 	for (i = 0; i < num_ctrl; i++)
-		dev_caps->bus_ctrl_types[i] = cmd->caps.bus_ctrl_types[i];
+		dev_caps->bus_ctrl_types[i] = cmd.caps.bus_ctrl_types[i];
 
 	return 0;
 }
@@ -697,29 +770,29 @@ static int ixxat_usb_get_dev_caps(struct usb_device *dev,
 static int ixxat_usb_get_dev_info(struct usb_device *dev,
 				  struct ixxat_usb_device_data *devdata)
 {
-	struct ixxat_usb_info_cmd *cmd = &devdata->cmd.info;
-	const u32 cmd_size = sizeof(*cmd);
-	const u32 req_size = sizeof(cmd->req);
+	struct ixxat_usb_info_cmd cmd = { 0 };
+	const u32 cmd_size = sizeof(cmd);
+	const u32 req_size = sizeof(cmd.req);
 	const u32 rcv_size = cmd_size - req_size;
-	const u32 snd_size = req_size + sizeof(cmd->res);
+	const u32 snd_size = req_size + sizeof(cmd.res);
 	int err;
 
-	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
-	cmd->req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_DEVINFO);
-	cmd->res.res_size = cpu_to_le32(rcv_size);
+	ixxat_usb_setup_cmd(&cmd.req, &cmd.res);
+	cmd.req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_DEVINFO);
+	cmd.res.res_size = cpu_to_le32(rcv_size);
 
-	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size,
-				 &cmd->res, rcv_size);
+	err = ixxat_usb_send_cmd_internal(dev, devdata, le16_to_cpu(cmd.req.port), &cmd, snd_size,
+				 &cmd.res, rcv_size);
 	if (!err) {
 		struct ixxat_dev_info *dev_info = &devdata->dev_info;
 
-		memcpy(dev_info->device_id, &cmd->info.device_id,
-		       sizeof(cmd->info.device_id));
-		memcpy(dev_info->device_name, &cmd->info.device_name,
-		       sizeof(cmd->info.device_name));
+		memcpy(dev_info->device_id, &cmd.info.device_id,
+		       sizeof(cmd.info.device_id));
+		memcpy(dev_info->device_name, &cmd.info.device_name,
+		       sizeof(cmd.info.device_name));
 
-		dev_info->device_fpga_version = cmd->info.device_fpga_version;
-		dev_info->device_version = cmd->info.device_version;
+		dev_info->device_fpga_version = cmd.info.device_fpga_version;
+		dev_info->device_version = cmd.info.device_version;
 	}
 
 	return err;
@@ -735,26 +808,26 @@ static int ixxat_usb_get_dev_info(struct usb_device *dev,
 static int ixxat_usb_get_fw_info(struct usb_device *dev,
 				 struct ixxat_usb_device_data *devdata)
 {
-	struct ixxat_usb_fwinfo_cmd *cmd = &devdata->cmd.fwinfo;
-	const u32 cmd_size = sizeof(*cmd);
-	const u32 req_size = sizeof(cmd->req);
+	struct ixxat_usb_fwinfo_cmd cmd = { 0 };
+	const u32 cmd_size = sizeof(cmd);
+	const u32 req_size = sizeof(cmd.req);
 	const u32 rcv_size = cmd_size - req_size;
-	const u32 snd_size = req_size + sizeof(cmd->res);
+	const u32 snd_size = req_size + sizeof(cmd.res);
 	int err;
 
-	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
-	cmd->req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_FWINFO);
-	cmd->res.res_size = cpu_to_le32(rcv_size);
+	ixxat_usb_setup_cmd(&cmd.req, &cmd.res);
+	cmd.req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_FWINFO);
+	cmd.res.res_size = cpu_to_le32(rcv_size);
 
-	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size,
-				 &cmd->res, rcv_size);
+	err = ixxat_usb_send_cmd_internal(dev, devdata, le16_to_cpu(cmd.req.port), &cmd, snd_size,
+				 &cmd.res, rcv_size);
 	if (!err) {
 		struct ixxat_fw_info2 *fw_info = &devdata->fw_info;
 
-		fw_info->firmware_type = cmd->info.firmware_type;
-		fw_info->major_version = cmd->info.major_version;
-		fw_info->minor_version = cmd->info.minor_version;
-		fw_info->build_version = cmd->info.build_version;
+		fw_info->firmware_type = cmd.info.firmware_type;
+		fw_info->major_version = cmd.info.major_version;
+		fw_info->minor_version = cmd.info.minor_version;
+		fw_info->build_version = cmd.info.build_version;
 		fw_info->revision = 0;
 	}
 
@@ -771,27 +844,27 @@ static int ixxat_usb_get_fw_info(struct usb_device *dev,
 static int ixxat_usb_get_fw_info2(struct usb_device *dev,
 				  struct ixxat_usb_device_data *devdata)
 {
-	struct ixxat_usb_fwinfo2_cmd *cmd = &devdata->cmd.fwinfo2;
-	const u32 cmd_size = sizeof(*cmd);
-	const u32 req_size = sizeof(cmd->req);
+	struct ixxat_usb_fwinfo2_cmd cmd = { 0 };
+	const u32 cmd_size = sizeof(cmd);
+	const u32 req_size = sizeof(cmd.req);
 	const u32 rcv_size = cmd_size - req_size;
-	const u32 snd_size = req_size + sizeof(cmd->res);
+	const u32 snd_size = req_size + sizeof(cmd.res);
 	int err;
 
-	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
-	cmd->req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_FWINFO2);
-	cmd->res.res_size = cpu_to_le32(rcv_size);
+	ixxat_usb_setup_cmd(&cmd.req, &cmd.res);
+	cmd.req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_GET_FWINFO2);
+	cmd.res.res_size = cpu_to_le32(rcv_size);
 
-	err = ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port), cmd, snd_size,
-				 &cmd->res, rcv_size);
+	err = ixxat_usb_send_cmd_internal(dev, devdata, le16_to_cpu(cmd.req.port), &cmd, snd_size,
+				 &cmd.res, rcv_size);
 	if (!err) {
 		struct ixxat_fw_info2 *fw_info = &devdata->fw_info;
 
-		fw_info->firmware_type = cmd->info.firmware_type;
-		fw_info->major_version = cmd->info.major_version;
-		fw_info->minor_version = cmd->info.minor_version;
-		fw_info->build_version = cmd->info.build_version;
-		fw_info->revision = cmd->info.revision;
+		fw_info->firmware_type = cmd.info.firmware_type;
+		fw_info->major_version = cmd.info.major_version;
+		fw_info->minor_version = cmd.info.minor_version;
+		fw_info->build_version = cmd.info.build_version;
+		fw_info->revision = cmd.info.revision;
 	}
 
 	return err;
@@ -805,36 +878,36 @@ static int ixxat_usb_get_fw_info2(struct usb_device *dev,
  */
 static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 {
-	struct ixxat_usb_start_cmd *cmd = &dev->shareddata->cmd.start;
+	struct ixxat_usb_start_cmd cmd = { 0 };
 	const u16 port = dev->ctrl_index;
-	const u32 cmd_size = sizeof(*cmd);
-	const u32 req_size = sizeof(cmd->req);
+	const u32 cmd_size = sizeof(cmd);
+	const u32 req_size = sizeof(cmd.req);
 	const u32 rcv_size = cmd_size - req_size;
-	const u32 snd_size = req_size + sizeof(cmd->res);
+	const u32 snd_size = req_size + sizeof(cmd.res);
 #ifndef IX_SYNCTOHOSTCLOCK_NONE
 	ktime_t kt_host_A, kt_host_B;
 #endif
 	u32 start_offset = 0;
 	int err;
 
-	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
-	cmd->req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_START);
-	cmd->req.port = cpu_to_le16(port);
-	cmd->res.res_size = cpu_to_le32(rcv_size);
-	cmd->time = 0;
+	ixxat_usb_setup_cmd(&cmd.req, &cmd.res);
+	cmd.req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_START);
+	cmd.req.port = cpu_to_le16(port);
+	cmd.res.res_size = cpu_to_le32(rcv_size);
+	cmd.time = 0;
 
 #ifndef IX_SYNCTOHOSTCLOCK_NONE
 	kt_host_A = ktime_get_real_ns();
 #endif
 
-	err = ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
+	err = ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
 				 rcv_size);
 
 #ifndef IX_SYNCTOHOSTCLOCK_NONE
 	kt_host_B = ktime_get_real_ns();
 #endif
 	if (!err)
-		start_offset = le32_to_cpu(cmd->time);
+		start_offset = le32_to_cpu(cmd.time);
 
 #ifdef IX_SYNCTOHOSTCLOCK_NONE
 	ixxat_usb_ts_set_start(dev, start_offset);
@@ -857,18 +930,18 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
  */
 static int ixxat_usb_stop_ctrl(struct ixxat_usb_candevice *dev)
 {
-	struct ixxat_usb_stop_cmd *cmd = &dev->shareddata->cmd.stop;
+	struct ixxat_usb_stop_cmd cmd = { 0 };
 	const u16 port = dev->ctrl_index;
-	const u32 rcv_size = sizeof(cmd->res);
-	const u32 snd_size = sizeof(*cmd);
+	const u32 rcv_size = sizeof(cmd.res);
+	const u32 snd_size = sizeof(cmd);
 
-	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
-	cmd->req.size = cpu_to_le32(snd_size - rcv_size);
-	cmd->req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_STOP);
-	cmd->req.port = cpu_to_le16(port);
-	cmd->action = cpu_to_le32(IXXAT_USB_STOP_ACTION_CLEARALL);
+	ixxat_usb_setup_cmd(&cmd.req, &cmd.res);
+	cmd.req.size = cpu_to_le32(snd_size - rcv_size);
+	cmd.req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_STOP);
+	cmd.req.port = cpu_to_le16(port);
+	cmd.action = cpu_to_le32(IXXAT_USB_STOP_ACTION_CLEARALL);
 
-	return ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
+	return ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
 				  rcv_size);
 }
 
@@ -885,18 +958,18 @@ static int ixxat_usb_stop_ctrl(struct ixxat_usb_candevice *dev)
 static int ixxat_usb_power_ctrl(struct usb_device *dev,
 				struct ixxat_usb_device_data *devdata, u8 mode)
 {
-	struct ixxat_usb_power_cmd *cmd = &devdata->cmd.power;
-	const u32 rcv_size = sizeof(cmd->res);
-	const u32 snd_size = sizeof(*cmd);
+	struct ixxat_usb_power_cmd cmd = { 0 };
+	const u32 rcv_size = sizeof(cmd.res);
+	const u32 snd_size = sizeof(cmd);
 
-	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
-	cmd->req.size = cpu_to_le32(snd_size - rcv_size);
-	cmd->req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_POWER);
-	cmd->mode = mode;
+	ixxat_usb_setup_cmd(&cmd.req, &cmd.res);
+	cmd.req.size = cpu_to_le32(snd_size - rcv_size);
+	cmd.req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_POWER);
+	cmd.mode = mode;
 
-	return ixxat_usb_send_cmd(dev, le16_to_cpu(cmd->req.port),
-				  cmd, snd_size,
-				  &cmd->res, rcv_size);
+	return ixxat_usb_send_cmd_internal(dev, devdata, le16_to_cpu(cmd.req.port),
+				  &cmd, snd_size,
+				  &cmd.res, rcv_size);
 }
 
 /* ixxat_usb_reset_ctrl - reset the controller
@@ -907,16 +980,16 @@ static int ixxat_usb_power_ctrl(struct usb_device *dev,
  */
 static int ixxat_usb_reset_ctrl(struct ixxat_usb_candevice *dev)
 {
-	struct ixxat_usb_dal_cmd *cmd = &dev->shareddata->cmd.dal;
+	struct ixxat_usb_dal_cmd cmd = { 0 };
 	const u16 port = dev->ctrl_index;
-	const u32 snd_size = sizeof(*cmd);
-	const u32 rcv_size = sizeof(cmd->res);
+	const u32 snd_size = sizeof(cmd);
+	const u32 rcv_size = sizeof(cmd.res);
 
-	ixxat_usb_setup_cmd(&cmd->req, &cmd->res);
-	cmd->req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_RESET);
-	cmd->req.port = cpu_to_le16(port);
+	ixxat_usb_setup_cmd(&cmd.req, &cmd.res);
+	cmd.req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_RESET);
+	cmd.req.port = cpu_to_le16(port);
 
-	return ixxat_usb_send_cmd(dev->udev, port, cmd, snd_size, &cmd->res,
+	return ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
 				  rcv_size);
 }
 
@@ -961,12 +1034,18 @@ static int ixxat_usb_restart(struct ixxat_usb_candevice *dev)
 {
 	struct net_device *netdev = dev->netdev;
 	int err = ixxat_usb_stop_ctrl(dev);
-	if (err)
-		goto fail;
+        if (err) {
+                netdev_err(netdev, 
+                           "restart: failure to stop controler err=%d\n", err);
+                goto fail;
+        }
 
-	err = ixxat_usb_start_ctrl(dev);
-	if (err)
-		goto fail;
+        err = ixxat_usb_start_ctrl(dev);
+        if (err) {
+                netdev_err(netdev,
+                           "restart: failure to start controler err=%d\n", err);
+                goto fail;
+        }
 
 	dev->can.state = CAN_STATE_ERROR_ACTIVE;
 	netif_wake_queue(netdev);
@@ -2100,10 +2179,12 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 		dev = prev_dev;
 	} while (dev);
 
-	/* free the shared data */
-	kfree(devdata);
-
 	usb_set_intfdata(intf, NULL);
+
+	/* free the shared data */
+	if (devdata)
+		kfree(devdata->cmdbuf);
+	kfree(devdata);
 }
 
 /* ixxat_usb_start - start the IXXAT USB CAN device
@@ -2481,11 +2562,20 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 {
 	struct usb_device *udev = interface_to_usbdev(intf);
 	const struct ixxat_usb_adapter *adapter;
-	struct ixxat_usb_device_data *devdata;
 	struct ixxat_dev_caps dev_caps = {0};
 	u16 ctrlidx, ctrl_count;
-	int err;
+	int err = 0;
+	struct ixxat_usb_device_data *devdata = 0;
+	union ixxat_usb_cmd *cmdbuf;
 
+	/* command buffer for USB communication */
+	cmdbuf = kmalloc(sizeof(*cmdbuf), GFP_KERNEL);
+	if (!cmdbuf) {
+		err = -ENOMEM;
+		goto lbl_err;
+	}
+
+	/* shared data per device */
 	devdata = kzalloc(sizeof(*devdata), GFP_KERNEL);
 	if (!devdata) {
 		err = -ENOMEM;
@@ -2494,6 +2584,8 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 	/* init device struct */
 	spin_lock_init(&devdata->access_lock);
+	mutex_init(&devdata->cmd_channel_lock);
+	devdata->cmdbuf = cmdbuf;
 
 #ifndef IX_INTREE_VARIANT
 	pr_info(KBUILD_MODNAME ": KERNELVERSION: 0x%x (%i)",
@@ -2532,21 +2624,21 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		dev_err(&intf->dev, KBUILD_MODNAME ": Unknown device id %d\n",
 			id->idProduct);
 		err = -ENODEV;
-		goto lbl_free;
+		goto lbl_err;
 	}
 
 	dev_info(&intf->dev, "%s\n", ixxat_usb_dev_name(id));
 
 	err = ixxat_usb_check_channel(adapter, intf->altsetting);
 	if (err != NETDEV_TX_OK)
-		goto lbl_free;
+		goto lbl_err;
 
 	err = ixxat_usb_power_ctrl(udev, devdata, IXXAT_USB_POWER_WAKEUP);
 	if (err != NETDEV_TX_OK) {
 		dev_err(&intf->dev,
 			"IXXAT_USB_BRD_CMD_POWER failed (err %d)\n",
 			err);
-		goto lbl_free;
+		goto lbl_err;
 	}
 
 	msleep(IXXAT_USB_POWER_WAKEUP_TIME);
@@ -2555,7 +2647,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	if (err) {
 		dev_err(&intf->dev,
 			"Failed to get device information (err %d)\n", err);
-		goto lbl_free;
+		goto lbl_err;
 	}
 
 #ifndef IX_INTREE_VARIANT
@@ -2594,7 +2686,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	if (err) {
 		dev_err(&intf->dev,
 			"Failed to get device capabilities (err %d)\n", err);
-		goto lbl_free;
+		goto lbl_err;
 	}
 
 	err = -ENODEV;
@@ -2624,9 +2716,9 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 
 	return 0;
 
-lbl_free:
-	kfree(devdata);
 lbl_err:
+	kfree(cmdbuf);
+	kfree(devdata);
 	return err;
 }
 

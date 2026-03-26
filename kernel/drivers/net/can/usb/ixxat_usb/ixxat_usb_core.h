@@ -706,6 +706,9 @@ struct ixxat_usb_device_data {
 	/* used to lock write access to the device members */
 	spinlock_t access_lock;
 
+	/* lock access to command channel on endpoint 0 */
+	struct mutex cmd_channel_lock;
+
 	/* device and firmware info */
 	struct ixxat_dev_info dev_info;
 	struct ixxat_fw_info2 fw_info;
@@ -716,7 +719,7 @@ struct ixxat_usb_device_data {
 	u32     ts_dev_start;
 
 	/* USB commands buffer */
-	union ixxat_usb_cmd cmd;
+	union ixxat_usb_cmd* cmdbuf;
 };
 
 /* struct ixxat_usb_adapter IXXAT USB device adapter
@@ -764,7 +767,7 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
 			 struct ixxat_usb_dal_res *res);
 
 /* ixxat_usb_send_cmd() - Send a command to the device
- * @dev: USB device
+ * @dev: pointer to the IXXAT USB CAN device
  * @port: Command port
  * @req: Command request buffer
  * @req_size: Command request size
@@ -775,7 +778,7 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
  *
  * Return: Negative error code or zero on success
  */
-int ixxat_usb_send_cmd(struct usb_device *dev, const u16 port, void *req,
+int ixxat_usb_send_cmd(struct ixxat_usb_candevice *dev, const u16 port, void *req,
 			const u16 req_size, void *res, const u16 res_size);
 
 #endif /* IXXAT_USB_CORE_H */

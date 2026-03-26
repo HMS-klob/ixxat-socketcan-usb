@@ -2,6 +2,10 @@
 
 ## History
 
+### 2.1.5	(2026-03-26)
+
+- fix access locking for common command channel/buffer
+
 ### 2.1.4	(2026-03-13)
 
 - rewrite function to remove fallthrough (fix build on kernel 4.19/debian 10)
