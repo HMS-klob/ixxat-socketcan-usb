@@ -512,17 +512,20 @@ static int ixxat_usb_send_cmd_internal(struct usb_device *dev,
 						USB_TYPE_VENDOR | USB_DIR_OUT,
 						port, 0, req_buf, req_size,
 						msecs_to_jiffies(IXXAT_USB_MSG_TIMEOUT));
+			// ix_trace_printk("cmd sent: %d\n", ret);
 			if (ret >= 0)
 				break;
 
+			// retry on timeout, log other errors
 			if (ret != -ETIMEDOUT)
-				break;
+				dev_err(&dev->dev, KBUILD_MODNAME
+					": Error while sending TX request after %d tries: %d\n", i, ret);
 
-			/* msleep(IXXAT_USB_MSG_CYCLE); */
+			msleep(IXXAT_USB_MSG_CYCLE);
 		}
 		if (ret < 0) {
 			dev_err(&dev->dev, KBUILD_MODNAME
-				": Failed to send TX command after %d tries\n", i);
+				": Failed to send TX command after %d tries: %d\n", i, ret);
 			ret = -ETIMEDOUT;
 			goto fail;
 		}
@@ -543,15 +546,16 @@ static int ixxat_usb_send_cmd_internal(struct usb_device *dev,
 					msecs_to_jiffies(IXXAT_USB_MSG_TIMEOUT));
 			if (ret >= 0) {
 				pos += ret;
-				// ix_trace_printk("response: %d", ret);
+				ix_trace_printk("got response size: %d", ret);
 
 				if (pos >= res_size)
 					break;
 			}
 			else if (ret != -ETIMEDOUT)
-				break;
+				dev_err(&dev->dev, KBUILD_MODNAME
+					": Error while receiving TX response after %d tries: %d\n", i, ret);
 
-			/* msleep(IXXAT_USB_MSG_CYCLE); */
+			msleep(IXXAT_USB_MSG_CYCLE);
 		}
 		ix_trace_printk ("ret: %d pos: %d", ret, pos);
 		ix_trace_printk ("res_size: %d", res_size);

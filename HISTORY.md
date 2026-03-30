@@ -2,6 +2,11 @@
 
 ## History
 
+### 2.1.6	(2026-03-30)
+
+- during tests sometimes E_PIPE errors occured, now the driver does retry
+  sending usb control messages on errors and msleeps between tries.
+
 ### 2.1.5	(2026-03-26)
 
 - fix access locking for common command channel/buffer
