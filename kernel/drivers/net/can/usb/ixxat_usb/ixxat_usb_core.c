@@ -2618,6 +2618,15 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		LINUX_VERSION_CODE, LINUX_VERSION_CODE);
 #endif
 
+	/* Power-up the device */
+	err = ixxat_usb_power_ctrl(udev, devdata, IXXAT_USB_POWER_WAKEUP);
+	if (err != NETDEV_TX_OK) {
+		dev_err(&intf->dev,
+			"IXXAT_USB_BRD_CMD_POWER failed (err %d)\n",
+			err);
+		goto lbl_err;
+	}
+
 	err = ixxat_usb_get_fw_info(udev, devdata);
 	if (err) {
 		dev_err(&intf->dev, "Failed to get FW info (err %d)\n", err);
@@ -2658,16 +2667,6 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	err = ixxat_usb_check_channel(adapter, intf->altsetting);
 	if (err != NETDEV_TX_OK)
 		goto lbl_err;
-
-	err = ixxat_usb_power_ctrl(udev, devdata, IXXAT_USB_POWER_WAKEUP);
-	if (err != NETDEV_TX_OK) {
-		dev_err(&intf->dev,
-			"IXXAT_USB_BRD_CMD_POWER failed (err %d)\n",
-			err);
-		goto lbl_err;
-	}
-
-	msleep(IXXAT_USB_POWER_WAKEUP_TIME);
 
 	err = ixxat_usb_get_dev_info(udev, devdata);
 	if (err) {
