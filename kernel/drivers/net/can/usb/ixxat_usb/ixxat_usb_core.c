@@ -485,6 +485,7 @@ static int ixxat_usb_send_cmd_internal(struct usb_device *dev,
                struct ixxat_usb_device_data *devdata, const u16 port, void *req,
 		       const u16 req_size, void *res, const u16 res_size)
 {
+	struct ixxat_usb_dal_req *dal_req = req;
 	struct ixxat_usb_dal_res *dal_res = res;
 	int i, ret, pos = 0;
 
@@ -520,14 +521,19 @@ static int ixxat_usb_send_cmd_internal(struct usb_device *dev,
 			if (ret != -ETIMEDOUT)
 				dev_err(&dev->dev, KBUILD_MODNAME
 					": Error while sending TX request after %d tries: %d\n", i, ret);
-
-			msleep(IXXAT_USB_MSG_CYCLE);
 		}
+
 		if (ret < 0) {
 			dev_err(&dev->dev, KBUILD_MODNAME
 				": Failed to send TX command after %d tries: %d\n", i, ret);
 			ret = -ETIMEDOUT;
 			goto fail;
+		}
+
+		if (dal_req->code == le32_to_cpu(IXXAT_USB_BRD_CMD_POWER)) {
+			ix_trace_printk("Waiting %u for the CMD_POWER",
+					IXXAT_USB_POWER_WAKEUP_TIME);
+			msleep(IXXAT_USB_POWER_WAKEUP_TIME);
 		}
 
 #ifdef IXXAT_DEBUG
@@ -554,8 +560,6 @@ static int ixxat_usb_send_cmd_internal(struct usb_device *dev,
 			else if (ret != -ETIMEDOUT)
 				dev_err(&dev->dev, KBUILD_MODNAME
 					": Error while receiving TX response after %d tries: %d\n", i, ret);
-
-			msleep(IXXAT_USB_MSG_CYCLE);
 		}
 		ix_trace_printk ("ret: %d pos: %d", ret, pos);
 		ix_trace_printk ("res_size: %d", res_size);
