@@ -1165,19 +1165,16 @@ static inline u64 mul_u64_u64_div_u64(u64 a, u64 mul, u64 div)
 #endif
 
 #ifdef IX_CONFIG_USE_HW_TIMESTAMPS
-/* ixxat_usb_netif_rx - receive a CAN message and pass it to the network stack
+/* ixxat_usb_set_skb_hwtimestamp - attach a hardware timestamp to a skb
  * @timeref: pointer to the time reference structure
  * @skb: pointer to the socket buffer containing the CAN message
  * @ts_tick: timestamp tick value from the CAN message
  *
  * This function calculates the timestamp in nanoseconds from the tick value,
- * sets it in the skb_shared_hwtstamps structure, and passes the skb to the
- * network stack using netif_rx.
- *
- * Returns 0 on success.
+ * sets it in the skb_shared_hwtstamps structure.
  */
-static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
-			      struct sk_buff *skb, __le32 ts_tick)
+static void ixxat_usb_set_skb_hwtimestamp(struct ixxat_time_ref *timeref,
+					  struct sk_buff *skb, __le32 ts_tick)
 {
 	struct skb_shared_hwtstamps *hwts = skb_hwtstamps(skb);
 	u64 ts_ns;
@@ -1200,16 +1197,29 @@ static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
 #else
 	hwts->hwtstamp = timeref->kt_host_start + ns_to_ktime(ts_ns);
 #endif
-
-	return netif_rx(skb);
 }
-#else
+#endif
+
+/* ixxat_usb_netif_rx - receive a CAN message and pass it to the network stack
+ * @timeref: pointer to the time reference structure
+ * @skb: pointer to the socket buffer containing the CAN message
+ * @ts_tick: timestamp tick value from the CAN message
+ *
+ * This function calculates the timestamp in nanoseconds from the tick value,
+ * sets it in the skb_shared_hwtstamps structure, and passes the skb to the
+ * network stack using netif_rx.
+ *
+ * Returns 0 on success.
+ */
 static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
 			      struct sk_buff *skb, __le32 ts_tick)
 {
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
+	ixxat_usb_set_skb_hwtimestamp(timeref, skb, ts_tick);
+#endif
+
 	return netif_rx(skb);
 }
-#endif
 
 /* ixxat_usb_handle_canmsg - handle a received CAN message
  * @dev: pointer to the IXXAT USB CAN device
@@ -1253,6 +1263,7 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 	if (ixx_flags & IXXAT_USB_MSG_FLAGS_SRR) {
 		if (dev->adapter != &usb2can_cl1) {
 			u32 msg_idx = le32_to_cpu(rx->cl2.client_id);
+			int len;
 
 			/* - handle (get) corresponding echo skb here
 			 * - update tx counters
@@ -1260,7 +1271,16 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 			 * - don't forward the frame to network layer, except if
 			 *   CTRLMODE_LOOPBACK.
 			 */
-			int len = can_get_echo_skb(netdev, msg_idx, NULL);
+#ifdef IX_CONFIG_USE_HW_TIMESTAMPS
+			struct sk_buff *skb = dev->can.echo_skb[msg_idx];
+			if (!skb)
+				return 0;
+
+			/* Set hw timestamp in echo skb */
+			ixxat_usb_set_skb_hwtimestamp(&dev->time_ref, skb,
+						      rx->base.time);
+#endif
+			len = can_get_echo_skb(netdev, msg_idx, NULL);
 
 			netdev->stats.tx_bytes += len;
 			netdev->stats.tx_packets++;
