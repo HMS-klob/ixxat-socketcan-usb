@@ -2337,35 +2337,34 @@ static const struct net_device_ops ixxat_usb_netdev_ops = {
 
 #ifdef IX_CONFIG_USE_HW_TIMESTAMPS
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
-
+#ifdef IX_STATISTICS_EXACT
+/* Use generic implementation */
 static const struct ethtool_ops ixxat_ethtool_ops = {
 	.get_ts_info = can_ethtool_op_get_ts_info_hwts
 };
-
 #else
-
-/* generic implementation of ethtool_ops::get_ts_info for CAN devices
- * supporting hardware timestamps
+/* IXXAT implementation of ethtool_ops::get_ts_info for CAN devices
+ * not supporting Tx hardware timestamps
  */
-int ixxat_ethtool_op_get_ts_info_hwts(struct net_device *dev,
-				      struct ethtool_ts_info *info)
+static int ixxat_ethtool_op_get_ts_info_hwts(struct net_device *dev,
+					     struct kernel_ethtool_ts_info *info)
 {
 	info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
 				SOF_TIMESTAMPING_RX_SOFTWARE |
 				SOF_TIMESTAMPING_SOFTWARE |
-				SOF_TIMESTAMPING_TX_HARDWARE |
 				SOF_TIMESTAMPING_RX_HARDWARE |
 				SOF_TIMESTAMPING_RAW_HARDWARE;
 	info->phc_index = -1;
-	info->tx_types = BIT(HWTSTAMP_TX_ON);
+	info->tx_types = BIT(HWTSTAMP_TX_OFF);
 	info->rx_filters = BIT(HWTSTAMP_FILTER_ALL);
 
 	return 0;
 }
 
 static const struct ethtool_ops ixxat_ethtool_ops = {
-	.get_ts_info = ixxat_ethtool_op_get_ts_info_hwts
+	.get_ts_info = ixxat_ethtool_op_get_ts_info_hwts,
 };
+#endif
 #endif
 #endif
 
