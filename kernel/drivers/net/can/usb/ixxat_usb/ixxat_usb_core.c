@@ -59,10 +59,10 @@ MODULE_LICENSE("GPL v2");
 #define IXXAT_USB_MAX_MSGS		32
 
 /* Number of attempts to send a USB command before deciding on failure */
-#define IXXAT_USB_MAX_COM_REQ		10
+#define IXXAT_USB_MAX_COM_REQ		3
 
 /* Maximum wait time (in ms) for successful USB command transmission */
-#define IXXAT_USB_MSG_TIMEOUT		50
+#define IXXAT_USB_MSG_TIMEOUT		500
 
 /* Delay waiting for the continuation of a fragmented USB response */
 #define IXXAT_USB_MSG_CYCLE		20
@@ -482,116 +482,148 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
  * If the response size is wrong it returns -EBADMSG.
  */
 static int ixxat_usb_send_cmd_internal(struct usb_device *dev, 
-               struct ixxat_usb_device_data *devdata, const u16 port, void *req,
-		       const u16 req_size, void *res, const u16 res_size)
+				       struct ixxat_usb_device_data *devdata,
+				       const u16 port, void *req,
+				       const u16 req_size, void *res,
+				       const u16 res_size)
 {
 	struct ixxat_usb_dal_req *dal_req = req;
 	struct ixxat_usb_dal_res *dal_res = res;
-	int i, ret, pos = 0;
+	u8* req_buf = (u8*)devdata->cmdbuf;
+	u8* res_buf = (u8*)devdata->cmdbuf + req_size;
+	int i, ret, pos = 0, to, cmd_delay;
+	unsigned long timeout;
 
     	ret = mutex_lock_interruptible(&devdata->cmd_channel_lock);
 	if (ret < 0) {
 		dev_err(&dev->dev, KBUILD_MODNAME
 			": Error %x: Mutex lock interrupted\n", ret);
+		return ret;
 	}
-	else {
-		u8* req_buf = (u8*)devdata->cmdbuf;
-		u8* res_buf = (u8*)devdata->cmdbuf + req_size;
 
-		ix_trace_printk("ixxat_usb_send_cmd_internal: port %u\n", port);
-		/* showdump(req, req_size); */ 
+	ix_trace_printk("ixxat_usb_send_cmd_internal: cmd 0x%3X to port %u\n",
+			le32_to_cpu(dal_req->code), port);
 
-		/* copy request to command buffer */
-		memcpy(req_buf, req, req_size);
-		/* clear response */
-		memset(res_buf, 0, res_size);
+	/* showdump(req, req_size); */
 
-		/* Send the command */
-		ret = -ETIMEDOUT;
-		for (i = 0; i < IXXAT_USB_MAX_COM_REQ; i++) {
-			ret = usb_control_msg(dev, usb_sndctrlpipe(dev, 0), 0xff,
-						USB_TYPE_VENDOR | USB_DIR_OUT,
-						port, 0, req_buf, req_size,
-						msecs_to_jiffies(IXXAT_USB_MSG_TIMEOUT));
-			// ix_trace_printk("cmd sent: %d\n", ret);
-			if (ret >= 0)
-				break;
+	/* copy request to command buffer */
+	memcpy(req_buf, req, req_size);
 
-			// retry on timeout, log other errors
-			if (ret != -ETIMEDOUT)
+	/* Send the command */
+	to = IXXAT_USB_MSG_TIMEOUT;
+	for (i = 0; i < IXXAT_USB_MAX_COM_REQ; i++) {
+		ret = usb_control_msg(dev, usb_sndctrlpipe(dev, 0), 0xff,
+				      USB_TYPE_VENDOR | USB_DIR_OUT,
+				      port, 0, req_buf, req_size, to);
+
+		if (ret >= 0)
+			break;
+
+		/* Retry on timeout, log other errors */
+		if (ret == -ETIMEDOUT) {
+			/* timeout too short, loop again but wait longer */
+			to += IXXAT_USB_MSG_TIMEOUT;
+			continue;
+		}
+
+		/* All other errors are fatal ones */
+		dev_err(&dev->dev, KBUILD_MODNAME
+			": Error %d while sending TX request after %d tries\n",
+			ret, i);
+
+		break;
+	}
+
+	if (ret < 0)
+		goto fail;
+
+	/* clear response buffer */
+	memset(res_buf, 0, res_size);
+
+	/* cmd				delay	device
+	 * IXXAT_USB_BRD_CMD_POWER	500	USB-to-CAN v2
+	 *					USB-to-CAN FD automotive
+	 * IXXAT_USB_BRD_CMD_GET_DEVINFO <= 500	USB-to-CAN v2
+	 * IXXAT_USB_BRD_CMD_GET_DEVCAPS <= 500	USB-to-CAN FD automotive
+	 * IXXAT_USB_CAN_CMD_INIT2	<= 500	USB-to-CAN FD automotive
+	 * IXXAT_USB_CAN_CMD_STOP	<= 500	USB-to-CAN FD automotive
+	 */
+	switch (le32_to_cpu(dal_req->code)) {
+	case IXXAT_USB_BRD_CMD_POWER:
+		cmd_delay = IXXAT_USB_POWER_WAKEUP_TIME;
+		break;
+	case IXXAT_USB_BRD_CMD_GET_DEVINFO:
+	case IXXAT_USB_BRD_CMD_GET_DEVCAPS:
+	case 0x337:
+	case IXXAT_USB_CAN_CMD_STOP:
+		cmd_delay = 100;
+		break;
+	default:
+		/* No need of any extra delay */
+		cmd_delay = 0;
+	}
+
+	ix_trace_printk("Wait for response");
+
+	/* Wait for the response */
+	to = IXXAT_USB_MSG_TIMEOUT;
+	timeout = jiffies + msecs_to_jiffies(cmd_delay);
+	for (; pos < res_size;) {
+		ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), 0xff,
+				      USB_TYPE_VENDOR | USB_DIR_IN,
+				      port, 0, res_buf + pos, res_size - pos,
+				      to);
+		switch (ret) {
+		case 0:
+			if (time_after(jiffies, timeout)) {
 				dev_err(&dev->dev, KBUILD_MODNAME
-					": Error while sending TX request after %d tries: %d\n", i, ret);
-		}
-
-		if (ret < 0) {
-			dev_err(&dev->dev, KBUILD_MODNAME
-				": Failed to send TX command after %d tries: %d\n", i, ret);
-			ret = -ETIMEDOUT;
-			goto fail;
-		}
-
-		if (dal_req->code == le32_to_cpu(IXXAT_USB_BRD_CMD_POWER)) {
-			ix_trace_printk("Waiting %u for the CMD_POWER",
-					IXXAT_USB_POWER_WAKEUP_TIME);
-			msleep(IXXAT_USB_POWER_WAKEUP_TIME);
-		}
-
-#ifdef IXXAT_DEBUG
-		if (ret == 0) {
-			ix_trace_printk ("no request length");
-		}
-		ix_trace_printk("Wait for response");
-#endif				
-
-		/* Wait for the response */
-		ret = -ETIMEDOUT;
-		for (i = 0; i < IXXAT_USB_MAX_COM_REQ; i++) {
-			ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), 0xff,
-					USB_TYPE_VENDOR | USB_DIR_IN,
-					port, 0, res_buf + pos, res_size - pos,
-					msecs_to_jiffies(IXXAT_USB_MSG_TIMEOUT));
-			if (ret >= 0) {
-				pos += ret;
+					": timeout waiting for cmd 0x%3x rsp\n",
+					le32_to_cpu(dal_req->code));
+				ret = -ETIMEDOUT;
+				break;
+			}
+			/* Relax before trying again */
+			msleep(1);
+			continue;
+		case -ETIMEDOUT:
+			/* Didn't wait enough time to wait for the completion */
+			to += IXXAT_USB_MSG_TIMEOUT;
+			continue;
+		default:
+			/* Got something? */
+			if (ret > 0) {
 				ix_trace_printk("got response size: %d", ret);
 
-				if (pos >= res_size)
-					break;
+				pos += ret;
+
+				/* Got  the entire response? */
+				continue;
 			}
-			else if (ret != -ETIMEDOUT)
-				dev_err(&dev->dev, KBUILD_MODNAME
-					": Error while receiving TX response after %d tries: %d\n", i, ret);
-		}
-		ix_trace_printk ("ret: %d pos: %d", ret, pos);
-		ix_trace_printk ("res_size: %d", res_size);
-
-#ifdef IXXAT_DEBUG
-		if (ret == 0) {
-			ix_trace_printk ("no response length");
-		}
-#endif
-
-		if (ret < 0) {
-			dev_err(&dev->dev, KBUILD_MODNAME
-				": Failed to read TX response after %d tries\n", i);
-			ret = -ETIMEDOUT;
-			goto fail;
 		}
 
-		/* firmware responses may be smaller than requested response size
-		* but should be not smaller than the response header size
-		*/
-		if (pos < sizeof(struct ixxat_usb_dal_res)) {
-			dev_err(&dev->dev, KBUILD_MODNAME
-				": Invalid cmd rsp size %u (%u expected)\n",
-				pos, res_size);
+		/* fatal errors */
+		dev_err(&dev->dev, KBUILD_MODNAME
+			": Error %d while receiving response\n", ret);
+
+		goto fail;
+	}
+	ix_trace_printk ("ret: %d pos: %d res_size: %d", ret, pos, res_size);
+
+	/* firmware responses may be smaller than requested response size
+	 * but should be not smaller than the response header size
+	 */
+	if (pos < sizeof(struct ixxat_usb_dal_res)) {
+		dev_err(&dev->dev, KBUILD_MODNAME
+			": Invalid cmd rsp size %u (%u expected)\n",
+			pos, res_size);
+
+		if (ret >= 0)
 			ret = -EBADMSG;
-		}
-		else {
-			/* copy response to user buffer */
-			memcpy(res, res_buf, res_size);
+	} else {
+		/* copy response to user buffer */
+		memcpy(res, res_buf, res_size);
 
-			ret = le32_to_cpu(dal_res->code);
-		}
+		ret = le32_to_cpu(dal_res->code);
 	}
 
 fail:
@@ -975,9 +1007,10 @@ static int ixxat_usb_power_ctrl(struct usb_device *dev,
 	cmd.req.code = cpu_to_le32(IXXAT_USB_BRD_CMD_POWER);
 	cmd.mode = mode;
 
-	return ixxat_usb_send_cmd_internal(dev, devdata, le16_to_cpu(cmd.req.port),
-				  &cmd, snd_size,
-				  &cmd.res, rcv_size);
+	return ixxat_usb_send_cmd_internal(dev, devdata,
+					   le16_to_cpu(cmd.req.port),
+					   &cmd, snd_size,
+					   &cmd.res, rcv_size);
 }
 
 /* ixxat_usb_reset_ctrl - reset the controller
@@ -2326,10 +2359,9 @@ static int ixxat_usb_stop(struct net_device *netdev)
 
 	if (dev->state & IXXAT_USB_STATE_STARTED) {
 		err = ixxat_usb_stop_ctrl(dev);
-		if (err) {
-			netdev_warn(netdev, "Error %d: Cannot stop device\n",
+		if (err && err != -ENODEV)
+			netdev_warn(netdev, "cannot stop device (err %d)\n",
 				    err);
-		}
 
 		dev->state &= ~IXXAT_USB_STATE_STARTED;
 	}
@@ -2626,7 +2658,7 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	err = ixxat_usb_power_ctrl(udev, devdata, IXXAT_USB_POWER_WAKEUP);
 	if (err != NETDEV_TX_OK) {
 		dev_err(&intf->dev,
-			"IXXAT_USB_BRD_CMD_POWER failed (err %d)\n",
+			"IXXAT_USB_POWER_WAKEUP failed (err %d)\n",
 			err);
 		goto lbl_err;
 	}
