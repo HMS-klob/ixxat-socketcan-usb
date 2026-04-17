@@ -67,9 +67,9 @@ MODULE_LICENSE("GPL v2");
 /* Delay waiting for the continuation of a fragmented USB response */
 #define IXXAT_USB_MSG_CYCLE		20
 
-/* Power-up mode and waiting period (in ms) for it to take effect */
+/* Power-up/down mode */
 #define IXXAT_USB_POWER_WAKEUP		0
-#define IXXAT_USB_POWER_WAKEUP_TIME	500
+#define IXXAT_USB_POWER_SLEEP		1
 
 /* struct ixxat_driver_info IXXAT USB device static information
  * @name	commercial name
@@ -252,7 +252,7 @@ static void showdump(u8 *pbdata, u16 length)
 #endif
 
 /* ixxat_usb_dev_name - return the name of the IXXAT USB device
- * @param id: pointer to the USB device ID structure
+ * @id: pointer to the USB device ID structure
  *
  * This function returns the name of the IXXAT USB device.
  * It is used to identify the device in logs and user interfaces.
@@ -449,8 +449,8 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
 			 struct ixxat_usb_dal_res *res)
 {
 	req->size = cpu_to_le32(sizeof(*req));
-	req->port = cpu_to_le16(0xffff);
-	req->socket = cpu_to_le16(0xffff);
+	req->port = cpu_to_le16(IXXAT_USB_BRD_PORT);
+	req->socket = cpu_to_le16(IXXAT_USB_BRD_SOCKET);
 	req->code = cpu_to_le32(0);
 
 	res->res_size = cpu_to_le32(sizeof(*res));
@@ -459,13 +459,14 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
 }
 
 /* ixxat_usb_send_cmd_internal - send a command to the IXXAT USB device
- * @dev: pointer to the USB device
+ * @dev: pointer to the USB CAN device
  * @devdata: pointer to the IXXAT USB device data
  * @port: port number to send the command to
  * @req: pointer to the request structure
  * @req_size: size of the request structure
  * @res: pointer to the response structure
  * @res_size: size of the response structure
+ * @cmd_delay: delay in milliseconds to wait for a response
  *
  * This function sends a command to the IXXAT USB device and waits for the
  * response. It retries the command up to IXXAT_USB_MAX_COM_REQ times if the
@@ -485,13 +486,14 @@ static int ixxat_usb_send_cmd_internal(struct usb_device *dev,
 				       struct ixxat_usb_device_data *devdata,
 				       const u16 port, void *req,
 				       const u16 req_size, void *res,
-				       const u16 res_size)
+				       const u16 res_size,
+				       const unsigned long cmd_delay)
 {
 	struct ixxat_usb_dal_req *dal_req = req;
 	struct ixxat_usb_dal_res *dal_res = res;
 	u8* req_buf = (u8*)devdata->cmdbuf;
 	u8* res_buf = (u8*)devdata->cmdbuf + req_size;
-	int i, ret, pos = 0, to, cmd_delay;
+	int i, ret, pos = 0, to;
 	unsigned long timeout;
 
     	ret = mutex_lock_interruptible(&devdata->cmd_channel_lock);
@@ -501,8 +503,8 @@ static int ixxat_usb_send_cmd_internal(struct usb_device *dev,
 		return ret;
 	}
 
-	ix_trace_printk("ixxat_usb_send_cmd_internal: cmd 0x%3X to port %u\n",
-			le32_to_cpu(dal_req->code), port);
+	ix_trace_printk("ixxat_usb_send_cmd_internal: cmd 0x%3X to port %u delay %lu ms\n",
+			le32_to_cpu(dal_req->code), port, cmd_delay);
 
 	/* showdump(req, req_size); */
 
@@ -539,29 +541,6 @@ static int ixxat_usb_send_cmd_internal(struct usb_device *dev,
 
 	/* clear response buffer */
 	memset(res_buf, 0, res_size);
-
-	/* cmd				delay	device
-	 * IXXAT_USB_BRD_CMD_POWER	500	USB-to-CAN v2
-	 *					USB-to-CAN FD automotive
-	 * IXXAT_USB_BRD_CMD_GET_DEVINFO <= 500	USB-to-CAN v2
-	 * IXXAT_USB_BRD_CMD_GET_DEVCAPS <= 500	USB-to-CAN FD automotive
-	 * IXXAT_USB_CAN_CMD_INIT2	<= 500	USB-to-CAN FD automotive
-	 * IXXAT_USB_CAN_CMD_STOP	<= 500	USB-to-CAN FD automotive
-	 */
-	switch (le32_to_cpu(dal_req->code)) {
-	case IXXAT_USB_BRD_CMD_POWER:
-		cmd_delay = IXXAT_USB_POWER_WAKEUP_TIME;
-		break;
-	case IXXAT_USB_BRD_CMD_GET_DEVINFO:
-	case IXXAT_USB_BRD_CMD_GET_DEVCAPS:
-	case 0x337:
-	case IXXAT_USB_CAN_CMD_STOP:
-		cmd_delay = 100;
-		break;
-	default:
-		/* No need of any extra delay */
-		cmd_delay = 0;
-	}
 
 	ix_trace_printk("Wait for response");
 
@@ -640,6 +619,7 @@ fail:
  * @req_size: size of the request structure
  * @res: pointer to the response structure
  * @res_size: size of the response structure
+ * @cmd_delay: delay in milliseconds to wait for a response
  *
  * This function sends a command to the IXXAT USB device and waits for the
  * response. It retries the command up to IXXAT_USB_MAX_COM_REQ times if the
@@ -649,12 +629,13 @@ fail:
  * If the response size is wrong it returns -EBADMSG.
  */
 int ixxat_usb_send_cmd(struct ixxat_usb_candevice *pdev, const u16 port, void *req,
-		       const u16 req_size, void *res, const u16 res_size)
+		       const u16 req_size, void *res, const u16 res_size,
+		       const unsigned long cmd_delay)
 {
 	struct usb_device *dev = pdev->udev;
 	struct ixxat_usb_device_data *devdata = pdev->shareddata;
 
-	return ixxat_usb_send_cmd_internal(dev, devdata, port, req, req_size, res, res_size);
+	return ixxat_usb_send_cmd_internal(dev, devdata, port, req, req_size, res, res_size, cmd_delay);
 }
 
 #ifdef IX_CONFIG_USE_HW_TIMESTAMPS
@@ -781,7 +762,7 @@ static int ixxat_usb_get_dev_caps(struct usb_device *dev,
 	cmd.res.res_size = cpu_to_le32(rcv_size);
 
 	err = ixxat_usb_send_cmd_internal(dev, devdata, le16_to_cpu(cmd.req.port), &cmd, snd_size,
-				 &cmd.res, rcv_size);
+				 &cmd.res, rcv_size, IXXAT_USB_CMD_TIMEOUT);
 	if (err)
 		return err;
 
@@ -822,7 +803,7 @@ static int ixxat_usb_get_dev_info(struct usb_device *dev,
 	cmd.res.res_size = cpu_to_le32(rcv_size);
 
 	err = ixxat_usb_send_cmd_internal(dev, devdata, le16_to_cpu(cmd.req.port), &cmd, snd_size,
-				 &cmd.res, rcv_size);
+				 &cmd.res, rcv_size, IXXAT_USB_CMD_TIMEOUT);
 	if (!err) {
 		struct ixxat_dev_info *dev_info = &devdata->dev_info;
 
@@ -860,7 +841,7 @@ static int ixxat_usb_get_fw_info(struct usb_device *dev,
 	cmd.res.res_size = cpu_to_le32(rcv_size);
 
 	err = ixxat_usb_send_cmd_internal(dev, devdata, le16_to_cpu(cmd.req.port), &cmd, snd_size,
-				 &cmd.res, rcv_size);
+				 &cmd.res, rcv_size, IXXAT_USB_CMD_TIMEOUT);
 	if (!err) {
 		struct ixxat_fw_info2 *fw_info = &devdata->fw_info;
 
@@ -896,7 +877,7 @@ static int ixxat_usb_get_fw_info2(struct usb_device *dev,
 	cmd.res.res_size = cpu_to_le32(rcv_size);
 
 	err = ixxat_usb_send_cmd_internal(dev, devdata, le16_to_cpu(cmd.req.port), &cmd, snd_size,
-				 &cmd.res, rcv_size);
+				 &cmd.res, rcv_size, IXXAT_USB_CMD_TIMEOUT);
 	if (!err) {
 		struct ixxat_fw_info2 *fw_info = &devdata->fw_info;
 
@@ -941,7 +922,7 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 #endif
 
 	err = ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
-				 rcv_size);
+				 rcv_size, IXXAT_USB_CMD_TIMEOUT);
 
 #ifndef IX_SYNCTOHOSTCLOCK_NONE
 	kt_host_B = ktime_get_real_ns();
@@ -982,7 +963,7 @@ static int ixxat_usb_stop_ctrl(struct ixxat_usb_candevice *dev)
 	cmd.action = cpu_to_le32(IXXAT_USB_STOP_ACTION_CLEARALL);
 
 	return ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
-				  rcv_size);
+				  rcv_size, IXXAT_USB_CMD_TIMEOUT);
 }
 
 /* ixxat_usb_power_ctrl - control the power mode of the device
@@ -1010,7 +991,7 @@ static int ixxat_usb_power_ctrl(struct usb_device *dev,
 	return ixxat_usb_send_cmd_internal(dev, devdata,
 					   le16_to_cpu(cmd.req.port),
 					   &cmd, snd_size,
-					   &cmd.res, rcv_size);
+					   &cmd.res, rcv_size, IXXAT_USB_POWER_CMD_TIMEOUT);
 }
 
 /* ixxat_usb_reset_ctrl - reset the controller
@@ -1031,7 +1012,7 @@ static int ixxat_usb_reset_ctrl(struct ixxat_usb_candevice *dev)
 	cmd.req.port = cpu_to_le16(port);
 
 	return ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
-				  rcv_size);
+				  rcv_size, IXXAT_USB_CMD_TIMEOUT);
 }
 
 /* ixxat_usb_free_usb_communication - free USB communication resources

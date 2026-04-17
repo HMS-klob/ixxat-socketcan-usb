@@ -130,10 +130,23 @@
 #define IXXAT_USB_FDMSG_FLAGS_FDR		0x00000800
 #define IXXAT_USB_FDMSG_FLAGS_ESI		0x00001000
 
+/* USB command timeout values  */
+/* for IXXAT_USB_BRD_CMD_POWER (wakeup/sleep) */
+#define IXXAT_USB_POWER_CMD_TIMEOUT		500
+
+/* for other commands */
+#define IXXAT_USB_CMD_TIMEOUT			100
+
+/* port/socket index to address board functionality */
+#define IXXAT_USB_BRD_PORT			0xffff
+#define IXXAT_USB_BRD_SOCKET			0xffff
+
+/* CAN related commands*/
 #define IXXAT_USB_CAN_CMD_START			0x326
 #define IXXAT_USB_CAN_CMD_STOP			0x327
 #define IXXAT_USB_CAN_CMD_RESET			0x328
 
+/* board related commands */
 #define IXXAT_USB_BRD_CMD_GET_FWINFO		0x400
 #define IXXAT_USB_BRD_CMD_GET_DEVCAPS		0x401
 #define IXXAT_USB_BRD_CMD_GET_DEVINFO		0x402
@@ -768,17 +781,21 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
 
 /* ixxat_usb_send_cmd() - Send a command to the device
  * @dev: pointer to the IXXAT USB CAN device
- * @port: Command port
- * @req: Command request buffer
- * @req_size: Command request size
- * @res: Command response buffer
- * @res_size: Command response size
- *
+ * @dev: pointer to the USB device
+ * @devdata: pointer to the IXXAT USB device data
+ * @port: port number to send the command to
+ * @req: pointer to the request structure
+ * @req_size: size of the request structure
+ * @res: pointer to the response structure
+ * @res_size: size of the response structure
+ * @cmd_delay: delay in milliseconds to wait for a response
+*
  * This function sends a specific command to the device
  *
  * Return: Negative error code or zero on success
  */
 int ixxat_usb_send_cmd(struct ixxat_usb_candevice *dev, const u16 port, void *req,
-			const u16 req_size, void *res, const u16 res_size);
+		       const u16 req_size, void *res, const u16 res_size,
+		       const unsigned long cmd_delay);
 
 #endif /* IXXAT_USB_CORE_H */

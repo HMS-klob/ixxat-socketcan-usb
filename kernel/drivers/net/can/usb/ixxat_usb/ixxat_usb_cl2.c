@@ -209,7 +209,7 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 	cmd.res.res_size = cpu_to_le32(rcv_size);
 
 	err = ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
-				 rcv_size);
+				 rcv_size, IXXAT_USB_CMD_TIMEOUT);
 	if (!err && caps)
 		memcpy(caps, &cmd.caps, sizeof(*caps));
 
@@ -279,7 +279,7 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	}
 
 	return ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
-				  rcv_size);
+				  rcv_size, IXXAT_USB_CMD_TIMEOUT);
 }
 
 const struct ixxat_usb_adapter usb2can_fd = {
