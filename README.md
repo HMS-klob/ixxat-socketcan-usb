@@ -126,7 +126,7 @@ $ ip -details link show can0
 $ ip -details -statistics link show can0
 ```
 
-and the driver supports sysfs access to read more device information. 
+and the driver supports sysfs access to read more device information.
 To list these for the first SocketCAN interface you can use
 
 ```
@@ -183,7 +183,7 @@ tx_packets: 0
 tx_window_errors: 0
 ```
 
-Instead of reading this direct via sysfs you could access this 
+Instead of reading this direct via sysfs you could access this
 information with the ip command, too:
 
 ```
@@ -242,7 +242,7 @@ receives messages from can1.
 $ cangen can0
 ```
 
-generates CAN traffic on can0, see the command line interface on how to shape the 
+generates CAN traffic on can0, see the command line interface on how to shape the
 traffic content.
 
 

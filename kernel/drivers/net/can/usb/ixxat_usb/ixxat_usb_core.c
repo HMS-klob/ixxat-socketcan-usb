@@ -72,9 +72,9 @@ MODULE_LICENSE("GPL v2");
 #define IXXAT_USB_POWER_SLEEP		1
 
 /* struct ixxat_driver_info IXXAT USB device static information
- * @name	commercial name
- * @adapter	IXXAT USB adapter family
- * @is_legacy	Legacy USB device
+ * @name:	commercial name
+ * @adapter:	IXXAT USB adapter family
+ * @is_legacy:	Legacy USB device
  */
 struct ixxat_driver_info {
 	const char *name;
@@ -307,7 +307,7 @@ static int ixxat_usb_has_cl2_firmware(const struct usb_device_id *id,
  * This function retrieves the appropriate IXXAT USB adapter
  * based on the USB device ID and the firmware information.
  *
- * Returns a pointer to the IXXAT USB adapter structure
+ * Returns a pointer to the IXXAT USB adapter structure.
  */
 static const struct ixxat_usb_adapter *
 	ixxat_usb_get_adapter(const struct usb_device_id *id,
@@ -371,6 +371,7 @@ static struct ixxat_tx_urb_context *
 /* ixxat_usb_rel_tx_context - release a URB context
  * @dev: pointer to the IXXAT USB CAN device
  * @context: pointer to the URB context to release
+ *
  * This function releases the URB context by setting its index to
  * IXXAT_USB_FREE_ENTRY
  */
@@ -459,7 +460,7 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
 }
 
 /* ixxat_usb_send_cmd_internal - send a command to the IXXAT USB device
- * @dev: pointer to the USB CAN device
+ * @dev: pointer to the USB device
  * @devdata: pointer to the IXXAT USB device data
  * @port: port number to send the command to
  * @req: pointer to the request structure
@@ -476,13 +477,13 @@ void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
  * is the public interface for sending commands to the IXXAT USB device.
  * The main reason for having this internal function is to allow sending commands
  * from contexts that do not have access to the IXXAT USB CAN device structure,
- * such as the USB probe function, where only the USB device and 
+ * such as the USB probe function, where only the USB device and
  * device data are available.
  *
  * Returns >= 0 on success, negative error code on failure.
  * If the response size is wrong it returns -EBADMSG.
  */
-static int ixxat_usb_send_cmd_internal(struct usb_device *dev, 
+static int ixxat_usb_send_cmd_internal(struct usb_device *dev,
 				       struct ixxat_usb_device_data *devdata,
 				       const u16 port, void *req,
 				       const u16 req_size, void *res,
@@ -644,6 +645,7 @@ int ixxat_usb_send_cmd(struct ixxat_usb_candevice *pdev, const u16 port, void *r
  * @timeref: pointer to the time reference structure to set
  * @ts_clock_divisor: timestamp clock divisor
  * @ts_clock_freq: timestamp clock frequency
+ *
  * This function calculates the tick multiplier and divider based on the
  * timestamp clock divisor and frequency.
  */
@@ -680,6 +682,21 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
 }
 #endif
 
+#ifndef IX_SYNCTOHOSTCLOCK_NONE
+/* ixxat_usb_ts_set_start - set controller start timestamp
+ * @dev: pointer to the IXXAT USB CAN device
+ * @t_A: timestamp A from host at the time of controller start begins
+ * @t_B: timestamp B from host at the time of controller start ends
+ * @ts_dev_start: device start timestamp
+ *
+ * This function sets the controller start timestamp based on the provided
+ * timestamps and device start timestamp. It also updates the time reference
+ * structure in the shared data of the device.
+ */
+static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
+				   ktime_t t_A, ktime_t t_B,
+				   u32 ts_dev_start)
+#else
 /* ixxat_usb_ts_set_start - set controller start timestamp
  * @dev: pointer to the IXXAT USB CAN device
  * @ts_dev_start: device start timestamp
@@ -689,10 +706,8 @@ static void ixxat_usb_ts_set_cancaps(struct ixxat_time_ref *timeref,
  * structure in the shared data of the device.
  */
 static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
-#ifndef IX_SYNCTOHOSTCLOCK_NONE
-				   ktime_t t_A, ktime_t t_B,
-#endif
 				   u32 ts_dev_start)
+#endif
 {
 	struct ixxat_usb_device_data *devdata = dev->shareddata;
 
@@ -704,7 +719,7 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
 		 "\n",
 		 __func__, ts_dev_start
 #ifndef IX_SYNCTOHOSTCLOCK_NONE
-		 ,t_A, t_B
+		 , t_A, t_B
 #endif
 		 );
 #endif
@@ -741,6 +756,7 @@ static void ixxat_usb_ts_set_start(struct ixxat_usb_candevice *dev,
  * @dev: pointer to the USB device
  * @devdata: pointer to the USB device private data area
  * @dev_caps: pointer to the device capabilities structure to fill
+ *
  * This function retrieves the device capabilities from the IXXAT USB device.
  *
  * Returns 0 on success, negative error code on failure.
@@ -784,6 +800,7 @@ static int ixxat_usb_get_dev_caps(struct usb_device *dev,
 /* ixxat_usb_get_dev_info - get device information
  * @dev: pointer to the USB device
  * @devdata: pointer to the USB device private data area
+ *
  * This function retrieves the device information from the IXXAT USB device.
  *
  * Returns 0 on success, negative error code on failure.
@@ -822,6 +839,7 @@ static int ixxat_usb_get_dev_info(struct usb_device *dev,
 /* ixxat_usb_get_fw_info - get firmware information (V1)
  * @dev: pointer to the USB device
  * @devdata: pointer to the USB device private data area
+ *
  * This function retrieves the firmware information from the IXXAT USB device.
  *
  * Returns 0 on success, negative error code on failure.
@@ -858,6 +876,7 @@ static int ixxat_usb_get_fw_info(struct usb_device *dev,
 /* ixxat_usb_get_fw_info2 - get firmware information (V2)
  * @dev: pointer to the USB device
  * @devdata: pointer to the USB device private data area
+ *
  * This function retrieves the firmware information from the IXXAT USB device.
  *
  * Returns 0 on success, negative error code on failure.
@@ -893,6 +912,7 @@ static int ixxat_usb_get_fw_info2(struct usb_device *dev,
 
 /* ixxat_usb_start_ctrl - start the controller
  * @dev: pointer to the IXXAT USB CAN device
+ *
  * This function sends a start command to the IXXAT USB CAN device
  *
  * Returns 0 on success, negative error code on failure.
@@ -945,6 +965,7 @@ static int ixxat_usb_start_ctrl(struct ixxat_usb_candevice *dev)
 
 /* ixxat_usb_stop_ctrl - stop the controller
  * @dev: pointer to the IXXAT USB CAN device
+ *
  * This function sends a stop command to the IXXAT USB CAN device.
  *
  * Returns 0 on success, negative error code on failure.
@@ -996,6 +1017,7 @@ static int ixxat_usb_power_ctrl(struct usb_device *dev,
 
 /* ixxat_usb_reset_ctrl - reset the controller
  * @dev: pointer to the IXXAT USB CAN device
+ *
  * This function sends a reset command to the IXXAT USB CAN device.
  *
  * Returns 0 on success, negative error code on failure.
@@ -1017,6 +1039,7 @@ static int ixxat_usb_reset_ctrl(struct ixxat_usb_candevice *dev)
 
 /* ixxat_usb_free_usb_communication - free USB communication resources
  * @dev: pointer to the IXXAT USB CAN device
+ *
  * This function stops the network queue, kills all anchored URBs,
  * frees the message index store, and releases all echo skbs.
  * It also resets the URB contexts to the free entry state.
@@ -1051,13 +1074,18 @@ static void ixxat_usb_free_usb_communication(struct ixxat_usb_candevice *dev)
 
 /* ixxat_usb_restart - restart (stop/start) the controller
  * @dev: pointer to the IXXAT USB CAN device
+ *
+ * This function restarts the controller by first stopping
+ * it and then starting it again.
+ *
+ * Returns 0 on success, negative error code on failure.
  */
 static int ixxat_usb_restart(struct ixxat_usb_candevice *dev)
 {
 	struct net_device *netdev = dev->netdev;
 	int err = ixxat_usb_stop_ctrl(dev);
         if (err) {
-                netdev_err(netdev, 
+                netdev_err(netdev,
                            "restart: failure to stop controler err=%d\n", err);
                 goto fail;
         }
@@ -1105,6 +1133,7 @@ static int ixxat_usb_set_mode(struct net_device *netdev, enum can_mode mode)
 /* ixxat_usb_get_berr_counter - get the bus error counter
  * @netdev: pointer to the network device
  * @bec: pointer to the bus error counter structure to fill
+ *
  * This function retrieves the bus error counter from the IXXAT USB CAN device.
  * It fills the provided can_berr_counter structure with the current bus error
  * counters.
@@ -1242,9 +1271,12 @@ static int ixxat_usb_netif_rx(struct ixxat_time_ref *timeref,
 /* ixxat_usb_handle_canmsg - handle a received CAN message
  * @dev: pointer to the IXXAT USB CAN device
  * @rx: pointer to the received IXXAT CAN message
+ *
  * This function processes a received CAN message from the IXXAT USB device.
  * It checks the message size, extracts the CAN ID, data length, and data,
  * and passes the message to the network stack.
+ *
+ * Returns 0 on success, negative error code on failure.
  */
 static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 				   struct ixxat_can_msg *rx)
@@ -1334,7 +1366,10 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 /* ixxat_usb_handle_status - handle a received status message
  * @dev: pointer to the IXXAT USB CAN device
  * @rx: pointer to the received IXXAT CAN message
+ *
  * This function processes a received status message from the IXXAT USB device.
+ *
+ * Returns 0 on success, negative error code on failure.
  */
 static int ixxat_usb_handle_status(struct ixxat_usb_candevice *dev,
 				   struct ixxat_can_msg *rx)
@@ -1447,10 +1482,11 @@ static int ixxat_usb_handle_status(struct ixxat_usb_candevice *dev,
 /* ixxat_usb_handle_error - handle a received error message
  * @dev: pointer to the IXXAT USB CAN device
  * @rx: pointer to the received IXXAT CAN message
+ *
  * This function processes a received error message from the IXXAT USB device.
  * It extracts the error code and updates the bus error counters.
  *
- * Returns 0 on success, negative error code on failure (e.g. -EBADMSG).
+ * Returns 0 on success, negative error code on failure.
  */
 static int ixxat_usb_handle_error(struct ixxat_usb_candevice *dev,
 				  struct ixxat_can_msg *rx)
@@ -1633,6 +1669,8 @@ fail:
  *
  * This function encodes a CAN message from the socket buffer into
  * the IXXAT USB CAN message format.
+ *
+ * Returns the size of the encoded message.
  */
 static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 #ifdef IX_STATISTICS_EXACT
@@ -1700,8 +1738,10 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
  * @netdev: pointer to the network device
  * @urb: pointer to the USB request block
  * @ep_msg: endpoint message type
- * This function evaluates the status of a USB request block (urb)
- * and returns an error code based on the status.
+ *
+ * This function evaluates the status of a USB request block (urb).
+ *
+ * Returns 0 on success or a negative error code based on the status.
  */
 static int ixxat_evaluate_usb_status(struct net_device *netdev,
 				     struct urb *urb, u8 ep_msg)
@@ -1758,6 +1798,7 @@ static int ixxat_evaluate_usb_status(struct net_device *netdev,
 
 /* ixxat_usb_read_bulk_callback - callback for USB bulk read URB
  * @urb: pointer to the USB request block containing the received data
+ *
  * This function is called when a USB bulk read URB completes.
  */
 static void ixxat_usb_read_bulk_callback(struct urb *urb)
@@ -1809,6 +1850,7 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 
 /* ixxat_usb_write_bulk_callback - callback for USB bulk write URB
  * @urb: pointer to the USB request block containing the sent data
+ *
  * This function is called when a USB bulk write URB completes.
  */
 static void ixxat_usb_write_bulk_callback(struct urb *urb)
@@ -1868,7 +1910,13 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 /* ixxat_usb_start_xmit - start transmission of a CAN message
  * @skb: pointer to the socket buffer containing the CAN message
  * @netdev: pointer to the network device
+ *
  * This function prepares a CAN message for transmission over USB.
+ *
+ * Returns NETDEV_TX_OK on success, NETDEV_TX_BUSY if the device
+ * is busy and the transmission should be retried later.
+ * Other error codes are the result of a call to usb_submit_urb()
+ * and indicate a failure in submitting the URB for transmission.
  */
 static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 					struct net_device *netdev)
@@ -2191,6 +2239,7 @@ static const struct attribute_group ixxat_pdev_group = {
 
 /* ixxat_usb_disconnect - disconnect the IXXAT USB device
  * @intf: pointer to the USB interface
+ *
  * This function is called when the USB device is disconnected.
  */
 static void ixxat_usb_disconnect(struct usb_interface *intf)
@@ -2231,6 +2280,7 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 
 /* ixxat_usb_start - start the IXXAT USB CAN device
  * @dev: pointer to the IXXAT USB CAN device
+ *
  * This function initializes the IXXAT USB CAN device by setting up
  * the receive and transmit URBs, resetting the controller,
  * and starting the controller if necessary.
@@ -2295,6 +2345,7 @@ err_tx:
 
 /* ixxat_usb_open - open the IXXAT USB CAN device
  * @netdev: pointer to the network device
+ *
  * This function is called when the network device is opened.
  *
  * Returns 0 on success, negative error code on failure.
@@ -2380,8 +2431,15 @@ static const struct ethtool_ops ixxat_ethtool_ops = {
 	.get_ts_info = can_ethtool_op_get_ts_info_hwts
 };
 #else
-/* IXXAT implementation of ethtool_ops::get_ts_info for CAN devices
- * not supporting Tx hardware timestamps
+/* ixxat_ethtool_op_get_ts_info_hwts - get timestamping info
+ * @dev: pointer to the network device
+ * @info: pointer to the structure to fill with timestamping information
+ *
+ * This function fills the provided structure with information about the
+ * timestamping capabilities of the IXXAT USB CAN device, including supported
+ * timestamping modes, supported transmit types and supported receive filters.
+ *
+ * Returns always 0.
  */
 static int ixxat_ethtool_op_get_ts_info_hwts(struct net_device *dev,
 					     struct kernel_ethtool_ts_info *info)
@@ -2413,6 +2471,8 @@ static const struct ethtool_ops ixxat_ethtool_ops = {
  *
  * This function allocates and initializes a CAN controller for the IXXAT USB
  * device.
+ *
+ * Returns 0 on success, negative error code on failure.
  */
 static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 				 const struct ixxat_usb_adapter *adapter,
@@ -2594,6 +2654,7 @@ static int ixxat_usb_check_channel(const struct ixxat_usb_adapter *adapter,
 /* ixxat_usb_probe - probe the IXXAT USB device
  * @intf: pointer to the USB interface
  * @id: pointer to the USB device ID structure
+ *
  * This function is called when the USB device is connected.
  * It initializes the IXXAT USB device, retrieves firmware information,
  * checks the device capabilities, and creates the CAN controller devices.

@@ -89,7 +89,7 @@ ifeq ($(USE_DKMS),yes)
 		$(DKMS_BIN) add $(DKMS_SRC_DIR) >>kminstall.log; \
 	fi)
 	@$(DKMS_BIN) install -m $(DKMS_DRV) -v $(DKMS_VER) >>kminstall.log
-	@$(DKMS_BIN) status  -m $(DKMS_DRV) -v $(DKMS_VER) >>kminstall.log 
+	@$(DKMS_BIN) status  -m $(DKMS_DRV) -v $(DKMS_VER) >>kminstall.log
 else
 	@echo "- manually installing $(DRV) under $(INSTALL_LOCATION)..."
 	@install -d "$(INSTALL_LOCATION)"

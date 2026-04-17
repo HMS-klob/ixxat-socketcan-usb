@@ -409,7 +409,7 @@ struct ixxat_time_ref {
 };
 
 /* struct ixxat_tx_urb_context URB content for transmission
- * @dev: IXXAT USB device
+ * @dev: pointer to the IXXAT USB CAN device
  * @urb: USB request block
  * @urb_index: index of this URB (used to mark the context as occupied)
  * @msg_index: index of message (client_id)

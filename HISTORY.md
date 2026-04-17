@@ -189,7 +189,7 @@
 
 ### 2.1.2	(2025-09-30)
 
-- add #define IX_CONFIG_USE_HW_TIMESTAMP to be able to switch on/off 
+- add #define IX_CONFIG_USE_HW_TIMESTAMP to be able to switch on/off
   hardware time stamping to support older (maybe 32bit) kernels (e.g. <= 4.9)
 
 ### 2.1.1	(2025-09-29)
@@ -337,7 +337,7 @@ Updating the driver to 2.0.504 or higher or updating the firmware to at least 1.
 ### Dropped messages on kernel 4.15 to 4.17 (resolved in kernel 5.4.0)
 
 We observed sporadic dropped messages on Ubuntu 18.04 LTS. According to the current knowledge this is not a driver issue but a problem within the
-SocketCAN implementation in the specific kernel version. The problem has been observed with a self compiled kernel 4.17.0 on Ubuntu 18.04.01 LTS 
+SocketCAN implementation in the specific kernel version. The problem has been observed with a self compiled kernel 4.17.0 on Ubuntu 18.04.01 LTS
 and Ubuntu 16.04.05 LTS even with other CAN devices (Peak USB).
 
 The issue can be provoked with the follwing commands:
