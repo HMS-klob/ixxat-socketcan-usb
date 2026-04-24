@@ -2,6 +2,24 @@
 
 ## History
 
+### 2.1.7	(2026-04-24)
+
+- add/cleanup documentation
+- add command timeout parameter to ixxat_usb_send_cmd/ixxat_usb_send_cmd_internal
+- Fixed the order of USB commands to align with Windows driver
+  practices and timing.
+  This change eliminates unnecessary msleep() calls and error handling,
+  resulting in faster driver startup.
+- Remove useless msleep() but keep only one, when cmd sent is CMD_POWER
+  TODO: this could be improved by also testing WAKEUP/SLEEP switch
+- Power-up the device before doing anything
+- In case hardware timestamps is defined with IX_STATISTICS_EXACT, this patch
+  allows driver to set a Tx hardware timestamp into the echo skb
+- In case IX_STATISTICS_EXACT is undef, then the driver is not capable of
+  giving Tx hardware timestamps.
+  This patch defines an IXXAT specific method to export this to ethtool.
+- Fix compilation against linux v7.0
+
 ### 2.1.6	(2026-03-30)
 
 - during tests sometimes E_PIPE errors occured, now the driver does retry
