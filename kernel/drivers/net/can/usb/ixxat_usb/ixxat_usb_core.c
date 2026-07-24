@@ -1987,15 +1987,22 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 	if (can_dev_dropped_skb(netdev, skb))
 		return NETDEV_TX_OK;
 
-	/* find free URB */
+	/* Find free URB.
+	 * Fix sashiko-bot v1 issue:
+	 * Pause the transmission queue when TX resources are empty, even though
+	 * this should never happen.
+	 */
 	context = ixxat_usb_get_tx_context(dev);
-	if (!context)
+	if (!context) {
+		netif_stop_queue(netdev);
 		return NETDEV_TX_BUSY;
+	}
 
 	/* get free msg number (ClientId) */
 	msg_idx = ixxat_usb_msg_get_next_idx(dev);
 	if (msg_idx >= IXXAT_USB_MAX_MSGS) {
 		ixxat_usb_rel_tx_context(dev, context);
+		netif_stop_queue(netdev);
 		return NETDEV_TX_BUSY;
 	}
 
