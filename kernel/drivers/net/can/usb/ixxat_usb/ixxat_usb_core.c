@@ -2108,6 +2108,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 				  adapter->buffer_size_rx,
 				  ixxat_usb_read_bulk_callback, dev);
 
+		/* ask last usb_free_urb() to also kfree() transfer_buffer */
 		urb->transfer_flags |= URB_FREE_BUFFER;
 		usb_anchor_urb(urb, &dev->rx_anchor);
 
@@ -2116,8 +2117,11 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 			usb_unanchor_urb(urb);
 
 			dev->rx_buf[urb_idx] = NULL;
-			kfree(buf);
 
+			/* No need to kfree(buf) because of URB_FREE_BUFFER */
+#if 0
+			kfree(buf);
+#endif
 			usb_free_urb(urb);
 
 			if (err == -ENODEV)
@@ -2126,6 +2130,7 @@ static int ixxat_usb_setup_rx_urbs(struct ixxat_usb_candevice *dev)
 			break;
 		}
 
+		/* drop reference, USB core will take care of freeing it */
 		usb_free_urb(urb);
 	}
 
