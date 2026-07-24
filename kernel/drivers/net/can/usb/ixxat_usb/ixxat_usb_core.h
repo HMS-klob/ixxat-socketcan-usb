@@ -463,7 +463,7 @@ struct ixxat_cancaps2 {
  * To correlate the start timestamp to the host clock we determine:
  *
  *     t_host_C = (t_host_B + t_host_A) / 2
- *              = t_host_A + ((t_host_A - t_host_B) / 2)
+ *              = t_host_A + ((t_host_B - t_host_A) / 2)
  *
  * t_C_host then corresponds to the device clock tick at C (t_C_device).
  * The current time stamp correlated to the host clock (t_current_host) can then
