@@ -833,6 +833,7 @@ struct ixxat_usb_device_data {
  * @clock: Clock frequency
  * @bt: Bittiming constants
  * @btd: Data bittiming constants
+ * @tdc: Transmission Delay Compensation constants
  * @modes: Supported modes
  * @buffer_size_rx: Buffer size for receiving
  * @buffer_size_tx: Buffer size for transfer
@@ -847,6 +848,9 @@ struct ixxat_usb_adapter {
 	const u32 clock;
 	const struct can_bittiming_const *bt;
 	const struct can_bittiming_const *btd;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 13, 0)
+	const struct can_tdc_const *tdc;
+#endif
 	const u16 buffer_size_rx;
 	const u16 buffer_size_tx;
 	const u8 ep_msg_in[IXXAT_USB_MAX_CHANNEL];
