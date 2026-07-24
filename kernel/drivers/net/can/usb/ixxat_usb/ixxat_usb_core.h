@@ -484,6 +484,16 @@ struct ixxat_time_ref {
 	u64 ts_overrun_ticks;
 };
 
+#ifdef IX_INTREE_VARIANT
+/* struct ixxat_tx_urb_context URB content for transmission
+ * @dev: pointer to the IXXAT USB CAN device
+ * @urb: USB request block
+ * @urb_index: index of this URB (used to mark the context as occupied)
+ * @msg_index: index of message (client_id)
+ *
+ * Contains content for USB request block transmissions
+ */
+#else
 /* struct ixxat_tx_urb_context URB content for transmission
  * @dev: pointer to the IXXAT USB CAN device
  * @urb: USB request block
@@ -494,6 +504,7 @@ struct ixxat_time_ref {
  *
  * Contains content for USB request block transmissions
  */
+#endif
 struct ixxat_tx_urb_context {
 	struct ixxat_usb_candevice *dev;
 	struct urb *urb;
