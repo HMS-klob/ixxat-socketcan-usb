@@ -2059,7 +2059,10 @@ static netdev_tx_t ixxat_usb_start_xmit(struct sk_buff *skb,
 		netif_trans_update(netdev);
 	}
 
-	return err;
+	/* Fix sashiko-bot v1 issue:
+	 * The ndo_start_xmit API expects a netdev_tx_t constant
+	 */
+	return NETDEV_TX_OK;
 }
 
 /* ixxat_usb_setup_rx_urbs - setup the receive URBs for the IXXAT USB device
