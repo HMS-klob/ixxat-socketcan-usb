@@ -1660,19 +1660,19 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 		case IXXAT_USB_CAN_DATA:
 			err = ixxat_usb_handle_canmsg(dev, &can_msg);
 			if (err)
-				goto fail;
+				return err;
 			break;
 
 		case IXXAT_USB_CAN_STATUS:
 			err = ixxat_usb_handle_status(dev, &can_msg);
 			if (err)
-				goto fail;
+				return err;
 			break;
 
 		case IXXAT_USB_CAN_ERROR:
 			err = ixxat_usb_handle_error(dev, &can_msg);
 			if (err)
-				goto fail;
+				return err;
 			break;
 
 		case IXXAT_USB_CAN_TIMEOVR:
@@ -1693,10 +1693,6 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			break;
 		}
 	}
-
-fail:
-	if (err)
-		netdev_err(netdev, "Error %d while decoding buffer\n", err);
 
 	return err;
 }
@@ -1862,8 +1858,15 @@ static void ixxat_usb_read_bulk_callback(struct urb *urb)
 		if (urb->actual_length > 0 &&
 		    dev->state & IXXAT_USB_STATE_STARTED) {
 			err = ixxat_usb_decode_buf(urb);
+
+			/* Fix sashiko-bot v1 issue:
+			 * don't skip usb_submit_urb() in case of error in
+			 * ixxat_usb_decode_buf()
+			 */
 			if (err)
-				return;
+				netdev_err(netdev,
+					   "Error %d while decoding buffer\n",
+					   err);
 		}
 		break;
 
