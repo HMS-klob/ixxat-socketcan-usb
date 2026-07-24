@@ -16,6 +16,11 @@
 #ifndef IXXAT_USB_CORE_H
 #define IXXAT_USB_CORE_H
 
+#include <linux/types.h>
+#include <linux/spinlock_types.h>
+#include <linux/usb.h>
+#include <linux/can/dev.h>
+
 #ifndef IX_INTREE_VARIANT
 #include "ixxat_kernel_adapt.h"
 #endif
