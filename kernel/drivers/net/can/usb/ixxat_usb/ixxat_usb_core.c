@@ -1916,9 +1916,12 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 	dev = context->dev;
 	netdev = dev->netdev;
 
+	/* Fix sashiko-bot v1 issue:
+	 * don't skip the cleanup block if a status error occurs
+	 */
 	err = ixxat_evaluate_usb_status(netdev, urb, dev->ep_msg_out);
 	if (err == -1)
-		return;
+		goto lbl_rel;
 
 	if (err == 0)
 		/* prevent tx timeout */
@@ -1947,13 +1950,16 @@ static void ixxat_usb_write_bulk_callback(struct urb *urb)
 	ixxat_usb_msg_free_idx(dev, msg_idx);
 	context->msg_index = IXXAT_USB_MAX_MSGS;
 
-		/* restart transmit (if needed) */
-		netif_wake_queue(netdev);
 #ifdef IX_STATISTICS_EXACT
 	}
 #endif
+lbl_rel:
 	ixxat_usb_rel_tx_context(dev, context);
 	atomic_dec(&dev->active_tx_urbs);
+
+	/* A TX context has been released, wakeup TX queue next (if needed) */
+	if (!err)
+		netif_wake_queue(netdev);
 }
 
 /* ixxat_usb_start_xmit - start transmission of a CAN message
