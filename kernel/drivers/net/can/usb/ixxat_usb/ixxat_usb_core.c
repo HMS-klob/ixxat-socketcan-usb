@@ -2336,12 +2336,10 @@ static void ixxat_usb_disconnect(struct usb_interface *intf)
 		dev = prev_dev;
 	} while (dev);
 
-	usb_set_intfdata(intf, NULL);
+	usb_set_intfdata(intf, dev);
 
-	/* free the shared data */
-	if (devdata)
-		kfree(devdata->cmdbuf);
-
+	/* free the shared data (this needs at least one dev in intfdata) */
+	kfree(devdata->cmdbuf);
 	kfree(devdata);
 }
 
@@ -2911,13 +2909,21 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 		if (bustype != IXXAT_USB_BUS_CAN)
 			continue;
 
-		err = ixxat_usb_create_ctrl(intf, adapter, ctrlidx,
-					    devdata);
+		err = ixxat_usb_create_ctrl(intf, adapter, ctrlidx, devdata);
 		if (err) {
-			/* deregister already created devices, free devdata
-			 * and return immediately
-			 */
+			/* Deregister already created devices */
 			ixxat_usb_disconnect(intf);
+
+			/* sashiko-bot v1:
+			 * if 1st device creation failed, then shared resources
+			 * must be released too.
+			 */
+			if (!ctrlidx)
+				goto lbl_err;
+
+			/* Otherwise, they have been released by
+			 * ixxat_usb_disconnect().
+			 */
 			return err;
 		}
 	}
