@@ -2696,7 +2696,12 @@ static int ixxat_usb_create_ctrl(struct usb_interface *intf,
 	return err;
 
 free_candev:
+#if 0
+	/* why sysfs_remove_group() since sysfs_create_group() failed? */
 	sysfs_remove_group(&netdev->dev.kobj, &ixxat_pdev_group);
+#endif
+	/* sashiko-bot v1: missing unregister_candev() */
+	unregister_candev(netdev);
 	usb_set_intfdata(intf, dev->prev_dev);
 	free_candev(netdev);
 
