@@ -33,7 +33,8 @@
 					 CAN_CTRLMODE_LOOPBACK | \
 					 CAN_CTRLMODE_BERR_REPORTING | \
 					 CAN_CTRLMODE_FD | \
-					 CAN_CTRLMODE_FD_NON_ISO)
+					 CAN_CTRLMODE_FD_NON_ISO | \
+					 CAN_CTRLMODE_TDC_AUTO)
 
 #define IXXAT_USB_MODES			(CAN_CTRLMODE_LISTENONLY | \
 					 CAN_CTRLMODE_3_SAMPLES | \
@@ -166,6 +167,15 @@ static const struct can_bittiming_const usb2can_fd_btd = {
 	.brp_inc = IXXAT_USB2CANFD_BRP_INC_DATA,
 };
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 13, 0)
+static const struct can_tdc_const usb2can_fd_tdc = {
+	.tdcv_min = 0,
+	.tdcv_max = 0,	/* Manual mode not supported */
+	.tdco_min = 0,
+	.tdco_max = 127,
+};
+#endif
+
 static const struct can_bittiming_const canidm_bt = {
 	.name = KBUILD_MODNAME,
 	.tseg1_min = IXXAT_CANIDM_TSEG1_MIN,
@@ -265,14 +275,30 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	cmd.sdr.tdo = 0;
 
 	if (exmode) {
-		u16 tdo = btd->brp * (btd->phase_seg1 + 1 + btd->prop_seg);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 13, 0)
+		/* As specified in ISO 11898-1 section 11.3.3 "Transmitter
+		 * delay compensation" (TDC) is only applicable if data BRP is
+		 * one or two.
+		 *
+		 * Note: can_tdc is not known in 5.12
+		 * Note2: knowing that IXXAT_USB2CANFD_BRP_MIN_DATA == 2,
+		 *        btd->brp couldn't be 1 nor 0.
+		 */
+		u32 tdo = (btd->brp <= 2) ?
+			btd->brp * (btd->phase_seg1 + 1 + btd->prop_seg) :
+			0;
 
+		cmd.fdr.tdo = cpu_to_le16(tdo > 127 ? 127 : tdo);
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 16, 0)
+		cmd.fdr.tdo = cpu_to_le16(dev->can.tdc.tdco);
+#else
+		cmd.fdr.tdo = cpu_to_le16(dev->can.fd.tdc.tdco);
+#endif
 		cmd.fdr.mode = cpu_to_le32(btmode);
 		cmd.fdr.bps = cpu_to_le32(btd->brp);
 		cmd.fdr.ts1 = cpu_to_le16(btd->prop_seg + btd->phase_seg1);
 		cmd.fdr.ts2 = cpu_to_le16(btd->phase_seg2);
 		cmd.fdr.sjw = cpu_to_le16(btd->sjw);
-		cmd.fdr.tdo = cpu_to_le16(tdo);
 	}
 
 	return ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
@@ -283,6 +309,9 @@ const struct ixxat_usb_adapter usb2can_fd = {
 	.clock = IXXAT_USB_CLOCK,
 	.bt = &usb2can_fd_bt,
 	.btd = &usb2can_fd_btd,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 13, 0)
+	.tdc = &usb2can_fd_tdc,
+#endif
 	.modes = IXXAT_USB_MODES_FD,
 	.buffer_size_rx = IXXAT_USBFD_BUFFER_SIZE_RX,
 	.buffer_size_tx = IXXAT_USBFD_BUFFER_SIZE_TX,
