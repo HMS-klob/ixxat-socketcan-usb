@@ -14,6 +14,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/ethtool.h>
 
 #include "ixxat_usb_core.h"
 

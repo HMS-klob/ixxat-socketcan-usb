@@ -28,6 +28,7 @@
 #define IXXAT_USBIDM_BUFFER_SIZE_RX	512
 #define IXXAT_USBIDM_BUFFER_SIZE_TX	512
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 194)
 #define IXXAT_USB_MODES_FD		(CAN_CTRLMODE_LISTENONLY | \
 					 CAN_CTRLMODE_3_SAMPLES | \
 					 CAN_CTRLMODE_LOOPBACK | \
@@ -35,6 +36,15 @@
 					 CAN_CTRLMODE_FD | \
 					 CAN_CTRLMODE_FD_NON_ISO | \
 					 CAN_CTRLMODE_TDC_AUTO)
+#else
+#define IXXAT_USB_MODES_FD		(CAN_CTRLMODE_LISTENONLY | \
+					 CAN_CTRLMODE_3_SAMPLES | \
+					 CAN_CTRLMODE_LOOPBACK | \
+					 CAN_CTRLMODE_BERR_REPORTING | \
+					 CAN_CTRLMODE_FD | \
+					 CAN_CTRLMODE_FD_NON_ISO)
+/* kernel does not support CAN_CTRLMODE_TDC_AUTO */
+#endif
 
 #define IXXAT_USB_MODES			(CAN_CTRLMODE_LISTENONLY | \
 					 CAN_CTRLMODE_3_SAMPLES | \
@@ -169,9 +179,13 @@ static const struct can_bittiming_const usb2can_fd_btd = {
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 13, 0)
 static const struct can_tdc_const usb2can_fd_tdc = {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 194)
 	.tdcv_min = 0,
+#endif
 	.tdcv_max = 0,	/* Manual mode not supported */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 194)
 	.tdco_min = 0,
+#endif
 	.tdco_max = 127,
 };
 #endif
