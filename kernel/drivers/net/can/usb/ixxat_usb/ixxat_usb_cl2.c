@@ -303,10 +303,12 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 			0;
 
 		cmd.fdr.tdo = cpu_to_le16(tdo > 127 ? 127 : tdo);
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 16, 0)
+#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 16, 0)
 		cmd.fdr.tdo = cpu_to_le16(dev->can.tdc.tdco);
 #else
 		cmd.fdr.tdo = cpu_to_le16(dev->can.fd.tdc.tdco);
+#endif
 #endif
 		cmd.fdr.mode = cpu_to_le32(btmode);
 		cmd.fdr.bps = cpu_to_le32(btd->brp);
