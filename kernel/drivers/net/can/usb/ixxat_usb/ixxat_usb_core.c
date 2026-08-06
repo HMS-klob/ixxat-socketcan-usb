@@ -2909,9 +2909,9 @@ static int ixxat_usb_probe(struct usb_interface *intf,
 	ctrl_count = le16_to_cpu(dev_caps.bus_ctrl_count);
 	for (ctrlidx = 0; ctrlidx < ctrl_count; ctrlidx++) {
 		u16 dev_bustype = le16_to_cpu(dev_caps.bus_ctrl_types[ctrlidx]);
-		u8 bustype = IXXAT_USB_BUS_TYPE(dev_bustype);
+		u8 bustype = FIELD_GET(IXXAT_USB_BUSTYPE_MASK, dev_bustype);
 
-		if (bustype != IXXAT_USB_BUS_CAN)
+		if (bustype != IXXAT_USB_BUSTYPE_CAN)
 			continue;
 
 		err = ixxat_usb_create_ctrl(intf, adapter, ctrlidx, devdata);

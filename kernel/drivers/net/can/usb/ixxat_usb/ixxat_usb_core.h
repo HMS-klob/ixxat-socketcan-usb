@@ -17,6 +17,7 @@
 #define IXXAT_USB_CORE_H
 
 #include <linux/types.h>
+#include <linux/bitfield.h>
 #include <linux/spinlock_types.h>
 #include <linux/usb.h>
 #include <linux/can/dev.h>
@@ -52,9 +53,17 @@
 #define USB2CAN_FD_PRO_MODULE_PRODUCT_ID	0x0013
 #define USB2CAN_FD_STANDARD_MODULE_PRODUCT_ID	0x0014
 
-#define IXXAT_USB_BUS_CAN			1
+/* supported bus types */
+#define IXXAT_USB_BUSTYPE_CAN		1
+#ifndef IX_INTREE_VARIANT
+#define IXXAT_USB_BUSTYPE_RES		0
+#define IXXAT_USB_BUSTYPE_LIN		2
+#endif
 
-#define IXXAT_USB_BUS_TYPE(type)		((u8)(((type) >> 8) & 0x00FF))
+/* bus type: high-order byte */
+#define IXXAT_USB_BUSTYPE_BITS		8
+#define IXXAT_USB_BUSTYPE_MASK		GENMASK(IXXAT_USB_BUSTYPE_BITS + 7, 8)
+
 
 #define IXXAT_USB_STATE_CONNECTED		BIT(0)
 #define IXXAT_USB_STATE_STARTED			BIT(1)
@@ -96,11 +105,6 @@
  * Bit 15..8 : bus type (0 is reserved)
  * Bit  7..0 : controller type
  */
-#define IXXAT_USB_BUSTYPE_RES			0
-#define IXXAT_USB_BUSTYPE_CAN			1
-#define IXXAT_USB_BUSTYPE_LIN			2
-
-#define IXXAT_USB_GET_BUSTYPE(ctrltype)		(((ctrltype) >> 8) & 0x00FF)
 #define IXXAT_USB_GET_CTRLTYPE(ctrltype)	((ctrltype) & 0x00FF)
 
 #define IXXAT_USB_CAN_CTRL_UNKNOWN		0x00 /* unknown CAN controller */
