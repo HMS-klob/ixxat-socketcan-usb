@@ -131,40 +131,40 @@
 #define IXXAT_USB_CAN_CTRL_BOSCH_MCAN_VERSION_B	0x42 /* MCAN (Bosch M_CAN version B) */
 
 /* CAN controller feature flags */
-#define IXXAT_USB_CAN_FEATURE_STDOREXT	0x00000001  /* 11 OR 29 bit (exclusive) */
-#define IXXAT_USB_CAN_FEATURE_STDANDEXT	0x00000002  /* 11 AND 29 bit (simultaneous) */
-#define IXXAT_USB_CAN_FEATURE_RMTFRAME	0x00000004  /* reception of remote frames */
-#define IXXAT_USB_CAN_FEATURE_ERRFRAME	0x00000008  /* reception of error frames */
-#define IXXAT_USB_CAN_FEATURE_BUSLOAD	0x00000010  /* bus load measurement */
-#define IXXAT_USB_CAN_FEATURE_IDFILTER	0x00000020  /* exact message filter */
+#define IXXAT_USB_CAN_FEATURE_STDOREXT	BIT(0)   /* 11 OR 29 bit (exclusive) */
+#define IXXAT_USB_CAN_FEATURE_STDANDEXT	BIT(1)   /* 11 AND 29 bit (simultaneous) */
+#define IXXAT_USB_CAN_FEATURE_RMTFRAME	BIT(2)   /* reception of remote frames */
+#define IXXAT_USB_CAN_FEATURE_ERRFRAME	BIT(3)   /* reception of error frames */
+#define IXXAT_USB_CAN_FEATURE_BUSLOAD	BIT(4)   /* bus load measurement */
+#define IXXAT_USB_CAN_FEATURE_IDFILTER	BIT(5)   /* exact message filter */
 #endif
-#define IXXAT_USB_CAN_FEATURE_LISTONLY	0x00000040  /* listen only mode */
+#define IXXAT_USB_CAN_FEATURE_LISTONLY	BIT(6)   /* listen only mode */
 #ifndef IX_INTREE_VARIANT
-#define IXXAT_USB_CAN_FEATURE_SCHEDULER	0x00000080  /* cyclic message scheduler */
-#define IXXAT_USB_CAN_FEATURE_GENERRFRM	0x00000100  /* error frame generation */
-#define IXXAT_USB_CAN_FEATURE_DELAYEDTX	0x00000200  /* delayed message transmitter */
+#define IXXAT_USB_CAN_FEATURE_SCHEDULER	BIT(7)   /* cyclic message scheduler */
+#define IXXAT_USB_CAN_FEATURE_GENERRFRM	BIT(8)   /* error frame generation */
+#define IXXAT_USB_CAN_FEATURE_DELAYEDTX	BIT(9)   /* delayed message transmitter */
 #endif
-#define IXXAT_USB_CAN_FEATURE_SSM	0x00000400  /* single shot mode */
+#define IXXAT_USB_CAN_FEATURE_SSM	BIT(10)  /* single shot mode */
 #ifndef IX_INTREE_VARIANT
-#define IXXAT_USB_CAN_FEATURE_HI_PRIO	0x00000800  /* high priority message */
+#define IXXAT_USB_CAN_FEATURE_HI_PRIO	BIT(11)  /* high priority message */
 
-#define IXXAT_USB_CAN_FEATURE_EXTDATA	0x00001000  /* extended data length (CAN FD) */
-#define IXXAT_USB_CAN_FEATURE_FASTDATA	0x00002000  /* fast data bit rate (CAN FD) */
+#define IXXAT_USB_CAN_FEATURE_EXTDATA	BIT(12)  /* extended data length (CAN FD) */
+#define IXXAT_USB_CAN_FEATURE_FASTDATA	BIT(13)  /* fast data bit rate (CAN FD) */
 
-#define IXXAT_USB_CAN_FEATURE_CLRTX	0x00004000  /* single tx try msg with ack error */
+#define IXXAT_USB_CAN_FEATURE_CLRTX	BIT(14)  /* single tx try msg with ack error */
 #endif
-#define IXXAT_USB_CAN_FEATURE_ISOFD	0x00008000  /* i: ISO CAN FD */
-#define IXXAT_USB_CAN_FEATURE_NONISOFD	0x00010000  /* i: non-ISO CAN FD */
+#define IXXAT_USB_CAN_FEATURE_ISOFD	BIT(15)  /* i: ISO CAN FD */
+#define IXXAT_USB_CAN_FEATURE_NONISOFD	BIT(16)  /* i: non-ISO CAN FD */
 
 #ifndef IX_INTREE_VARIANT
-#define IXXAT_USB_CAN_FEATURE_AUTOBAUD	0x00020000  /* automatic bit rate detection */
+#define IXXAT_USB_CAN_FEATURE_AUTOBAUD	BIT(17)  /* automatic bit rate detection */
 
-#define IXXAT_USB_CAN_FEATURE_TXSELFACK		0x00040000  /* transmit self acknowledge */
-#define IXXAT_USB_CAN_FEATURE_TXDELAYSEL	0x00080000  /* transmit delay mode selection */
+#define IXXAT_USB_CAN_FEATURE_TXSELFACK	BIT(18) /* transmit self acknowledge */
+#define IXXAT_USB_CAN_FEATURE_TXDELAYSEL BIT(19) /* transmit delay mode selection */
 
-#define IXXAT_USB_CAN_BUSC_UNDEFINED	0x0000
-#define IXXAT_USB_CAN_BUSC_LOWSPEED	0x0001
-#define IXXAT_USB_CAN_BUSC_HIGHSPEED	0x0002
+#define IXXAT_USB_CAN_BUSC_UNDEFINED    0
+#define IXXAT_USB_CAN_BUSC_LOWSPEED     BIT(0)
+#define IXXAT_USB_CAN_BUSC_HIGHSPEED    BIT(1)
 #endif
 
 #define IXXAT_USB_CAN_DATA		0x00
@@ -175,17 +175,16 @@
 #define IXXAT_USB_CAN_TIMEOVR		0x05
 #define IXXAT_USB_CAN_TIMERST		0x06
 
-#define IXXAT_USB_CAN_STATUS_OK		0x00000000
-#define IXXAT_USB_CAN_STATUS_OVERRUN	0x00000002
-#define IXXAT_USB_CAN_STATUS_ERRLIM	0x00000004
-#define IXXAT_USB_CAN_STATUS_BUSOFF	0x00000008
-#define IXXAT_USB_CAN_STATUS_ERR_PAS	0x00002000
-
-#define IXXAT_USB_CAN_ERROR_LEN		5
+#define IXXAT_USB_CAN_STATUS_OK		0
+#define IXXAT_USB_CAN_STATUS_OVERRUN	BIT(1)
+#define IXXAT_USB_CAN_STATUS_ERRLIM	BIT(2)
+#define IXXAT_USB_CAN_STATUS_BUSOFF	BIT(3)
+#define IXXAT_USB_CAN_STATUS_ERR_PAS	BIT(13)
 
 #define IXXAT_USB_CAN_ERROR_CODE	0
 #define IXXAT_USB_CAN_ERROR_COUNTER_RX	3
 #define IXXAT_USB_CAN_ERROR_COUNTER_TX	4
+#define IXXAT_USB_CAN_ERROR_LEN		5
 
 #define IXXAT_USB_CAN_ERROR_STUFF	1
 #define IXXAT_USB_CAN_ERROR_FORM	2
@@ -195,29 +194,28 @@
 
 #define IXXAT_USB_MSG_FLAGS_TYPE	0x000000FF
 #define IXXAT_USB_MSG_FLAGS_DLC		0x000F0000
-#define IXXAT_USB_MSG_FLAGS_OVR		0x00100000
-#define IXXAT_USB_MSG_FLAGS_SRR		0x00200000
-#define IXXAT_USB_MSG_FLAGS_RTR		0x00400000
-#define IXXAT_USB_MSG_FLAGS_EXT		0x00800000
-
 #define IXXAT_USB_DECODE_DLC(flags)	\
 				(((flags) & IXXAT_USB_MSG_FLAGS_DLC) >> 16)
 
 #define IXXAT_USB_ENCODE_DLC(len)	\
 				(((len) << 16) & IXXAT_USB_MSG_FLAGS_DLC)
+#define IXXAT_USB_MSG_FLAGS_OVR		BIT(20)
+#define IXXAT_USB_MSG_FLAGS_SRR		BIT(21)
+#define IXXAT_USB_MSG_FLAGS_RTR		BIT(22)
+#define IXXAT_USB_MSG_FLAGS_EXT		BIT(23)
 
-#define IXXAT_USB_MSG_FLAGS_SINGLESHOT	0x00000100
+#define IXXAT_USB_MSG_FLAGS_SINGLESHOT	BIT(8)
 #ifndef IX_INTREE_VARIANT
-#define IXXAT_USB_MSG_FLAGS_HIPRIORITY	0x00000200
+#define IXXAT_USB_MSG_FLAGS_HIPRIORITY	BIT(9)
 
-#define IXXAT_USB_MSG_FLAGS_TXDELAYMODE		0x00002000
-#define IXXAT_USB_MSG_FLAGS_TXDELAYMODE_PRE	0x00000000
+#define IXXAT_USB_MSG_FLAGS_TXDELAYMODE	BIT(13)
+#define IXXAT_USB_MSG_FLAGS_TXDELAYMODE_PRE	0
 #define IXXAT_USB_MSG_FLAGS_TXDELAYMODE_POST	IXXAT_USB_MSG_FLAGS_TXDELAYMODE
 #endif
 
-#define IXXAT_USB_FDMSG_FLAGS_EDL	0x00000400
-#define IXXAT_USB_FDMSG_FLAGS_FDR	0x00000800
-#define IXXAT_USB_FDMSG_FLAGS_ESI	0x00001000
+#define IXXAT_USB_FDMSG_FLAGS_EDL	BIT(10)
+#define IXXAT_USB_FDMSG_FLAGS_FDR	BIT(11)
+#define IXXAT_USB_FDMSG_FLAGS_ESI	BIT(12)
 
 /* USB command timeout values  */
 /* for IXXAT_USB_BRD_CMD_POWER (wakeup/sleep) */
