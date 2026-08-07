@@ -1327,7 +1327,7 @@ static int ixxat_usb_handle_canmsg(struct ixxat_usb_candevice *dev,
 				   struct ixxat_can_msg *rx)
 {
 	const u32 ixx_flags = le32_to_cpu(rx->base.flags);
-	const u8 dlc = IXXAT_USB_DECODE_DLC(ixx_flags);
+	const u8 dlc = FIELD_GET(IXXAT_USB_MSG_FLAGS_DLC_MASK, ixx_flags);
 	const u8 datalen = (ixx_flags & IXXAT_USB_FDMSG_FLAGS_EDL) ?
 				can_fd_dlc2len(dlc) : can_cc_dlc2len(dlc);
 	u8 min_size = sizeof(rx->base) + datalen;
@@ -1654,8 +1654,8 @@ static int ixxat_usb_decode_buf(struct urb *urb)
 			return -EBADMSG;
 		}
 
-		type = le32_to_cpu(can_msg.base.flags);
-		type &= IXXAT_USB_MSG_FLAGS_TYPE;
+		type = FIELD_GET(IXXAT_USB_MSG_FLAGS_TYPE_MASK,
+				 le32_to_cpu(can_msg.base.flags));
 
 		switch (type) {
 		case IXXAT_USB_CAN_DATA:
@@ -1737,11 +1737,12 @@ static int ixxat_usb_encode_msg(struct ixxat_usb_candevice *dev,
 		if (cf->flags & CANFD_ESI)
 			flags |= IXXAT_USB_FDMSG_FLAGS_ESI;
 
-		flags |= IXXAT_USB_ENCODE_DLC(can_fd_len2dlc(cf->len));
+		flags |= FIELD_PREP(IXXAT_USB_MSG_FLAGS_DLC_MASK,
+				    can_fd_len2dlc(cf->len));
 	} else if (cf->can_id & CAN_RTR_FLAG) {
 		flags |= IXXAT_USB_MSG_FLAGS_RTR;
 	} else {
-		flags |= IXXAT_USB_ENCODE_DLC(cf->len);
+		flags |= FIELD_PREP(IXXAT_USB_MSG_FLAGS_DLC_MASK, cf->len);
 	}
 
 	if (dev->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT)
