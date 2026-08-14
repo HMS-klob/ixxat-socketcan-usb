@@ -217,12 +217,11 @@ static const struct can_bittiming_const canidm_btd = {
 static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 				   struct ixxat_cancaps2 *caps)
 {
-	const u16 port = dev->ctrl_index;
 	struct ixxat_usb_getcaps_cl2_cmd cmd = { 0 };
-	const u32 cmd_size = sizeof(cmd);
+	const u16 port = dev->ctrl_index;
 	const u32 req_size = sizeof(cmd.req);
-	const u32 rcv_size = cmd_size - req_size;
-	const u32 snd_size = req_size + sizeof(cmd.res);
+	const u32 rcv_size = sizeof(cmd) - req_size;
+	const u32 cmd_size = req_size + sizeof(cmd.res);
 	int err;
 
 	ixxat_usb_setup_cmd(&cmd.req, &cmd.res);
@@ -230,8 +229,10 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 	cmd.req.port = cpu_to_le16(port);
 	cmd.res.res_size = cpu_to_le32(rcv_size);
 
-	err = ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
-				 rcv_size, IXXAT_USB_CMD_TIMEOUT);
+	err = ixxat_usb_send_cmd(dev, port,
+				 &cmd.req, cmd_size,
+				 &cmd.res, rcv_size,
+				 IXXAT_USB_CMD_TIMEOUT);
 	if (!err && caps)
 		memcpy(caps, &cmd.caps, sizeof(*caps));
 
@@ -240,6 +241,7 @@ static int ixxat_usb_get_ctrl_caps(struct ixxat_usb_candevice *dev,
 
 static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 {
+	struct ixxat_usb_init_cl2_cmd cmd = { 0 };
 #ifndef IX_INTREE_VARIANT
 	/* not supported:
 	 *  #define CAN_CTRLMODE_PRESUME_ACK		0x40
@@ -253,9 +255,8 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	const struct can_bittiming *btd = &dev->can.data_bittiming;
 #endif
 	const u16 port = dev->ctrl_index;
-	struct ixxat_usb_init_cl2_cmd cmd = { 0 };
 	const u32 rcv_size = sizeof(cmd.res);
-	const u32 snd_size = sizeof(cmd);
+	const u32 cmd_size = sizeof(cmd);
 	u32 btmode = IXXAT_USB_BTMODE_NAT;
 	u8 opmode = IXXAT_USB_OPMODE_EXTENDED | IXXAT_USB_OPMODE_STANDARD;
 	u8 exmode = 0;
@@ -276,7 +277,7 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 	}
 
 	ixxat_usb_setup_cmd(&cmd.req, &cmd.res);
-	cmd.req.size = cpu_to_le32(snd_size - rcv_size);
+	cmd.req.size = cpu_to_le32(cmd_size - rcv_size);
 	cmd.req.code = cpu_to_le32(IXXAT_USB_CAN_CMD_INIT2);
 	cmd.req.port = cpu_to_le16(port);
 	cmd.opmode = opmode;
@@ -317,8 +318,10 @@ static int ixxat_usb_init_ctrl(struct ixxat_usb_candevice *dev)
 		cmd.fdr.sjw = cpu_to_le16(btd->sjw);
 	}
 
-	return ixxat_usb_send_cmd(dev, port, &cmd, snd_size, &cmd.res,
-				  rcv_size, IXXAT_USB_CMD_TIMEOUT);
+	return ixxat_usb_send_cmd(dev, port,
+				  &cmd.req, cmd_size,
+				  &cmd.res, rcv_size,
+				  IXXAT_USB_CMD_TIMEOUT);
 }
 
 const struct ixxat_usb_adapter usb2can_fd = {

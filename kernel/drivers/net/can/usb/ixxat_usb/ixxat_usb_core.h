@@ -30,14 +30,14 @@
 #define IXXAT_USB_VENDOR_ID_LEGACY		0x08d8
 #define IXXAT_USB_VENDOR_ID			0x08db
 
-/* supported device ids: CL1 */
+/* IXXAT_USB_VENDOR_ID_LEGACY supported device ids: CL1 */
 #define USB2CAN_V2_COMPACT_PRODUCT_ID		0x0008
 #define USB2CAN_V2_EMBEDDED_PRODUCT_ID		0x0009
 #define USB2CAN_V2_PROFESSIONAL_PRODUCT_ID	0x000A
 #define USB2CAN_V2_AUTOMOTIVE_PRODUCT_ID	0x000B
 #define USB2CAN_V2_PLUGIN_PRODUCT_ID		0x001F
 
-/* supported device ids: CL2 */
+/* IXXAT_USB_VENDOR_ID_LEGACY supported device ids: CL2 */
 #define USB2CAN_FD_COMPACT_PRODUCT_ID		0x0014
 #define USB2CAN_FD_EMBEDDED_PRODUCT_ID		0x0015
 #define USB2CAN_FD_AUTOMOTIVE_PRODUCT_ID	0x0017
@@ -46,7 +46,7 @@
 #define CAN_IDM101_PRODUCT_ID			0xFF12
 #define CAN_IDM200_PRODUCT_ID			0xFF13
 
-/* supported device ids: CL2 */
+/* IXXAT_USB_VENDOR_ID supported device ids: CL2 */
 #define USB2CAN_FD_PRO_PRODUCT_ID		0x0010
 #define USB2CAN_FD_STANDARD_PRODUCT_ID		0x0011
 #define USB2CAN_FD_STANDARD_CARD_PRODUCT_ID	0x0012
@@ -878,23 +878,26 @@ extern const struct ixxat_usb_adapter can_fd_idm;
 void ixxat_usb_setup_cmd(struct ixxat_usb_dal_req *req,
 			 struct ixxat_usb_dal_res *res);
 
-/* ixxat_usb_send_cmd() - Send a command to the device
- * @dev: pointer to the IXXAT USB CAN device
+/* ixxat_usb_send_cmd - send a command to the IXXAT USB device
  * @dev: pointer to the USB device
- * @devdata: pointer to the IXXAT USB device data
  * @port: port number to send the command to
- * @req: pointer to the request structure
- * @req_size: size of the request structure
+ * @cmd: pointer to the entire command buffer to send,
+ *       - starting with a struct ixxat_usb_dal_req object,
+ *       - ending with a struct ixxat_usb_dal_res object
+ * @cmd_size: size of the whole command (>= sizeof(struct ixxat_usb_dal_cmd))
  * @res: pointer to the response structure
- * @res_size: size of the response structure
+ * @res_size: size of the response structure (>= sizeof(struct ixxat_usb_dal_res)
  * @cmd_delay: delay in milliseconds to wait for a response
  *
- * This function sends a specific command to the device
+ * This function sends a command to the IXXAT USB device and waits for the
+ * response, if it is still connected.
  *
- * Return: Negative error code or zero on success
+ * Returns >= 0 on success, negative error code on failure.
+ * If the device is disconnected it returns -ENODEV.
  */
-int ixxat_usb_send_cmd(struct ixxat_usb_candevice *dev, const u16 port,
-		       void *req, const u16 req_size, void *res,
-		       const u16 res_size, const unsigned long cmd_delay);
+int ixxat_usb_send_cmd(struct ixxat_usb_candevice *pdev, const u16 port,
+		       struct ixxat_usb_dal_req *cmd, u16 cmd_size,
+		       struct ixxat_usb_dal_res *res, u16 res_size,
+		       const unsigned long cmd_delay);
 
 #endif /* IXXAT_USB_CORE_H */
